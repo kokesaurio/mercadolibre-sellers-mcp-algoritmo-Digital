@@ -124,7 +124,7 @@ cada funcionalidad nueva suma su caso a `dev/entorno.js`.
 
 Algoritmo Digital hace [consultoría, gestión de cuentas y desarrollo a medida
 sobre MercadoLibre](https://algoritmodigital.com.ar) hace más de 15 años.
-Escribinos: [WhatsApp](https://wa.me/5491100000000?text=Hola!%20Vengo%20del%20conector%20MCP%20de%20MercadoLibre%20en%20GitHub)
+Escribinos: [WhatsApp](https://wa.me/5491177166060?text=Hola!%20Vengo%20del%20conector%20MCP%20de%20MercadoLibre%20(GitHub)...)
 
 ## Licencia
 
