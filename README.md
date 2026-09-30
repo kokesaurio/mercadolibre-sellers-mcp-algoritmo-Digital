@@ -36,7 +36,7 @@ MercadoPago y vigilancia de competidores gestionada? Eso es nuestro
 
 1. Entrá a [developers.mercadolibre.com.ar](https://developers.mercadolibre.com.ar) → **Mis aplicaciones** → **Crear aplicación**.
 2. Nombre: el que quieras (ej. "Mi conector Claude").
-3. En **Redirect URI** pegá exactamente: `https://kokesaurio.github.io/meli-sellers-mcp/conectar.html`
+3. En **Redirect URI** pegá exactamente: `https://kokesaurio.github.io/mercadolibre-sellers-mcp-algoritmo-Digital/conectar.html`
 4. En **Scopes** marcá `read`, `write` y `offline_access` (offline_access es el que permite que la conexión no se corte cada 6 horas).
 5. Guardá y anotá el **App ID** y el **Secret Key**.
 
@@ -49,7 +49,7 @@ MercadoPago y vigilancia de competidores gestionada? Eso es nuestro
   "mcpServers": {
     "mercadolibre": {
       "command": "npx",
-      "args": ["-y", "github:kokesaurio/meli-sellers-mcp"],
+      "args": ["-y", "github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital"],
       "env": {
         "ML_APP_ID": "TU_APP_ID",
         "ML_APP_SECRET": "TU_SECRET_KEY"
@@ -64,7 +64,7 @@ MercadoPago y vigilancia de competidores gestionada? Eso es nuestro
 ```bash
 claude mcp add mercadolibre \
   -e ML_APP_ID=TU_APP_ID -e ML_APP_SECRET=TU_SECRET_KEY \
-  -- npx -y github:kokesaurio/meli-sellers-mcp
+  -- npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital
 ```
 
 ### 3. Conectá tu cuenta

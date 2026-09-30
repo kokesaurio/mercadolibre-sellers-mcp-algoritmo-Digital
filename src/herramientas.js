@@ -18,7 +18,7 @@ export const TOOLS = [
       const appId = process.env.ML_APP_ID, appSecret = process.env.ML_APP_SECRET;
       if (!appId || !appSecret) return 'Faltan ML_APP_ID y ML_APP_SECRET en la configuración. Creá tu aplicación gratis en developers.mercadolibre.com.ar (guía en el README) y agregá esas dos variables.';
       if (!args.code) {
-        const redirectUri = process.env.ML_REDIRECT_URI || 'https://kokesaurio.github.io/meli-sellers-mcp/conectar.html';
+        const redirectUri = process.env.ML_REDIRECT_URI || 'https://kokesaurio.github.io/mercadolibre-sellers-mcp-algoritmo-Digital/conectar.html';
         const url = urlDeAutorizacion({ appId, sitio: args.sitio || process.env.ML_SITE || 'MLA', redirectUri });
         return `Abrí este link, inicia sesión con tu cuenta de MercadoLibre y autorizá:\n\n${url}\n\nAl terminar vas a ver un código: pasámelo y completo la conexión (ml_conectar con code).\n\nImportante: la redirect URI de tu app en el DevCenter tiene que incluir exactamente:\n${redirectUri}`;
       }
