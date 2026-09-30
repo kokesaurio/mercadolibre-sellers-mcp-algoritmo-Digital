@@ -30,19 +30,48 @@ MercadoPago y vigilancia de competidores gestionada? Eso es nuestro
 [conector premium con CRM](https://github.com/kokesaurio/mercadolibre-algoritmodigital)
 — este conector directo es gratis y para cualquier vendedor.
 
-## Instalación (5 minutos, sin VPS)
+## Guía de instalación (10 minutos, sin servidor, paso a paso)
 
-### 1. Creá tu aplicación gratis en MercadoLibre
+No hace falta saber programar. Necesitás: una cuenta de vendedor de MercadoLibre,
+[Claude Desktop](https://claude.ai/download) y [Node.js LTS](https://nodejs.org)
+instalados (ambos gratis, se instalan con "siguiente, siguiente").
 
-1. Entrá a [developers.mercadolibre.com.ar](https://developers.mercadolibre.com.ar) → **Mis aplicaciones** → **Crear aplicación**.
-2. Nombre: el que quieras (ej. "Mi conector Claude").
-3. En **Redirect URI** pegá exactamente: `https://kokesaurio.github.io/mercadolibre-sellers-mcp-algoritmo-Digital/conectar.html`
-4. En **Scopes** marcá `read`, `write` y `offline_access` (offline_access es el que permite que la conexión no se corte cada 6 horas).
-5. Guardá y anotá el **App ID** y el **Secret Key**.
+### Paso 1 — Creá tu aplicación gratis en MercadoLibre
 
-### 2. Agregalo a Claude
+Entrá a [developers.mercadolibre.com.ar](https://developers.mercadolibre.com.ar)
+con tu cuenta de vendedor → **Mis aplicaciones** → **Crear nueva aplicación** y
+completá así:
 
-**Claude Desktop** — en `claude_desktop_config.json`:
+![Paso 1: crear la aplicación en el DevCenter de MercadoLibre](docs/img/paso-1-crear-app.svg)
+
+- **URI de redirect** (el campo que más errores causa — copiala exacta, sin barra final):
+
+  ```
+  https://kokesaurio.github.io/mercadolibre-sellers-mcp-algoritmo-Digital/conectar.html
+  ```
+
+- **Scopes**: marcá `read`, `write` y **`offline_access`** — sin este último, la
+  conexión se corta cada 6 horas.
+
+### Paso 2 — Anotá el App ID y el Secret Key
+
+Al guardar, MercadoLibre te muestra los dos datos que van en Claude:
+
+![Paso 2: App ID y Secret Key de la aplicación](docs/img/paso-2-app-id-secret.svg)
+
+⚠️ El **Secret Key** es como una contraseña: no lo compartas ni lo publiques.
+
+### Paso 3 — Agregá el conector a Claude Desktop
+
+Abrí el archivo de configuración:
+
+- **Windows**: apretá `Win + R`, pegá `%APPDATA%\Claude\claude_desktop_config.json` y Enter (se abre con el Bloc de notas).
+- **Mac**: Claude Desktop → Settings → Developer → **Edit Config**.
+
+![Paso 3: configurar Claude Desktop](docs/img/paso-3-configurar-claude.svg)
+
+Si el archivo está vacío, pegá este bloque completo (reemplazando tus dos datos
+del paso 2). Si ya tenés otros conectores, agregá solo la parte `"mercadolibre"`:
 
 ```json
 {
@@ -59,7 +88,9 @@ MercadoPago y vigilancia de competidores gestionada? Eso es nuestro
 }
 ```
 
-**Claude Code**:
+Guardá y **reiniciá Claude Desktop** (cerralo del todo y volvé a abrirlo).
+
+**¿Usás Claude Code?** Un solo comando:
 
 ```bash
 claude mcp add mercadolibre \
@@ -67,11 +98,31 @@ claude mcp add mercadolibre \
   -- npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital
 ```
 
-### 3. Conectá tu cuenta
+### Paso 4 — Conectá tu cuenta (una sola vez)
 
-Reiniciá Claude y decile: **"conectá mi cuenta de MercadoLibre"**. Te va a dar un
-link → autorizás con tu usuario de ML → la página te muestra un código → se lo
-pegás a Claude. Una sola vez: después el conector renueva la sesión solo.
+En un chat nuevo decile a Claude: **"conectá mi cuenta de MercadoLibre"**.
+
+![Paso 4: autorizar con tu cuenta y pegar el código](docs/img/paso-4-conectar-cuenta.svg)
+
+1. Claude te da un link → abrilo e iniciá sesión con **tu** cuenta de vendedor.
+2. Tocá **Autorizar** → la página te muestra un código.
+3. **Copiá el código y pegáselo a Claude.** Listo: la sesión se renueva sola para
+   siempre. ¿Más de una tienda? Repetí este paso con cada cuenta.
+
+Probá: *"¿cómo vienen las ventas de la semana?"*, *"¿qué preguntas tengo sin
+responder?"*, *"¿estoy ganando el catálogo?"*.
+
+### Si algo falla (los 5 errores clásicos)
+
+| Síntoma | Causa y solución |
+| --- | --- |
+| El conector no aparece en Claude | Claude no se reinició del todo (en Windows, cerralo también desde la bandeja junto al reloj), o el JSON quedó mal (una coma de más). Validá el archivo en jsonlint.com |
+| "Faltan ML_APP_ID y ML_APP_SECRET" | Quedaron los textos `TU_APP_ID` / `TU_SECRET_KEY` sin reemplazar en el config |
+| MercadoLibre dice "invalid redirect_uri" | La URI en tu app del DevCenter no es idéntica a la del paso 1 (revisá mayúsculas y que no tenga barra final) |
+| "code inválido" al pegar el código | El código vence en minutos y es de un solo uso: repetí "conectá mi cuenta" y pegá el nuevo |
+| La conexión se corta a las horas | Faltó el scope `offline_access` en la app: agregalo en el DevCenter y volvé a conectar |
+
+¿Seguís trabado? [Escribinos por WhatsApp](https://wa.me/5491177166060?text=Hola!%20Vengo%20del%20conector%20MCP%20de%20MercadoLibre%20(instalaci%C3%B3n)...) y te ayudamos.
 
 ## Herramientas (16)
 
