@@ -1,0 +1,1 @@
+# mercadolibre-sellers-mcp-algoritmo-Digital
