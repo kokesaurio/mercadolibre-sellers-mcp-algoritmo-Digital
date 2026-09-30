@@ -6,7 +6,7 @@ Conectá tu cuenta de MercadoLibre a Claude y preguntale en lenguaje natural:
 *"¿cómo vienen las ventas?"*, *"¿qué preguntas tengo sin responder?"*, *"¿estoy
 ganando el catálogo?"*, *"¿qué promociones me está ofreciendo MercadoLibre?"*.
 
-**16 herramientas · sin servidor propio · tokens guardados solo en tu computadora
+**16 herramientas · multicuenta (varias tiendas, con consolidado) · sin servidor propio · tokens guardados solo en tu computadora
 · hecho por [Algoritmo Digital](https://algoritmodigital.com.ar), consultora
 especializada en MercadoLibre.**
 
@@ -77,9 +77,9 @@ pegás a Claude. Una sola vez: después el conector renueva la sesión solo.
 
 | Herramienta | Qué hace |
 | --- | --- |
-| ml_conectar / ml_cuentas / ml_desconectar | Vincular y administrar cuentas |
+| ml_conectar / ml_cuentas / ml_desconectar | Vincular varias tiendas, elegir la predeterminada (⭐) y desconectar |
 | ml_ordenes | Ventas con filtros de fecha y estado |
-| ml_metricas | Facturación, unidades y ticket promedio vs período anterior |
+| ml_metricas | Facturación, unidades y ticket vs período anterior; con `cuenta="todas"` consolida todas tus tiendas |
 | ml_envios | Estado y tracking del envío de una orden |
 | ml_publicaciones / ml_publicacion | Tus publicaciones y su detalle |
 | ml_visitas | Tráfico de una publicación |
@@ -101,6 +101,15 @@ En [`skills/`](skills/) hay 5 skills para Claude (Configuración → Capacidades
 Skills) que convierten estas herramientas en flujos de trabajo: reporte de
 ventas, despacho de preguntas, análisis de competencia, publicidad/promociones y
 optimización de publicaciones.
+
+## Varias tiendas
+
+Corré `ml_conectar` una vez por cada cuenta. Todas las herramientas aceptan
+`cuenta` (el user_id) para elegir tienda; sin indicarla se usa la
+**predeterminada** (⭐, se cambia con `ml_cuentas`), y si hay varias sin
+predeterminada el conector pide elegir en vez de adivinar — nunca opera en la
+tienda equivocada. *"¿Cómo vienen las ventas de todas las tiendas?"* usa el
+consolidado.
 
 ## Seguridad
 

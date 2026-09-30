@@ -21,15 +21,18 @@ export function crearMockMeli() {
 
   const auth = (req, res, next) => {
     const t = (req.headers.authorization || '').replace('Bearer ', '');
-    if (t !== 'ACCESS-VALIDO') return res.status(401).json({ message: 'invalid token' });
+    if (t !== 'ACCESS-VALIDO' && t !== 'ACCESS-888') return res.status(401).json({ message: 'invalid token' });
+    req.usuario = t === 'ACCESS-888' ? 888 : 777;
     next();
   };
 
   app.post('/oauth/token', (req, res) => {
     const b = req.body || {};
     if (b.grant_type === 'authorization_code') {
-      if (b.code !== 'CODE-OK' || !b.code_verifier) return res.status(400).json({ error_description: 'code inválido o sin PKCE' });
-      return res.json({ access_token: 'ACCESS-VALIDO', refresh_token: 'REFRESH-1', expires_in: 21600, user_id: 777 });
+      if (!b.code_verifier) return res.status(400).json({ error_description: 'sin PKCE' });
+      if (b.code === 'CODE-OK') return res.json({ access_token: 'ACCESS-VALIDO', refresh_token: 'REFRESH-1', expires_in: 21600, user_id: 777 });
+      if (b.code === 'CODE-OK2') return res.json({ access_token: 'ACCESS-888', refresh_token: 'R2-1', expires_in: 21600, user_id: 888 });
+      return res.status(400).json({ error_description: 'code inválido' });
     }
     if (b.grant_type === 'refresh_token') {
       refrescosHechos++;
@@ -39,8 +42,8 @@ export function crearMockMeli() {
     res.status(400).json({ error: 'grant no soportado' });
   });
 
-  app.get('/users/me', auth, (_q, res) => res.json({
-    id: 777, nickname: 'TIENDA_DEMO', site_id: 'MLA',
+  app.get('/users/me', auth, (req, res) => res.json({
+    id: req.usuario, nickname: req.usuario === 888 ? 'TIENDA_DOS' : 'TIENDA_DEMO', site_id: 'MLA',
     seller_reputation: { level_id: '5_green', power_seller_status: 'platinum', transactions: { total: 1543 }, metrics: { claims: { rate: 0.001 }, delayed_handling_time: { rate: 0.02 }, cancellations: { rate: 0 } } },
   }));
   app.get('/orders/search', auth, (req, res) => {
@@ -53,7 +56,7 @@ export function crearMockMeli() {
       ] });
   });
   app.get('/orders/101/shipments', auth, (_q, res) => res.json({ status: 'shipped', substatus: 'in_transit', tracking_number: 'TRK123', logistic_type: 'fulfillment' }));
-  app.get('/users/777/items/search', auth, (_q, res) => res.json({ paging: { total: 2 }, results: ['MLA111', 'MLA222'] }));
+  app.get('/users/:uid/items/search', auth, (_q, res) => res.json({ paging: { total: 2 }, results: ['MLA111', 'MLA222'] }));
   app.get('/items', auth, (req, res) => res.json(String(req.query.ids).split(',').map((id) => ({ code: 200, body: { id, title: 'Producto ' + id, price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', permalink: 'https://articulo.mercadolibre.com.ar/' + id, catalog_listing: id === 'MLA111' } }))));
   app.get('/items/:id', auth, (req, res) => res.json({ id: req.params.id, title: 'Producto ' + req.params.id, price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', listing_type_id: 'gold_special', permalink: 'https://articulo.mercadolibre.com.ar/x', shipping: { logistic_type: 'fulfillment', free_shipping: true } }));
   app.put('/items/:id', auth, (req, res) => res.json({ id: req.params.id, price: req.body.price ?? 42000, currency_id: 'ARS', available_quantity: req.body.available_quantity ?? 10, status: req.body.status ?? 'active' }));
@@ -130,6 +133,35 @@ async function pruebas() {
     if (refrescosHechos !== 1) throw new Error(`hubo ${refrescosHechos} refresh, esperaba 1 (el refresh de ML es de un solo uso)`);
     const d2 = JSON.parse(fs.readFileSync(archivo, 'utf8'));
     if (d2.cuentas['777'].refresh_token !== 'REFRESH-2') throw new Error('no rotó el refresh token');
+  });
+  await caso('multicuenta: conectar una segunda tienda', async () => {
+    await tool('ml_conectar').run({});                       // nueva URL (nuevo pendiente PKCE)
+    contiene(await tool('ml_conectar').run({ code: 'CODE-OK2' }), 'TIENDA_DOS', '888');
+  });
+  await caso('multicuenta: ml_cuentas lista las dos y marca la predeterminada', async () => {
+    contiene(await tool('ml_cuentas').run({}), 'TIENDA_DEMO', 'TIENDA_DOS', '⭐');
+  });
+  await caso('multicuenta: cuenta explícita opera en la tienda correcta', async () => {
+    contiene(await tool('ml_reputacion').run({ cuenta: '888' }), 'TIENDA_DOS');
+    contiene(await tool('ml_reputacion').run({}), 'TIENDA_DEMO'); // sin cuenta -> la predeterminada (777)
+  });
+  await caso('multicuenta: cambiar la predeterminada con ml_cuentas', async () => {
+    contiene(await tool('ml_cuentas').run({ predeterminada: '888' }), 'TIENDA_DOS', '✅');
+    contiene(await tool('ml_reputacion').run({}), 'TIENDA_DOS');
+    await tool('ml_cuentas').run({ predeterminada: '777' }); // volver
+  });
+  await caso('multicuenta: sin predeterminada y con 2 cuentas, pide elegir (no adivina)', async () => {
+    const archivo = path.join(dirTemp, 'cuentas.json');
+    const d = JSON.parse(fs.readFileSync(archivo, 'utf8'));
+    const pred = d.predeterminada; delete d.predeterminada;
+    fs.writeFileSync(archivo, JSON.stringify(d));
+    const t = await tool('ml_reputacion').run({}).catch((e) => e.message);
+    contiene(t, '2 cuentas', 'predeterminada');
+    d.predeterminada = pred; fs.writeFileSync(archivo, JSON.stringify(d));
+  });
+  await caso('multicuenta: ml_metricas cuenta="todas" consolida las tiendas', async () => {
+    const t = await tool('ml_metricas').run({ cuenta: 'todas', dias: 7 });
+    contiene(t, 'Consolidado de 2 tiendas', '121.000', 'TIENDA_DEMO', 'TIENDA_DOS');
   });
   await caso('modo solo lectura no registra herramientas de escritura', async () => {
     const { crearServidor } = await import('../src/servidor.js');

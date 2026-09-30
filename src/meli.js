@@ -42,7 +42,15 @@ function guardarCuentas(datos) {
 
 export function listarCuentas() {
   const d = leerCuentas();
-  return Object.values(d.cuentas).map((c) => ({ user_id: c.user_id, nickname: c.nickname, sitio: c.sitio }));
+  return Object.values(d.cuentas).map((c) => ({ user_id: c.user_id, nickname: c.nickname, sitio: c.sitio, predeterminada: String(c.user_id) === d.predeterminada }));
+}
+
+export function fijarPredeterminada(userId) {
+  const d = leerCuentas();
+  if (!d.cuentas[String(userId)]) throw new MeliError(404, `La cuenta ${userId} no está conectada.`);
+  d.predeterminada = String(userId);
+  guardarCuentas(d);
+  return d.cuentas[String(userId)].nickname;
 }
 
 // ─────────────────────────────── OAuth (PKCE) ───────────────────────────────
@@ -94,6 +102,7 @@ export async function canjearCode({ appId, appSecret, code }) {
     access_token: t.access_token, refresh_token: t.refresh_token,
     vence: Date.now() + (t.expires_in ?? 21600) * 1000,
   };
+  if (!d.predeterminada) d.predeterminada = String(t.user_id);
   delete d.pendiente;
   guardarCuentas(d);
   return { user_id: t.user_id, nickname: me.nickname, sitio: me.site_id || p.sitio };
@@ -103,6 +112,7 @@ export function borrarCuenta(userId) {
   const d = leerCuentas();
   const habia = !!d.cuentas[String(userId)];
   delete d.cuentas[String(userId)];
+  if (d.predeterminada === String(userId)) delete d.predeterminada;
   guardarCuentas(d);
   return habia;
 }
@@ -121,9 +131,13 @@ export class MeliClient {
     const d = leerCuentas();
     const ids = Object.keys(d.cuentas);
     if (!ids.length) throw new MeliError(401, 'Ninguna cuenta conectada. Usá ml_conectar para vincular tu cuenta de MercadoLibre.');
-    const id = this.userId && d.cuentas[this.userId] ? this.userId : ids[0];
-    if (this.userId && !d.cuentas[this.userId]) throw new MeliError(404, `La cuenta ${this.userId} no está conectada. Cuentas: ${ids.join(', ')}.`);
-    return d.cuentas[id];
+    if (this.userId) {
+      if (!d.cuentas[this.userId]) throw new MeliError(404, `La cuenta ${this.userId} no está conectada. Cuentas: ${ids.join(', ')}.`);
+      return d.cuentas[this.userId];
+    }
+    if (d.predeterminada && d.cuentas[d.predeterminada]) return d.cuentas[d.predeterminada];
+    if (ids.length === 1) return d.cuentas[ids[0]];
+    throw new MeliError(400, `Hay ${ids.length} cuentas conectadas: indicá cuál con el parámetro cuenta, o fijá una predeterminada con ml_cuentas. Cuentas: ${ids.join(', ')}.`);
   }
 
   async token() {

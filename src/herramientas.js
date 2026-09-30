@@ -1,6 +1,6 @@
 // src/herramientas.js — Herramientas MCP para vendedores, contra la API oficial de ML.
 import { z } from 'zod';
-import { MeliClient, MeliError, listarCuentas, urlDeAutorizacion, canjearCode, borrarCuenta } from './meli.js';
+import { MeliClient, MeliError, listarCuentas, urlDeAutorizacion, canjearCode, borrarCuenta, fijarPredeterminada } from './meli.js';
 
 const money = (n, moneda = '$') => n == null ? '—' : `${moneda} ${Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
 const cliente = (args) => new MeliClient({ userId: args?.cuenta });
@@ -28,12 +28,14 @@ export const TOOLS = [
   },
   {
     name: 'ml_cuentas', title: 'Cuentas conectadas', readOnly: true,
-    description: 'Lista las cuentas de MercadoLibre conectadas en esta computadora.',
-    schema: {},
-    async run() {
+    description: 'Lista las cuentas de MercadoLibre conectadas (soporta varias tiendas). Con `predeterminada` fija cuál usar cuando no se indica cuenta.',
+    schema: { predeterminada: z.string().optional().describe('user_id de la cuenta a fijar como predeterminada') },
+    async run(args) {
+      let aviso = '';
+      if (args.predeterminada) aviso = `✅ **${fijarPredeterminada(args.predeterminada)}** quedó como cuenta predeterminada.\n\n`;
       const cs = listarCuentas();
       if (!cs.length) return 'No hay cuentas conectadas todavía. Usá ml_conectar para vincular la primera.';
-      return '## Cuentas conectadas\n' + cs.map((c) => `- **${c.nickname}** (${c.sitio}) — user_id ${c.user_id}`).join('\n');
+      return aviso + '## Cuentas conectadas\n' + cs.map((c) => `- **${c.nickname}** (${c.sitio}) — user_id ${c.user_id}${c.predeterminada ? ' · ⭐ predeterminada' : ''}`).join('\n') + '\n\nPara conectar otra tienda: ml_conectar de nuevo.';
     },
   },
   {
@@ -63,10 +65,18 @@ export const TOOLS = [
   },
   {
     name: 'ml_metricas', title: 'Métricas de ventas', readOnly: true,
-    description: 'Facturación, unidades y ticket promedio de un período, comparado contra el período anterior. Ideal para "¿cómo vienen las ventas?".',
+    description: 'Facturación, unidades y ticket promedio de un período, comparado contra el período anterior. Ideal para "¿cómo vienen las ventas?". Con cuenta="todas" consolida todas las tiendas conectadas.',
     schema: { ...cuentaParam, dias: z.number().optional().describe('Tamaño del período en días (default 7)') },
     async run(args) {
-      const c = cliente(args); const id = await sellerId(c); const dias = args.dias ?? 7;
+      const dias = args.dias ?? 7;
+      if (args.cuenta === 'todas') {
+        const cs = listarCuentas();
+        if (cs.length < 2) return 'Hay una sola cuenta conectada: pedí las métricas sin cuenta="todas".';
+        const partes = await Promise.all(cs.map(async (cta) => ({ nombre: cta.nickname, texto: await this.run({ dias, cuenta: String(cta.user_id) }) })));
+        const total = partes.reduce((acc, p) => acc + (Number((p.texto.match(/Facturación:\*\* \$ ([\d.,]+)/)?.[1] || '0').replace(/\./g, '').replace(',', '.'))), 0);
+        return `# Consolidado de ${cs.length} tiendas — últimos ${dias} días\n**Facturación total: ${money(total)}**\n\n` + partes.map((p) => `### ${p.nombre}\n${p.texto}`).join('\n\n');
+      }
+      const c = cliente(args); const id = await sellerId(c);
       const traer = async (desde, hasta) => {
         let total = 0, unidades = 0, cant = 0, offset = 0;
         for (let p = 0; p < 20; p++) {
