@@ -164,6 +164,52 @@ export const TOOLS = [
     },
   },
 
+  {
+    name: 'ml_crear_publicacion', title: 'Crear publicación', readOnly: false,
+    description: 'CREA una publicación real en la tienda. Con `copiar_de` clona una publicación existente (título, categoría, atributos, fotos, descripción) y permite pisar título/precio/stock — ideal para duplicar entre tus propias cuentas. Usar solo con confirmación explícita del usuario.',
+    schema: { ...cuentaParam,
+      copiar_de: z.string().optional().describe('item_id a clonar (ej MLA123...). Solo copiar fotos/textos si son propios'),
+      titulo: z.string().optional().describe('Título (≤60 caracteres). Obligatorio si no hay copiar_de'),
+      precio: z.number().optional(), stock: z.number().optional(),
+      categoria: z.string().optional().describe('ID de categoría ML (obligatorio sin copiar_de)'),
+      descripcion: z.string().optional(), condicion: z.enum(['new', 'used']).optional(),
+      tipo: z.string().optional().describe('listing_type_id, ej gold_special (Clásica)'),
+      imagenes: z.array(z.string()).optional().describe('URLs de fotos propias') },
+    async run(args) {
+      const c = cliente(args);
+      let base = {}, descripcionOrigen = null;
+      if (args.copiar_de) {
+        const o = await c.get(`/items/${args.copiar_de}`);
+        try { descripcionOrigen = (await c.get(`/items/${args.copiar_de}/description`)).plain_text; } catch {}
+        base = {
+          title: o.title, category_id: o.category_id, price: o.price, currency_id: o.currency_id,
+          available_quantity: o.available_quantity, condition: o.condition, listing_type_id: o.listing_type_id,
+          pictures: (o.pictures || []).map((p) => ({ source: p.secure_url || p.url })),
+          attributes: (o.attributes || []).filter((a) => a.value_name != null).map((a) => ({ id: a.id, value_name: a.value_name })),
+          ...(o.sale_terms?.length ? { sale_terms: o.sale_terms } : {}),
+        };
+      }
+      const cuerpo = {
+        ...base,
+        ...(args.titulo ? { title: args.titulo } : {}),
+        ...(args.precio != null ? { price: args.precio } : {}),
+        ...(args.stock != null ? { available_quantity: args.stock } : {}),
+        ...(args.categoria ? { category_id: args.categoria } : {}),
+        ...(args.condicion ? { condition: args.condicion } : {}),
+        ...(args.tipo ? { listing_type_id: args.tipo } : {}),
+        ...(args.imagenes?.length ? { pictures: args.imagenes.map((u) => ({ source: u })) } : {}),
+      };
+      if (!cuerpo.title || !cuerpo.category_id) return 'Falta título o categoría: pasá titulo y categoria, o usá copiar_de con una publicación existente.';
+      if (cuerpo.currency_id == null) cuerpo.currency_id = 'ARS';
+      if (cuerpo.condition == null) cuerpo.condition = 'new';
+      if (cuerpo.listing_type_id == null) cuerpo.listing_type_id = 'gold_special';
+      if (cuerpo.available_quantity == null) cuerpo.available_quantity = 1;
+      const nuevo = await c.post('/items', cuerpo);
+      const texto = args.descripcion ?? descripcionOrigen;
+      if (texto) { try { await c.post(`/items/${nuevo.id}/description`, { plain_text: texto }); } catch {} }
+      return `✅ Publicación creada: **${nuevo.id}** — ${nuevo.title ?? cuerpo.title} a ${money(nuevo.price ?? cuerpo.price, cuerpo.currency_id)}\n${nuevo.permalink ?? ''}\nQueda en estado ${nuevo.status ?? 'active'}: revisala en tu panel de MercadoLibre.`;
+    },
+  },
   // ───────────────────────────── Preguntas ─────────────────────────────
   {
     name: 'ml_preguntas', title: 'Preguntas de compradores', readOnly: true,

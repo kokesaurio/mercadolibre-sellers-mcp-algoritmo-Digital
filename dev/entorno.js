@@ -12,6 +12,7 @@ import path from 'node:path';
 
 const PUERTO = Number(process.env.MOCK_PORT || 9990);
 let refrescosHechos = 0;
+let ultimoItemCreado = null;
 
 // ─────────────────────── API de MercadoLibre simulada ───────────────────────
 export function crearMockMeli() {
@@ -58,7 +59,14 @@ export function crearMockMeli() {
   app.get('/orders/101/shipments', auth, (_q, res) => res.json({ status: 'shipped', substatus: 'in_transit', tracking_number: 'TRK123', logistic_type: 'fulfillment' }));
   app.get('/users/:uid/items/search', auth, (_q, res) => res.json({ paging: { total: 2 }, results: ['MLA111', 'MLA222'] }));
   app.get('/items', auth, (req, res) => res.json(String(req.query.ids).split(',').map((id) => ({ code: 200, body: { id, title: 'Producto ' + id, price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', permalink: 'https://articulo.mercadolibre.com.ar/' + id, catalog_listing: id === 'MLA111' } }))));
-  app.get('/items/:id', auth, (req, res) => res.json({ id: req.params.id, title: 'Producto ' + req.params.id, price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', listing_type_id: 'gold_special', permalink: 'https://articulo.mercadolibre.com.ar/x', shipping: { logistic_type: 'fulfillment', free_shipping: true } }));
+  app.get('/items/:id', auth, (req, res) => res.json({ id: req.params.id, title: 'Producto ' + req.params.id, category_id: 'MLA1055', price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', condition: 'new', listing_type_id: 'gold_special', permalink: 'https://articulo.mercadolibre.com.ar/x', pictures: [{ secure_url: 'https://http2.mlstatic.com/f1.jpg' }], attributes: [{ id: 'BRAND', value_name: 'Genérica' }], shipping: { logistic_type: 'fulfillment', free_shipping: true } }));
+  app.get('/items/:id/description', auth, (_q, res) => res.json({ plain_text: 'Descripción original del producto.' }));
+  app.post('/items', auth, (req, res) => {
+    ultimoItemCreado = req.body;
+    if (!req.body?.title || !req.body?.category_id) return res.status(400).json({ message: 'faltan campos' });
+    res.json({ id: 'MLA999', title: req.body.title, price: req.body.price, permalink: 'https://articulo.mercadolibre.com.ar/MLA999', status: 'active' });
+  });
+  app.post('/items/:id/description', auth, (req, res) => res.json({ ok: true }));
   app.put('/items/:id', auth, (req, res) => res.json({ id: req.params.id, price: req.body.price ?? 42000, currency_id: 'ARS', available_quantity: req.body.available_quantity ?? 10, status: req.body.status ?? 'active' }));
   app.get('/items/:id/visits/time_window', auth, (_q, res) => res.json({ total_visits: 340 }));
   app.get('/items/:id/price_to_win', auth, (_q, res) => res.json({ status: 'losing', current_price: 42000, price_to_win: 39900, boosts: [{ id: 'fulfillment' }] }));
@@ -134,6 +142,12 @@ async function pruebas() {
     const d2 = JSON.parse(fs.readFileSync(archivo, 'utf8'));
     if (d2.cuentas['777'].refresh_token !== 'REFRESH-2') throw new Error('no rotó el refresh token');
   });
+  await caso('ml_crear_publicacion clona con copiar_de y pisa precio (escritura)', async () => {
+    const t = await tool('ml_crear_publicacion').run({ copiar_de: 'MLA111', precio: 45000, titulo: 'Producto MLA111 copia' });
+    contiene(t, 'MLA999', '45.000');
+    if (!ultimoItemCreado.pictures || ultimoItemCreado.category_id == null) throw new Error('no clonó fotos/categoría del origen');
+    if (ultimoItemCreado.price !== 45000) throw new Error('no aplicó el precio nuevo');
+  });
   await caso('multicuenta: conectar una segunda tienda', async () => {
     await tool('ml_conectar').run({});                       // nueva URL (nuevo pendiente PKCE)
     contiene(await tool('ml_conectar').run({ code: 'CODE-OK2' }), 'TIENDA_DOS', '888');
@@ -167,7 +181,7 @@ async function pruebas() {
     const { crearServidor } = await import('../src/servidor.js');
     crearServidor({ allowWrite: false }); // si registrara mal, tiraría; el conteo real se valida por stdio abajo
     const escrituras = TOOLS.filter((t) => !t.readOnly).map((t) => t.name);
-    if (escrituras.length !== 4) throw new Error('esperaba 4 herramientas de escritura, hay ' + escrituras.length);
+    if (escrituras.length !== 5) throw new Error('esperaba 5 herramientas de escritura, hay ' + escrituras.length);
   });
   await caso('modo stdio: initialize + tools/list', async () => {
     const hijo = spawn(process.execPath, ['src/stdio.js'], { env: { ...process.env } });
