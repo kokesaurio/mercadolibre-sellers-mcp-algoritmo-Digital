@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conectar MercadoLibre — Algoritmo Digital</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#F6F7F3;color:#17211C;display:grid;place-items:center;min-height:100vh;margin:0;padding:20px;text-align:center}
+.caja{background:#fff;border:1px solid #DDE2DB;border-radius:16px;padding:32px;max-width:520px}
+h1{font-size:1.3rem;margin:0 0 8px}
+p{color:#5C665F;line-height:1.5}
+code{display:block;background:#17211C;color:#FFE600;font-size:1.4rem;padding:16px;border-radius:10px;margin:18px 0;word-break:break-all;user-select:all}
+button{background:#3483FA;color:#fff;border:0;border-radius:9px;padding:11px 20px;font-size:1rem;font-weight:700;cursor:pointer}
+.ok{color:#00A650;font-weight:700;display:none}
+@media (prefers-color-scheme: dark){body{background:#12160F;color:#EDF1E8}.caja{background:#1B2117;border-color:#2A3328}p{color:#9BA69C}}
+</style>
+</head>
+<body>
+<div class="caja">
+  <h1>✅ Autorizaste tu cuenta de MercadoLibre</h1>
+  <p>Copiá este código y pegáselo a Claude para terminar la conexión:</p>
+  <code id="code">…</code>
+  <button id="copiar">Copiar código</button>
+  <p class="ok" id="ok">¡Copiado! Volvé a Claude y pegalo.</p>
+  <p style="font-size:.85rem">El código es de un solo uso y vence en minutos. Esta página no envía nada a ningún servidor: solo lo muestra.</p>
+</div>
+<script>
+'use strict';
+const code = new URLSearchParams(location.search).get('code') || 'No llegó ningún código: volvé a intentar la autorización.';
+document.getElementById('code').textContent = code;
+document.getElementById('copiar').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(code); document.getElementById('ok').style.display = 'block'; } catch {}
+});
+</script>
+</body>
+</html>

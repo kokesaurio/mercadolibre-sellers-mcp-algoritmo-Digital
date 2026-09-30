@@ -1,0 +1,21 @@
+{
+  "name": "@algoritmodigital/meli-sellers-mcp",
+  "version": "1.0.0",
+  "description": "MCP de MercadoLibre para vendedores — conectá tu cuenta a Claude sin servidor propio. 16 herramientas: ventas, publicaciones, preguntas, precios, promociones, competencia.",
+  "type": "module",
+  "bin": { "meli-sellers-mcp": "src/stdio.js" },
+  "scripts": {
+    "start": "node src/stdio.js",
+    "dev": "node dev/entorno.js",
+    "test": "node dev/entorno.js test"
+  },
+  "keywords": ["mercadolibre", "mcp", "claude", "model-context-protocol", "sellers", "vendedores", "api-mercadolibre"],
+  "author": "Algoritmo Digital <https://algoritmodigital.com.ar>",
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.22.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": { "express": "^4.21.0" }
+}
