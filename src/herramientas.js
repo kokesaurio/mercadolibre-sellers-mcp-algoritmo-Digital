@@ -209,6 +209,7 @@ export const TOOLS = [
         `- **Precio:** ${money(b.price, b.currency_id)} · **Stock:** ${b.available_quantity} · **Vendidos:** ${b.sold_quantity}`,
         `- **Estado:** ${b.status} · **Tipo:** ${b.listing_type_id}${b.catalog_listing ? ' · catálogo' : ''}`,
         `- **Envío:** ${b.shipping?.logistic_type ?? '—'}${b.shipping?.free_shipping ? ' · envío gratis' : ''}`,
+        `- **Video:** ${b.video_id ? '✅ tiene' : '❌ sin video'}`,
         `- **Fotos:** ${(b.pictures || []).length}${b.pictures?.length ? ' — ' + b.pictures.slice(0, 4).map((p) => p.secure_url || p.url).join(' · ') : ''}`,
         `- **Link:** ${b.permalink}`].join('\n');
     },
@@ -427,6 +428,7 @@ export const TOOLS = [
         else if ((b.available_quantity ?? 0) < 3) problemas.push(`stock crítico (${b.available_quantity}): si se corta, la publicación pierde posicionamiento histórico`);
         if (b.status !== 'active') problemas.push(`está ${b.status}: no vende hasta reactivarla`);
         if (b.listing_type_id === 'free' || b.listing_type_id === 'bronze') problemas.push(`tipo ${b.listing_type_id}: casi sin exposición — pasala a Clásica o Premium`);
+        if (!b.video_id) problemas.push('sin video: las publicaciones con video convierten más — generá uno con la skill video-publicaciones-ml o ugc-ml');
         if (b.catalog_listing) {
           try {
             const ptw = await c.get(`/items/${itemId}/price_to_win`, { version: 'v2' });

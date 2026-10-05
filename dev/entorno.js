@@ -138,7 +138,7 @@ async function pruebas() {
     contiene(t, 'Hoy', '60.500', 'Mes', '80.500', 'Termo Demo 1L — 2 u.', 'FULL', 'Flex', 'Colecta', 'Buenos Aires', 'Córdoba');
   });
   await caso('ml_publicaciones', async () => contiene(await tool('ml_publicaciones').run({}), 'MLA111', 'catálogo'));
-  await caso('ml_publicacion detalle con fotos de la publicación', async () => contiene(await tool('ml_publicacion').run({ item_id: 'MLA111' }), 'envío gratis', 'Fotos:** 1', 'mlstatic.com/f1.jpg'));
+  await caso('ml_publicacion detalle con fotos de la publicación', async () => contiene(await tool('ml_publicacion').run({ item_id: 'MLA111' }), 'envío gratis', 'sin video', 'Fotos:** 1', 'mlstatic.com/f1.jpg'));
   await caso('ml_visitas', async () => contiene(await tool('ml_visitas').run({ item_id: 'MLA111' }), '340'));
   await caso('ml_preguntas pendientes', async () => contiene(await tool('ml_preguntas').run({}), '¿Tenés stock?', '555'));
   await caso('ml_responder_pregunta (escritura)', async () => contiene(await tool('ml_responder_pregunta').run({ pregunta_id: '555', texto: 'Sí, tenemos stock.' }), '✅'));
@@ -219,7 +219,7 @@ async function pruebas() {
   });
   await caso('ml_auditar_publicaciones: semáforo y mejoras concretas, peores primero', async () => {
     const t = await tool('ml_auditar_publicaciones').run({});
-    contiene(t, 'Auditoría de publicaciones', '🔴', 'título corto', 'foto', 'perdiendo el catálogo', 'urgentes');
+    contiene(t, 'Auditoría de publicaciones', '🔴', 'título corto', 'foto', 'sin video', 'perdiendo el catálogo', 'urgentes');
     if (t.indexOf('MLA111') > t.indexOf('Sin problemas') && t.includes('Sin problemas')) throw new Error('no ordenó las peores primero');
   });
   await caso('ml_novedades_competencia: sin cambios no inventa nada', async () => {

@@ -168,7 +168,7 @@ responder?"*, *"¿estoy ganando el catálogo?"*.
 | ml_metricas | Facturación, unidades y ticket vs período anterior; con `cuenta="todas"` consolida todas tus tiendas |
 | ml_envios | Estado y tracking del envío de una orden |
 | ml_publicaciones / ml_publicacion | Tus publicaciones y su detalle |
-| ml_auditar_publicaciones | Semáforo 🔴🟡🟢 de TUS publicaciones con cómo mejorar cada una: título, fotos, descripción, envío, stock, tipo y catálogo — las peores primero |
+| ml_auditar_publicaciones | Semáforo 🔴🟡🟢 de TUS publicaciones con cómo mejorar cada una: título, fotos, descripción, envío, stock, **video faltante**, tipo y catálogo — las peores primero |
 | ml_visitas | Tráfico de una publicación |
 | ml_actualizar_publicacion ✏️ | Cambiar precio, stock o pausar/activar |
 | ml_crear_publicacion ✏️ | Crear una publicación nueva, o clonar una existente (`copiar_de`) — ideal para duplicar entre tus tiendas |
@@ -192,14 +192,15 @@ publicaciones en tarjetas con foto, precio, stock y semáforo de la auditoría �
 tocás las que querés mejorar y te genera el pedido listo para pegarle a Claude.
 La skill visualizador-publicaciones-ml lo llena con tus datos reales.
 
-## Skills incluidas (12)
+## Skills incluidas (14)
 
-En [`skills/`](skills/) — con [índice propio y rutina sugerida](skills/README.md) — vienen 12 skills fijas para Claude (Configuración →
+En [`skills/`](skills/) vienen 14 skills fijas — con [guía de uso de cada una](skills/README.md) — para Claude (Configuración →
 Capacidades → Skills → subir la carpeta) que convierten las herramientas en
 flujos de trabajo completos:
 
 | Skill | Qué hace |
 | --- | --- |
+| [setup-ml](skills/setup-ml/) | Puesta en marcha guiada: conecta cuentas, arma la vigilancia inicial y entrega tu primera foto del negocio — decile "setup" |
 | [panel-ventas-ml](skills/panel-ventas-ml/) | El tablero del día: facturación de hoy y del mes, más vendidos, envíos (FULL/Flex/Colecta) y provincias donde se concentra la venta, con lecturas accionables |
 | [reporte-ventas-ml](skills/reporte-ventas-ml/) | El "¿cómo vienen las ventas?" diario: facturación, unidades y alertas en formato de 4 líneas apto celular |
 | [responder-preguntas-ml](skills/responder-preguntas-ml/) | Junta las preguntas pendientes, propone TODAS las respuestas para aprobar de una, y publica solo lo confirmado — nunca datos de contacto |
@@ -209,6 +210,7 @@ flujos de trabajo completos:
 | [copiar-publicaciones-ml](skills/copiar-publicaciones-ml/) | Duplica publicaciones entre tus tiendas (multicuenta) o crea nuevas tomando otra de referencia — con la regla legal clara: lo ajeno se redacta, no se clona |
 | [revisar-publicaciones-aldi](skills/revisar-publicaciones-aldi/) | Auditoría externa con [Aldi 2.0](https://chatgpt.com/g/g-698f16e0eebc819182455494732d40a0-aldi-2-0-mercado-libre-algoritmo-digital), el GPT revisor de Algoritmo Digital en ChatGPT: arma el paquete de revisión, procesa el veredicto y aplica los cambios confirmados |
 | [vigilancia-ml](skills/vigilancia-ml/) | Seguimiento continuo: armá la lista de competidores/búsquedas/trends y corré el control semanal que detecta precios movidos, publicaciones nuevas, ventas estimadas del rival y keywords en alza |
+| [ugc-ml](skills/ugc-ml/) | UGC limpio con avatar de IA SIEMPRE y castellano latino neutro — estilo usuario real, claims verificados y prueba social con números reales |
 | [video-publicaciones-ml](skills/video-publicaciones-ml/) | Videos del producto con HyperFrames desde los datos y fotos reales de la publicación: Reels/ads 9:16 o clip para la publicación, guion por escenas calcado del orden de fotos |
 | [competencia-ml](skills/competencia-ml/) | Semáforo de precios contra la competencia, buy box del catálogo y recomendaciones validadas por margen |
 | [publicidad-ml](skills/publicidad-ml/) | Product Ads con regla ACOS vs margen, y promociones separando el aporte del vendedor del de MercadoLibre |
