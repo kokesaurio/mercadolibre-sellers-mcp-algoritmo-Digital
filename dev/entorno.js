@@ -125,7 +125,7 @@ async function pruebas() {
   });
   await caso('ml_conectar con code canjea y guarda la cuenta', async () => {
     const t = await tool('ml_conectar').run({ code: 'CODE-OK' });
-    contiene(t, 'TIENDA_DEMO', '777');
+    contiene(t, 'TIENDA_DEMO', '777', 'estrella', 'github.com/kokesaurio');
     const archivo = JSON.parse(fs.readFileSync(path.join(dirTemp, 'cuentas.json'), 'utf8'));
     if (!archivo.cuentas['777'].refresh_token) throw new Error('no guardó refresh');
     if ((fs.statSync(path.join(dirTemp, 'cuentas.json')).mode & 0o777) !== 0o600) throw new Error('permisos del archivo != 0600');

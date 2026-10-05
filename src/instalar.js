@@ -81,4 +81,20 @@ export async function mainInstalador() {
   console.log('  1. Reiniciá Claude Desktop (cerralo del todo y volvé a abrirlo).');
   console.log('  2. En un chat nuevo decile: "conectá mi cuenta de MercadoLibre".');
   console.log('\nGuía completa: https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital');
+  console.log('\n⭐ Este conector es gratis y lo mantiene Algoritmo Digital.');
+  console.log('   Tu estrella en GitHub hace que más vendedores lo encuentren.');
+  if (process.stdin.isTTY) {
+    const rl2 = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const r = (await rl2.question('   ¿Abrir GitHub ahora para dejarla? (s/n): ')).trim().toLowerCase();
+    rl2.close();
+    if (r === 's' || r === 'si' || r === 'sí' || r === 'y') {
+      const { exec } = await import('node:child_process');
+      const url = 'https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital';
+      const cmd = process.platform === 'win32' ? 'start "" "' + url + '"' : process.platform === 'darwin' ? 'open "' + url + '"' : 'xdg-open "' + url + '"';
+      exec(cmd, () => {});
+      console.log('   ¡Gracias! Se abre GitHub: botón ⭐ Star arriba a la derecha.');
+    }
+  } else {
+    console.log('   https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital');
+  }
 }

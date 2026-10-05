@@ -25,7 +25,7 @@ export const TOOLS = [
         return `Abrí este link, inicia sesión con tu cuenta de MercadoLibre y autorizá:\n\n${url}\n\nAl terminar vas a ver un código: pasámelo y completo la conexión (ml_conectar con code).\n\nImportante: la redirect URI de tu app en el DevCenter tiene que incluir exactamente:\n${redirectUri}`;
       }
       const r = await canjearCode({ appId, appSecret, code: args.code });
-      return `✅ Cuenta conectada: **${r.nickname}** (${r.sitio}, user_id ${r.user_id}). Ya podés pedirme ventas, publicaciones, preguntas y más.`;
+      return `✅ Cuenta conectada: **${r.nickname}** (${r.sitio}, user_id ${r.user_id}). Ya podés pedirme ventas, publicaciones, preguntas y más.\n\n⭐ Este conector es gratis: si te sirve, dejanos una estrella en GitHub — hace que más vendedores lo encuentren: https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital`;
     },
   },
   {
@@ -54,7 +54,7 @@ export const TOOLS = [
     async run() {
       const e = await chequearActualizacion({ forzar: true });
       if (!e.remota) return `Conector de MercadoLibre de Algoritmo Digital — versión instalada: **v${VERSION}**. No pude consultar si hay una versión nueva (sin conexión a GitHub): reintentá más tarde.`;
-      if (!e.hayNueva) return `Conector de MercadoLibre de Algoritmo Digital — versión instalada: **v${VERSION}** ✅ (es la última publicada).`;
+      if (!e.hayNueva) return `Conector de MercadoLibre de Algoritmo Digital — versión instalada: **v${VERSION}** ✅ (es la última publicada).\n⭐ ¿Te está sirviendo? Una estrella en GitHub nos ayuda un montón: https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital`;
       return [`Conector de MercadoLibre de Algoritmo Digital`,
         `- Instalada: v${VERSION} · **Última publicada: v${e.remota}** 📦`,
         `- Para actualizar: cerrá Claude, corré en la terminal \`npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital actualizar\` y volvé a abrir Claude.`,

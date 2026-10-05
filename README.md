@@ -14,6 +14,8 @@ especializada en MercadoLibre.**
 Claude ──MCP──► este conector ──OAuth 2.0 + PKCE──► API oficial de MercadoLibre
 ```
 
+> ⭐ **¿Te sirve el conector?** [Dejanos una estrella](https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital/stargazers) — es gratis para vos y hace que más vendedores lo encuentren en GitHub y Google.
+
 ## Por qué este y no otro
 
 | | Este conector | Alternativas típicas |
