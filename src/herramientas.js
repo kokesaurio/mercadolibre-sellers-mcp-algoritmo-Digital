@@ -80,6 +80,64 @@ export const TOOLS = [
     },
   },
   {
+    name: 'ml_panel_ventas', title: 'Panel de ventas', readOnly: true,
+    description: 'El tablero del vendedor en una llamada: facturación de HOY y del MES, productos más vendidos del mes, reparto por método de envío (FULL/Flex/Colecta...) y dónde se concentran las ventas por provincia. Ideal para "¿cómo venimos hoy?" o el panel del mes.',
+    schema: { ...cuentaParam },
+    async run(args) {
+      const c = cliente(args); const id = await sellerId(c);
+      const hoy0 = new Date(); hoy0.setHours(0, 0, 0, 0);
+      const mes0 = new Date(hoy0.getFullYear(), hoy0.getMonth(), 1);
+      // Una sola pasada: traigo las órdenes pagas del mes y filtro "hoy" en memoria
+      const ordenes = [];
+      let offset = 0;
+      for (let p = 0; p < 8; p++) {
+        const r = await c.get('/orders/search', { seller: id, 'order.status': 'paid', 'order.date_created.from': mes0.toISOString(), sort: 'date_desc', limit: 50, offset });
+        ordenes.push(...(r.results || []));
+        offset += 50;
+        if (offset >= Math.min(r.paging?.total ?? 0, 400)) break;
+      }
+      const resumen = (lista) => {
+        let total = 0, unidades = 0;
+        for (const o of lista) { total += o.total_amount ?? 0; for (const it of o.order_items || []) unidades += it.quantity ?? 0; }
+        return { total, unidades, cant: lista.length };
+      };
+      const deHoy = ordenes.filter((o) => new Date(o.date_created) >= hoy0);
+      const [h, m] = [resumen(deHoy), resumen(ordenes)];
+      // Top productos del mes
+      const porProducto = {};
+      for (const o of ordenes) for (const it of o.order_items || []) {
+        const k = it.item?.title ?? it.item?.id ?? '¿?';
+        porProducto[k] = porProducto[k] || { u: 0, plata: 0 };
+        porProducto[k].u += it.quantity ?? 0;
+        porProducto[k].plata += (it.unit_price ?? 0) * (it.quantity ?? 0) || 0;
+      }
+      const top = Object.entries(porProducto).sort((a, b) => b[1].u - a[1].u).slice(0, 5);
+      // Envíos y geografía: muestra de hasta 30 órdenes del mes
+      const NOMBRE_ENVIO = { fulfillment: 'FULL', self_service: 'Flex', cross_docking: 'Colecta', drop_off: 'Punto de despacho', xd_drop_off: 'Colecta', custom: 'A convenir', not_specified: 'Sin dato' };
+      const envios = {}, provincias = {};
+      const muestra = ordenes.slice(0, 30);
+      for (const o of muestra) {
+        try {
+          const s = await c.get(`/orders/${o.id}/shipments`);
+          const tipo = NOMBRE_ENVIO[s.logistic_type] ?? s.logistic_type ?? 'Sin dato';
+          envios[tipo] = (envios[tipo] ?? 0) + 1;
+          const prov = s.receiver_address?.state?.name;
+          if (prov) provincias[prov] = (provincias[prov] ?? 0) + 1;
+        } catch {}
+      }
+      const pctLinea = (obj, n) => Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, n)
+        .map(([k, v]) => `${k} ${Math.round(v / Math.max(1, Object.values(obj).reduce((a, b) => a + b, 0)) * 100)}% (${v})`).join(' · ');
+      const nombreMes = mes0.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+      return [`# Panel de ventas — ${nombreMes}`,
+        `📅 **Hoy:** ${money(h.total)} · ${h.cant} venta(s) · ${h.unidades} unidad(es)`,
+        `🗓️ **Mes:** ${money(m.total)} · ${m.cant} venta(s) · ${m.unidades} unidad(es) · ticket prom. ${money(m.cant ? m.total / m.cant : 0)}`,
+        top.length ? `\n🏆 **Más vendidos del mes**\n` + top.map(([t, v], i) => `${i + 1}. ${t} — ${v.u} u.${v.plata ? ` (${money(v.plata)})` : ''}`).join('\n') : '',
+        Object.keys(envios).length ? `\n🚚 **Métodos de envío** (muestra de ${muestra.length}): ${pctLinea(envios, 5)}` : '',
+        Object.keys(provincias).length ? `📍 **Dónde se concentran las ventas**: ${pctLinea(provincias, 5)}` : '',
+      ].filter(Boolean).join('\n');
+    },
+  },
+  {
     name: 'ml_metricas', title: 'Métricas de ventas', readOnly: true,
     description: 'Facturación, unidades y ticket promedio de un período, comparado contra el período anterior. Ideal para "¿cómo vienen las ventas?". Con cuenta="todas" consolida todas las tiendas conectadas.',
     schema: { ...cuentaParam, dias: z.number().optional().describe('Tamaño del período en días (default 7)') },

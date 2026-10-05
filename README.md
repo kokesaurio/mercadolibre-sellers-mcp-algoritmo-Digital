@@ -6,7 +6,7 @@ Conectá tu cuenta de MercadoLibre a Claude y preguntale en lenguaje natural:
 *"¿cómo vienen las ventas?"*, *"¿qué preguntas tengo sin responder?"*, *"¿estoy
 ganando el catálogo?"*, *"¿qué promociones me está ofreciendo MercadoLibre?"*.
 
-**21 herramientas · multicuenta (varias tiendas, con consolidado) · sin servidor propio · tokens guardados solo en tu computadora
+**22 herramientas · multicuenta (varias tiendas, con consolidado) · sin servidor propio · tokens guardados solo en tu computadora
 · hecho por [Algoritmo Digital](https://algoritmodigital.com.ar), consultora
 especializada en MercadoLibre.**
 
@@ -158,12 +158,13 @@ responder?"*, *"¿estoy ganando el catálogo?"*.
 
 ¿Seguís trabado? [Escribinos por WhatsApp](https://wa.me/5491177166060?text=Hola!%20Vengo%20del%20conector%20MCP%20de%20MercadoLibre%20(instalaci%C3%B3n)...) y te ayudamos.
 
-## Herramientas (21)
+## Herramientas (22)
 
 | Herramienta | Qué hace |
 | --- | --- |
 | ml_conectar / ml_cuentas / ml_desconectar | Vincular varias tiendas, elegir la predeterminada (⭐) y desconectar |
 | ml_ordenes | Ventas con filtros de fecha y estado |
+| ml_panel_ventas | El tablero completo: facturación de hoy y del mes, top productos, métodos de envío y en qué provincias se concentra la venta |
 | ml_metricas | Facturación, unidades y ticket vs período anterior; con `cuenta="todas"` consolida todas tus tiendas |
 | ml_envios | Estado y tracking del envío de una orden |
 | ml_publicaciones / ml_publicacion | Tus publicaciones y su detalle |
@@ -184,14 +185,15 @@ responder?"*, *"¿estoy ganando el catálogo?"*.
 ✏️ = escribe en tu tienda real. Claude siempre pide confirmación antes, y con
 `ML_SOLO_LECTURA=1` esas herramientas directamente no existen.
 
-## Skills incluidas (8)
+## Skills incluidas (9)
 
-En [`skills/`](skills/) — con [índice propio y rutina sugerida](skills/README.md) — vienen 8 skills fijas para Claude (Configuración →
+En [`skills/`](skills/) — con [índice propio y rutina sugerida](skills/README.md) — vienen 9 skills fijas para Claude (Configuración →
 Capacidades → Skills → subir la carpeta) que convierten las herramientas en
 flujos de trabajo completos:
 
 | Skill | Qué hace |
 | --- | --- |
+| [panel-ventas-ml](skills/panel-ventas-ml/) | El tablero del día: facturación de hoy y del mes, más vendidos, envíos (FULL/Flex/Colecta) y provincias donde se concentra la venta, con lecturas accionables |
 | [reporte-ventas-ml](skills/reporte-ventas-ml/) | El "¿cómo vienen las ventas?" diario: facturación, unidades y alertas en formato de 4 líneas apto celular |
 | [responder-preguntas-ml](skills/responder-preguntas-ml/) | Junta las preguntas pendientes, propone TODAS las respuestas para aprobar de una, y publica solo lo confirmado — nunca datos de contacto |
 | [mejorar-publicaciones-ml](skills/mejorar-publicaciones-ml/) | Diagnóstico con datos → priorización → propuestas de título/precio/stock → aplica solo con confirmación por ítem |

@@ -56,15 +56,20 @@ export function crearMockMeli() {
     seller_reputation: { level_id: '5_green', power_seller_status: 'platinum', transactions: { total: 1543 }, metrics: { claims: { rate: 0.001 }, delayed_handling_time: { rate: 0.02 }, cancellations: { rate: 0 } } },
   }));
   app.get('/orders/search', auth, (req, res) => {
-    const vieja = String(req.query['order.date_created.from'] || '') < new Date(Date.now() - 8 * 86400000).toISOString();
-    res.json({ paging: { total: vieja ? 1 : 2 }, results: vieja
-      ? [{ id: 100, date_created: new Date().toISOString(), total_amount: 20000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Termo viejo' }, quantity: 1 }] }]
-      : [
-        { id: 101, date_created: new Date().toISOString(), total_amount: 42000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Termo Demo 1L' }, quantity: 1 }] },
-        { id: 102, date_created: new Date().toISOString(), total_amount: 18500, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Mate Demo' }, quantity: 2 }] },
-      ] });
+    const desde = String(req.query['order.date_created.from'] || '');
+    const ayer = new Date(Date.now() - 86400000).toISOString();
+    const recientes = [
+      { id: 101, date_created: new Date().toISOString(), total_amount: 42000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Termo Demo 1L' }, quantity: 1, unit_price: 42000 }] },
+      { id: 102, date_created: new Date().toISOString(), total_amount: 18500, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Mate Demo' }, quantity: 2, unit_price: 9250 }] },
+      { id: 103, date_created: ayer, total_amount: 20000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Termo Demo 1L' }, quantity: 1, unit_price: 20000 }] },
+    ];
+    if (desde >= new Date(Date.now() - 8 * 86400000).toISOString()) return res.json({ paging: { total: recientes.length }, results: recientes });
+    if (desde >= new Date(Date.now() - 16 * 86400000).toISOString()) return res.json({ paging: { total: 1 }, results: [{ id: 100, date_created: new Date(Date.now() - 10 * 86400000).toISOString(), total_amount: 20000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Termo viejo' }, quantity: 1, unit_price: 20000 }] }] });
+    return res.json({ paging: { total: recientes.length }, results: recientes });
   });
-  app.get('/orders/101/shipments', auth, (_q, res) => res.json({ status: 'shipped', substatus: 'in_transit', tracking_number: 'TRK123', logistic_type: 'fulfillment' }));
+  app.get('/orders/101/shipments', auth, (_q, res) => res.json({ status: 'shipped', substatus: 'in_transit', tracking_number: 'TRK123', logistic_type: 'fulfillment', receiver_address: { state: { name: 'Buenos Aires' } } }));
+  app.get('/orders/102/shipments', auth, (_q, res) => res.json({ status: 'ready_to_ship', logistic_type: 'self_service', receiver_address: { state: { name: 'Capital Federal' } } }));
+  app.get('/orders/103/shipments', auth, (_q, res) => res.json({ status: 'delivered', logistic_type: 'cross_docking', receiver_address: { state: { name: 'Córdoba' } } }));
   app.get('/users/:uid/items/search', auth, (_q, res) => res.json({ paging: { total: 2 }, results: ['MLA111', 'MLA222'] }));
   app.get('/items', auth, (req, res) => res.json(String(req.query.ids).split(',').map((id) => ({ code: 200, body: { id, title: 'Producto ' + id, price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', permalink: 'https://articulo.mercadolibre.com.ar/' + id, catalog_listing: id === 'MLA111' } }))));
   app.get('/items/:id', auth, (req, res) => res.json({ ...itemMLA111, id: req.params.id, title: 'Producto ' + req.params.id }));
@@ -128,6 +133,10 @@ async function pruebas() {
   await caso('ml_cuentas lista la conectada', async () => contiene(await tool('ml_cuentas').run({}), 'TIENDA_DEMO'));
   await caso('ml_ordenes', async () => contiene(await tool('ml_ordenes').run({}), 'Termo Demo 1L', '42.000'));
   await caso('ml_metricas compara períodos', async () => contiene(await tool('ml_metricas').run({ dias: 7 }), 'Facturación', 'vs período anterior'));
+  await caso('ml_panel_ventas: hoy, mes, top productos, envíos y provincias', async () => {
+    const t = await tool('ml_panel_ventas').run({});
+    contiene(t, 'Hoy', '60.500', 'Mes', '80.500', 'Termo Demo 1L — 2 u.', 'FULL', 'Flex', 'Colecta', 'Buenos Aires', 'Córdoba');
+  });
   await caso('ml_publicaciones', async () => contiene(await tool('ml_publicaciones').run({}), 'MLA111', 'catálogo'));
   await caso('ml_publicacion detalle', async () => contiene(await tool('ml_publicacion').run({ item_id: 'MLA111' }), 'envío gratis'));
   await caso('ml_visitas', async () => contiene(await tool('ml_visitas').run({ item_id: 'MLA111' }), '340'));
@@ -188,7 +197,7 @@ async function pruebas() {
   });
   await caso('multicuenta: ml_metricas cuenta="todas" consolida las tiendas', async () => {
     const t = await tool('ml_metricas').run({ cuenta: 'todas', dias: 7 });
-    contiene(t, 'Consolidado de 2 tiendas', '121.000', 'TIENDA_DEMO', 'TIENDA_DOS');
+    contiene(t, 'Consolidado de 2 tiendas', '161.000', 'TIENDA_DEMO', 'TIENDA_DOS');
   });
   await caso('modo solo lectura no registra herramientas de escritura', async () => {
     const { crearServidor } = await import('../src/servidor.js');

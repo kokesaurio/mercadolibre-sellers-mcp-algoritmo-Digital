@@ -1,6 +1,6 @@
 # Skills de Claude para vendedores de MercadoLibre
 
-8 skills listas para usar con el [conector MCP de MercadoLibre de Algoritmo
+9 skills listas para usar con el [conector MCP de MercadoLibre de Algoritmo
 Digital](../README.md). Cada skill le enseña a Claude un flujo de trabajo
 completo de vendedor: qué herramientas usar, en qué orden, con qué reglas de
 seguridad y formato.
@@ -16,10 +16,11 @@ seguridad y formato.
 Requisito: el conector instalado y la cuenta conectada (guía en el
 [README principal](../README.md)).
 
-## Las 8 skills
+## Las 9 skills
 
 | Skill | Pedíselo así | Qué hace |
 | --- | --- | --- |
+| [panel-ventas-ml](panel-ventas-ml/) | "¿cómo venimos hoy?" | Facturación de hoy y del mes, top productos, envíos FULL/Flex/Colecta y provincias donde se concentra la venta |
 | [reporte-ventas-ml](reporte-ventas-ml/) | "¿cómo vienen las ventas?" | Reporte diario de facturación, unidades y alertas en 4 líneas, apto celular |
 | [responder-preguntas-ml](responder-preguntas-ml/) | "respondamos las preguntas" | Junta las pendientes, propone todas las respuestas para aprobar de una, publica solo lo confirmado; nunca datos de contacto |
 | [mejorar-publicaciones-ml](mejorar-publicaciones-ml/) | "auditá mis publicaciones" | Semáforo 🔴🟡🟢 de tus publicaciones (título, fotos, descripción, envío, stock, catálogo) y aplica mejoras con confirmación por ítem |
@@ -31,7 +32,7 @@ Requisito: el conector instalado y la cuenta conectada (guía en el
 
 ## Cómo se combinan (rutina sugerida)
 
-- **Todos los días**: reporte-ventas-ml + responder-preguntas-ml (5 minutos).
+- **Todos los días**: panel-ventas-ml o reporte-ventas-ml + responder-preguntas-ml (5 minutos).
 - **Semanal**: vigilancia-ml (novedades de rivales y trends) → mejorar-publicaciones-ml sobre lo que el mercado movió → publicidad-ml.
 - **Al publicar algo nuevo**: copiar-publicaciones-ml → revisar-publicaciones-aldi antes de meterle tráfico.
 
