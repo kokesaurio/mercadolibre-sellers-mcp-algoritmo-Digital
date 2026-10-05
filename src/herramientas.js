@@ -209,6 +209,7 @@ export const TOOLS = [
         `- **Precio:** ${money(b.price, b.currency_id)} · **Stock:** ${b.available_quantity} · **Vendidos:** ${b.sold_quantity}`,
         `- **Estado:** ${b.status} · **Tipo:** ${b.listing_type_id}${b.catalog_listing ? ' · catálogo' : ''}`,
         `- **Envío:** ${b.shipping?.logistic_type ?? '—'}${b.shipping?.free_shipping ? ' · envío gratis' : ''}`,
+        `- **Fotos:** ${(b.pictures || []).length}${b.pictures?.length ? ' — ' + b.pictures.slice(0, 4).map((p) => p.secure_url || p.url).join(' · ') : ''}`,
         `- **Link:** ${b.permalink}`].join('\n');
     },
   },

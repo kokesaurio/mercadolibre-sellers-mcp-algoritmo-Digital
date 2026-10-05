@@ -1,6 +1,6 @@
 {
   "name": "@algoritmodigital/meli-sellers-mcp",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "description": "MCP de MercadoLibre para vendedores — conectá tu cuenta a Claude sin servidor propio. 22 herramientas: ventas, publicaciones, preguntas, precios, promociones, competencia.",
   "type": "module",
   "bin": {

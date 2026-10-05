@@ -19,8 +19,11 @@ vendedor y se pregunta. NUNCA inventar autonomía, potencia, compatibilidad ni
 accesorios: dato no confirmado = dato que no va en la imagen.
 
 ### 3. Defino cuántas imágenes necesita
-La cantidad depende del producto y del pedido. No son siempre nueve: cada
-imagen tiene que explicar algo distinto — nada de rellenar con fotos repetidas.
+**El set fijo de 4 se hace SIEMPRE**: beneficio principal (foto 2),
+características (foto 4), medidas (foto 5) y qué incluye (foto 6) — las 4
+plantillas del repo. Por encima de eso, la cantidad depende del producto y del
+pedido: no son siempre nueve, cada imagen extra tiene que explicar algo
+distinto — nada de rellenar con fotos repetidas.
 
 ### 4. Organizo el orden de publicación
 La portada (foto 1) la hace el vendedor: el trabajo arranca SIEMPRE en la
@@ -37,16 +40,29 @@ foto 2. Orden base (si el vendedor pasa un orden específico, se sigue ese):
 | 8 | Detalles importantes |
 | 9–10 | Otro uso o cierre, solo cuando aporte |
 
-### 5. Diseño cada pieza por separado
-Formato cuadrado (1200×1200), producto protagonista y composiciones variadas:
-uso real, primeros planos, contenido del paquete o explicación de funciones.
-Para medidas/características/incluye están las plantillas SVG del repo
-(`plantillas/`: medidas.svg, caracteristicas.svg, incluye.svg) — reemplazar los
-`{{CAMPOS}}` y el grupo `<g id="producto">` por la foto real.
+### 5. Diseño cada pieza por separado — con las FOTOS DE LA PUBLICACIÓN
+Formato cuadrado (1200×1200), producto protagonista y composiciones variadas.
+Las fotos reales se toman de la propia publicación: `ml_publicacion` devuelve
+las URLs (campo **Fotos**) — descargar la mejor (producto entero, fondo limpio)
+y usarla en las plantillas. El set fijo de 4 se genera con el generador del
+repo, una línea por imagen:
 
-### 6. Genero y reviso
+```bash
+python3 plantillas/generar.py --plantilla beneficio       --datos datos.json --foto foto-publicacion.png --salida foto-2-beneficio.png
+python3 plantillas/generar.py --plantilla caracteristicas --datos datos.json --foto foto-publicacion.png --salida foto-4-caracteristicas.png
+python3 plantillas/generar.py --plantilla medidas         --datos datos.json --foto foto-publicacion.png --salida foto-5-medidas.png
+python3 plantillas/generar.py --plantilla incluye         --datos datos.json --salida foto-6-incluye.png
+```
+
+El generador incrusta la foto en el lugar correcto de cada plantilla y avisa si
+queda algún campo sin dato.
+
+### 6. Genero, VISUALIZO y reviso
 Si el entorno tiene generación de imágenes, usarla con las fotos del vendedor
-como referencia; si no, plantillas + fotos reales. ANTES de entregar, revisar
+como referencia para las piezas de uso real; el set fijo de 4 sale del
+generador. SIEMPRE mostrarle al usuario las imágenes generadas (visualizarlas
+en la conversación) antes de dar por cerrado el set, para que apruebe los
+cambios. ANTES de entregar, revisar
 una por una: ortografía, cantidades, parecido con el modelo real, conexiones y
 coherencia entre lo que dice el texto y lo que muestra la imagen. Corregir lo
 detectado y volver a revisar.

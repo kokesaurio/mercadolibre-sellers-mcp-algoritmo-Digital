@@ -138,7 +138,7 @@ async function pruebas() {
     contiene(t, 'Hoy', '60.500', 'Mes', '80.500', 'Termo Demo 1L — 2 u.', 'FULL', 'Flex', 'Colecta', 'Buenos Aires', 'Córdoba');
   });
   await caso('ml_publicaciones', async () => contiene(await tool('ml_publicaciones').run({}), 'MLA111', 'catálogo'));
-  await caso('ml_publicacion detalle', async () => contiene(await tool('ml_publicacion').run({ item_id: 'MLA111' }), 'envío gratis'));
+  await caso('ml_publicacion detalle con fotos de la publicación', async () => contiene(await tool('ml_publicacion').run({ item_id: 'MLA111' }), 'envío gratis', 'Fotos:** 1', 'mlstatic.com/f1.jpg'));
   await caso('ml_visitas', async () => contiene(await tool('ml_visitas').run({ item_id: 'MLA111' }), '340'));
   await caso('ml_preguntas pendientes', async () => contiene(await tool('ml_preguntas').run({}), '¿Tenés stock?', '555'));
   await caso('ml_responder_pregunta (escritura)', async () => contiene(await tool('ml_responder_pregunta').run({ pregunta_id: '555', texto: 'Sí, tenemos stock.' }), '✅'));
