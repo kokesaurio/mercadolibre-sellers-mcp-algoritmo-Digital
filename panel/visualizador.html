@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Visualizador de publicaciones — Algoritmo Digital</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--fondo:#F6F7F3;--tarjeta:#FFFFFF;--tinta:#17211C;--gris:#5C665F;--borde:#DDE2DB;--amarillo:#FFE600;--azul:#3483FA;--rojo:#E5484D;--verde:#00A650;--ambar:#D97706}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--fondo:#12160F;--tarjeta:#1B2117;--tinta:#EDF1E8;--gris:#9BA69C;--borde:#2A3328}}
+:root[data-theme="dark"]{--fondo:#12160F;--tarjeta:#1B2117;--tinta:#EDF1E8;--gris:#9BA69C;--borde:#2A3328}
+*,*:before,*:after{box-sizing:inherit}
+body{margin:0;background:var(--fondo);color:var(--tinta);font-family:Archivo,system-ui,sans-serif}
+header{position:sticky;top:0;background:var(--fondo);border-bottom:1px solid var(--borde);padding:14px 16px;z-index:5}
+h1{font-size:1.05rem;margin:0 0 10px}
+h1 small{color:var(--gris);font-weight:400}
+.filtros{display:flex;gap:8px;flex-wrap:wrap}
+.filtros button{background:var(--tarjeta);border:1px solid var(--borde);color:var(--tinta);border-radius:999px;padding:7px 14px;font:inherit;font-size:.85rem;cursor:pointer}
+.filtros button.activo{background:var(--tinta);color:var(--fondo);border-color:var(--tinta)}
+main{max-width:1100px;margin:0 auto;padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.pub{background:var(--tarjeta);border:2px solid var(--borde);border-radius:16px;overflow:hidden;cursor:pointer;transition:border-color .15s, transform .05s;position:relative}
+.pub:active{transform:scale(.99)}
+.pub.sel{border-color:var(--azul)}
+.pub.sel:after{content:"✔ Mejorar";position:absolute;top:10px;right:10px;background:var(--azul);color:#fff;font-weight:800;font-size:.75rem;padding:5px 10px;border-radius:999px}
+.pub img{width:100%;aspect-ratio:1;object-fit:cover;background:#fff;display:block}
+.cuerpo{padding:12px}
+.titulo{font-weight:600;font-size:.92rem;line-height:1.25;min-height:2.3em}
+.datos{color:var(--gris);font-size:.82rem;margin:6px 0 8px}
+.sem{font-weight:800;font-size:.8rem}
+.s-rojo{color:var(--rojo)}.s-ambar{color:var(--ambar)}.s-verde{color:var(--verde)}
+.problemas{margin:6px 0 0;padding-left:16px;color:var(--gris);font-size:.78rem;line-height:1.35}
+.problemas li{margin:2px 0}
+.barra{position:fixed;left:0;right:0;bottom:0;background:var(--tarjeta);border-top:1px solid var(--borde);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));display:flex;gap:10px;align-items:center;justify-content:space-between}
+.barra b{font-size:.95rem}
+.barra button{background:var(--amarillo);border:0;border-radius:10px;padding:12px 18px;font:inherit;font-weight:800;color:#17211C;cursor:pointer}
+.barra button:disabled{opacity:.45;cursor:default}
+.aviso{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);background:var(--verde);color:#fff;font-weight:800;padding:10px 18px;border-radius:999px;display:none;font-size:.9rem}
+body{padding-bottom:84px}
+</style>
+</head>
+<body>
+<header>
+  <h1>📋 Visualizador de publicaciones <small id="resumen"></small></h1>
+  <div class="filtros">
+    <button data-f="todas" class="activo">Todas</button>
+    <button data-f="problemas">Con problemas</button>
+    <button data-f="sel">Marcadas para mejorar</button>
+  </div>
+</header>
+<main id="grilla"></main>
+<div class="barra">
+  <b id="contador">0 para mejorar</b>
+  <button id="copiar" disabled>Copiar pedido para Claude</button>
+</div>
+<div class="aviso" id="aviso">¡Copiado! Pegáselo a Claude</div>
+<script>
+'use strict';
+// La skill mejorar-publicaciones-ml reemplaza este bloque con los datos reales
+// que trae el conector (ml_auditar_publicaciones + fotos de ml_publicacion).
+const DATOS = /*DATOS*/[
+ {id:"MLA111111111",titulo:"Termo de acero 1 litro con tapón cebador",precio:"$ 42.000",stock:10,vendidos:55,semaforo:"rojo",problemas:["Título corto (39/60)","Solo 1 foto","Perdiendo el catálogo: gana $ 39.900"],foto:f("#2E7D32","Termo")},
+ {id:"MLA222222222",titulo:"Mate imperial calabaza premium virola de alpaca",precio:"$ 18.500",stock:2,vendidos:120,semaforo:"ambar",problemas:["Stock crítico (2)","Sin envío gratis"],foto:f("#8D5524","Mate")},
+ {id:"MLA333333333",titulo:"Juego de mesa estrategia familiar 2 a 6 jugadores",precio:"$ 31.900",stock:25,vendidos:210,semaforo:"verde",problemas:[],foto:f("#5B21B6","Juego")},
+ {id:"MLA444444444",titulo:"Bombilla pico de loro acero quirúrgico",precio:"$ 6.900",stock:0,vendidos:340,semaforo:"rojo",problemas:["SIN STOCK","Descripción muy corta"],foto:f("#9CA3AF","Bombilla")},
+ {id:"MLA555555555",titulo:"Set matero completo termo + mate + bombilla",precio:"$ 64.000",stock:8,vendidos:33,semaforo:"ambar",problemas:["Pocas visitas con 0 ventas esta semana","Solo 2 fotos"],foto:f("#0E7490","Set")},
+ {id:"MLA666666666",titulo:"Termo 500 ml acero colores pastel",precio:"$ 28.900",stock:14,vendidos:18,semaforo:"verde",problemas:[],foto:f("#DB2777","Termo 500")}
+]/*FIN*/;
+function f(color, texto){
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#fff"/><rect x="62" y="30" width="76" height="140" rx="24" fill="'+color+'"/><rect x="74" y="16" width="52" height="22" rx="8" fill="#111827"/><text x="100" y="192" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#6B7280">'+texto+'</text></svg>';
+  return 'data:image/svg+xml;utf8,'+encodeURIComponent(svg);
+}
+const sel = new Set();
+let filtro = 'todas';
+const SEM = {rojo:['🔴 Urgente','s-rojo'], ambar:['🟡 Mejorable','s-ambar'], verde:['🟢 OK','s-verde']};
+function pinta(){
+  const g = document.getElementById('grilla');
+  g.innerHTML = '';
+  let visibles = 0;
+  for (const p of DATOS){
+    if (filtro === 'problemas' && !p.problemas.length) continue;
+    if (filtro === 'sel' && !sel.has(p.id)) continue;
+    visibles++;
+    const d = document.createElement('div');
+    d.className = 'pub' + (sel.has(p.id) ? ' sel' : '');
+    const [etq, cls] = SEM[p.semaforo] || SEM.verde;
+    d.innerHTML = '<img alt="" src="'+p.foto+'"><div class="cuerpo">'
+      + '<div class="titulo">'+p.titulo+'</div>'
+      + '<div class="datos">'+p.id+' · '+p.precio+' · stock '+p.stock+' · '+p.vendidos+' vendidos</div>'
+      + '<div class="sem '+cls+'">'+etq+'</div>'
+      + (p.problemas.length ? '<ul class="problemas">'+p.problemas.map(x=>'<li>'+x+'</li>').join('')+'</ul>' : '');
+    d.addEventListener('click', () => { if (sel.has(p.id)) sel.delete(p.id); else sel.add(p.id); pinta(); });
+    g.appendChild(d);
+  }
+  document.getElementById('resumen').textContent = '· ' + visibles + ' publicaciones';
+  document.getElementById('contador').textContent = sel.size + ' para mejorar';
+  document.getElementById('copiar').disabled = !sel.size;
+}
+document.querySelectorAll('.filtros button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.filtros button').forEach(x => x.classList.remove('activo'));
+  b.classList.add('activo');
+  filtro = b.dataset.f;
+  pinta();
+}));
+document.getElementById('copiar').addEventListener('click', async () => {
+  const lineas = DATOS.filter(p => sel.has(p.id))
+    .map(p => '- ' + p.id + ' — ' + p.titulo + (p.problemas.length ? ' → ' + p.problemas.join('; ') : ''));
+  const texto = 'Mejorá estas publicaciones de MercadoLibre, una por una y con mi confirmación antes de cada cambio:\n' + lineas.join('\n');
+  try { await navigator.clipboard.writeText(texto); } catch {
+    const t = document.createElement('textarea'); t.value = texto; document.body.appendChild(t); t.select();
+    try { document.execCommand('copy'); } catch {} t.remove();
+  }
+  const a = document.getElementById('aviso'); a.style.display = 'block';
+  setTimeout(() => { a.style.display = 'none'; }, 2200);
+});
+pinta();
+</script>
+</body>
+</html>

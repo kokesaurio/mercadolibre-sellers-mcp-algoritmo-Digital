@@ -185,6 +185,13 @@ responder?"*, *"¿estoy ganando el catálogo?"*.
 ✏️ = escribe en tu tienda real. Claude siempre pide confirmación antes, y con
 `ML_SOLO_LECTURA=1` esas herramientas directamente no existen.
 
+## Visualizador de publicaciones
+
+En [`panel/visualizador.html`](panel/visualizador.html): todas tus
+publicaciones en tarjetas con foto, precio, stock y semáforo de la auditoría —
+tocás las que querés mejorar y te genera el pedido listo para pegarle a Claude.
+La skill mejorar-publicaciones-ml lo llena con tus datos reales.
+
 ## Skills incluidas (10)
 
 En [`skills/`](skills/) — con [índice propio y rutina sugerida](skills/README.md) — vienen 10 skills fijas para Claude (Configuración →
