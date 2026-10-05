@@ -344,6 +344,45 @@ export const TOOLS = [
     },
   },
 
+  {
+    name: 'ml_auditar_publicaciones', title: 'Auditar mis publicaciones', readOnly: true,
+    description: 'Lista las publicaciones del vendedor con un semáforo de calidad y cómo mejorar cada una: título corto o con relleno, pocas fotos, sin descripción, sin envío gratis, stock crítico, catálogo perdido, publicación pausada. Devuelve las peores primero con la acción concreta. Ideal para "¿qué publicaciones tengo que mejorar?".',
+    schema: { ...cuentaParam, limite: z.number().optional().describe('Cuántas auditar (default 10)'), estado: z.string().optional().describe('default active') },
+    async run(args) {
+      const c = cliente(args); const id = await sellerId(c);
+      const busqueda = await c.get(`/users/${id}/items/search`, { status: args.estado ?? 'active', limit: args.limite ?? 10 });
+      const ids = busqueda.results || [];
+      if (!ids.length) return 'No hay publicaciones para auditar con ese filtro.';
+      const auditorias = [];
+      for (const itemId of ids) {
+        const b = await c.get(`/items/${itemId}`);
+        let desc = null; try { desc = (await c.get(`/items/${itemId}/description`)).plain_text; } catch {}
+        const problemas = [];
+        const titulo = b.title || '';
+        if (titulo.length < 40) problemas.push(`título corto (${titulo.length}/60): sumale marca, modelo y atributo clave`);
+        if (/env[ií]o gratis|oferta|promo|!!|aprovech/i.test(titulo)) problemas.push('título con relleno prohibido (oferta/envío gratis): ML lo ignora y penaliza — dejá solo producto+marca+modelo+atributos');
+        if ((b.pictures?.length ?? 0) < 3) problemas.push(`solo ${b.pictures?.length ?? 0} foto(s): subí a 6+ (fondo blanco la primera, uso real después)`);
+        if (!desc || desc.trim().length < 200) problemas.push('descripción vacía o muy corta: agregá qué incluye, medidas, compatibilidades y preguntas frecuentes');
+        if (!b.shipping?.free_shipping) problemas.push('sin envío gratis: las publicaciones con envío gratis posicionan y convierten mejor (evaluá absorberlo en el precio)');
+        if ((b.available_quantity ?? 0) === 0) problemas.push('SIN STOCK: repone o pausá — sin stock pierde posicionamiento');
+        else if ((b.available_quantity ?? 0) < 3) problemas.push(`stock crítico (${b.available_quantity}): si se corta, la publicación pierde posicionamiento histórico`);
+        if (b.status !== 'active') problemas.push(`está ${b.status}: no vende hasta reactivarla`);
+        if (b.listing_type_id === 'free' || b.listing_type_id === 'bronze') problemas.push(`tipo ${b.listing_type_id}: casi sin exposición — pasala a Clásica o Premium`);
+        if (b.catalog_listing) {
+          try {
+            const ptw = await c.get(`/items/${itemId}/price_to_win`, { version: 'v2' });
+            if (ptw.status && ptw.status !== 'winning') problemas.push(`perdiendo el catálogo: ganás con ${ptw.price_to_win != null ? '$ ' + Number(ptw.price_to_win).toLocaleString('es-AR') : 'mejor precio/envío'} (validar margen antes)`);
+          } catch {}
+        }
+        const semaforo = problemas.length === 0 ? '🟢' : problemas.length <= 2 ? '🟡' : '🔴';
+        auditorias.push({ id: itemId, titulo, semaforo, problemas });
+      }
+      auditorias.sort((a, b) => b.problemas.length - a.problemas.length);
+      const filas = auditorias.map((a) => `### ${a.semaforo} ${a.id} — ${a.titulo}\n` + (a.problemas.length ? a.problemas.map((p) => '- ' + p).join('\n') : '- Sin problemas detectados en el checklist básico'));
+      const rojas = auditorias.filter((a) => a.semaforo === '🔴').length, amarillas = auditorias.filter((a) => a.semaforo === '🟡').length;
+      return `# Auditoría de publicaciones (${auditorias.length})\n**${rojas} 🔴 urgentes · ${amarillas} 🟡 mejorables · ${auditorias.length - rojas - amarillas} 🟢 OK**\n\n` + filas.join('\n\n') + '\n\n¿Aplico alguna mejora? Decime cuál y la hago con tu confirmación (precio/stock/estado por acá; títulos solo si la publicación no tiene ventas; fotos y descripción van por tu panel).';
+    },
+  },
   // ───────────────────── Vigilancia de competencia ─────────────────────
   {
     name: 'ml_vigilar', title: 'Lista de seguimiento', readOnly: true,
@@ -357,7 +396,22 @@ export const TOOLS = [
       if (args.accion === 'listar') {
         const d = leerVigilancia();
         if (!d.objetivos.length) return 'La lista de seguimiento está vacía. Agregá competidores con ml_vigilar accion=agregar (ej: tipo=vendedor ref=NICK_RIVAL).';
-        return '## Lista de seguimiento (' + d.objetivos.length + ')\n' + d.objetivos.map((o) => `- **${o.tipo}**: ${o.ref}${o.nota ? ' — ' + o.nota : ''} (desde ${o.agregado})`).join('\n') + '\n\nCorré ml_novedades_competencia para ver qué cambió.';
+        const titulos = { vendedor: '🥊 Rivales', publicacion: '📦 Productos que seguimos', busqueda: '🔍 Búsquedas vigiladas', tendencias: '📈 Tendencias' };
+        const resumen = (o) => {
+          const s = d.snapshots[claveDe(o)];
+          if (!s) return '';
+          const fecha = new Date(s.t).toLocaleDateString('es-AR');
+          if (o.tipo === 'vendedor') return ` · ${Object.keys(s.datos.items || {}).length} publicaciones registradas (control: ${fecha})`;
+          if (o.tipo === 'publicacion') return ` · último control: $ ${Number(s.datos.precio).toLocaleString('es-AR')} · ${s.datos.vendidos} vendidos (${fecha})`;
+          if (o.tipo === 'busqueda') return s.datos.top?.[0] ? ` · líder: ${s.datos.top[0].vendedor} a $ ${Number(s.datos.top[0].precio).toLocaleString('es-AR')} (${fecha})` : '';
+          return ` · top registrado (${fecha})`;
+        };
+        const grupos = [];
+        for (const tipo of ['vendedor', 'publicacion', 'busqueda', 'tendencias']) {
+          const del = d.objetivos.filter((o) => o.tipo === tipo);
+          if (del.length) grupos.push(`### ${titulos[tipo]} (${del.length})\n` + del.map((o) => `- **${o.ref}**${o.nota ? ' — ' + o.nota : ''}${resumen(o)}`).join('\n'));
+        }
+        return '# Lista de seguimiento\n\n' + grupos.join('\n\n') + '\n\nCorré ml_novedades_competencia para ver qué cambió.';
       }
       if (args.accion === 'quitar') {
         if (!args.ref) return 'Indicá ref (lo que aparece en la lista) para quitar.';

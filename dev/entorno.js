@@ -14,7 +14,7 @@ const PUERTO = Number(process.env.MOCK_PORT || 9990);
 let refrescosHechos = 0;
 let ultimoItemCreado = null;
 let versionRemota = '9.9.9';
-let itemMLA111 = { category_id: 'MLA1055', price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', condition: 'new', listing_type_id: 'gold_special', permalink: 'https://articulo.mercadolibre.com.ar/x', pictures: [{ secure_url: 'https://http2.mlstatic.com/f1.jpg' }], attributes: [{ id: 'BRAND', value_name: 'Genérica' }], shipping: { logistic_type: 'fulfillment', free_shipping: true } };
+let itemMLA111 = { catalog_listing: true, category_id: 'MLA1055', price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', condition: 'new', listing_type_id: 'gold_special', permalink: 'https://articulo.mercadolibre.com.ar/x', pictures: [{ secure_url: 'https://http2.mlstatic.com/f1.jpg' }], attributes: [{ id: 'BRAND', value_name: 'Genérica' }], shipping: { logistic_type: 'fulfillment', free_shipping: true } };
 let mercado = {
   rival: [{ id: 'R1', title: 'Termo rival 1L', price: 39999, seller: { nickname: 'RIVAL' } }],
   busqueda: [{ id: 'B1', title: 'Termo lider', price: 35000, seller: { nickname: 'LIDER' } }, { id: 'B2', title: 'Termo 2', price: 37000, seller: { nickname: 'OTRO' } }],
@@ -203,6 +203,15 @@ async function pruebas() {
     contiene(await tool('ml_vigilar').run({ accion: 'agregar', tipo: 'tendencias' }), 'Agregado');
     contiene(await tool('ml_vigilar').run({ accion: 'agregar', tipo: 'vendedor', ref: 'RIVAL' }), 'Ya estaba');
     contiene(await tool('ml_vigilar').run({ accion: 'listar' }), 'RIVAL', 'termo 1 litro', 'mi competidor directo');
+  });
+  await caso('ml_vigilar listar agrupa rivales y productos seguidos con su último dato', async () => {
+    const t = await tool('ml_vigilar').run({ accion: 'listar' });
+    contiene(t, 'Rivales', 'Productos que seguimos', 'Búsquedas vigiladas', 'Tendencias', 'publicaciones registradas', 'vendidos');
+  });
+  await caso('ml_auditar_publicaciones: semáforo y mejoras concretas, peores primero', async () => {
+    const t = await tool('ml_auditar_publicaciones').run({});
+    contiene(t, 'Auditoría de publicaciones', '🔴', 'título corto', 'foto', 'perdiendo el catálogo', 'urgentes');
+    if (t.indexOf('MLA111') > t.indexOf('Sin problemas') && t.includes('Sin problemas')) throw new Error('no ordenó las peores primero');
   });
   await caso('ml_novedades_competencia: sin cambios no inventa nada', async () => {
     contiene(await tool('ml_novedades_competencia').run({}), 'Sin novedades');

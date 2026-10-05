@@ -6,7 +6,7 @@ Conectá tu cuenta de MercadoLibre a Claude y preguntale en lenguaje natural:
 *"¿cómo vienen las ventas?"*, *"¿qué preguntas tengo sin responder?"*, *"¿estoy
 ganando el catálogo?"*, *"¿qué promociones me está ofreciendo MercadoLibre?"*.
 
-**20 herramientas · multicuenta (varias tiendas, con consolidado) · sin servidor propio · tokens guardados solo en tu computadora
+**21 herramientas · multicuenta (varias tiendas, con consolidado) · sin servidor propio · tokens guardados solo en tu computadora
 · hecho por [Algoritmo Digital](https://algoritmodigital.com.ar), consultora
 especializada en MercadoLibre.**
 
@@ -158,7 +158,7 @@ responder?"*, *"¿estoy ganando el catálogo?"*.
 
 ¿Seguís trabado? [Escribinos por WhatsApp](https://wa.me/5491177166060?text=Hola!%20Vengo%20del%20conector%20MCP%20de%20MercadoLibre%20(instalaci%C3%B3n)...) y te ayudamos.
 
-## Herramientas (20)
+## Herramientas (21)
 
 | Herramienta | Qué hace |
 | --- | --- |
@@ -167,6 +167,7 @@ responder?"*, *"¿estoy ganando el catálogo?"*.
 | ml_metricas | Facturación, unidades y ticket vs período anterior; con `cuenta="todas"` consolida todas tus tiendas |
 | ml_envios | Estado y tracking del envío de una orden |
 | ml_publicaciones / ml_publicacion | Tus publicaciones y su detalle |
+| ml_auditar_publicaciones | Semáforo 🔴🟡🟢 de TUS publicaciones con cómo mejorar cada una: título, fotos, descripción, envío, stock, tipo y catálogo — las peores primero |
 | ml_visitas | Tráfico de una publicación |
 | ml_actualizar_publicacion ✏️ | Cambiar precio, stock o pausar/activar |
 | ml_crear_publicacion ✏️ | Crear una publicación nueva, o clonar una existente (`copiar_de`) — ideal para duplicar entre tus tiendas |
@@ -177,7 +178,7 @@ responder?"*, *"¿estoy ganando el catálogo?"*.
 | ml_reputacion | Color, reclamos, demoras y cancelaciones |
 | ml_promociones / ml_aceptar_promocion ✏️ | Promociones ofrecidas y aceptación por ítem |
 | ml_tendencias | Qué está buscando la gente en ML |
-| ml_vigilar / ml_novedades_competencia | Lista de seguimiento de competidores, publicaciones, búsquedas y trends — y el control que reporta solo lo que cambió: precios, publicaciones nuevas, ventas estimadas del rival, cambios de líder y keywords en alza |
+| ml_vigilar / ml_novedades_competencia | Lista de rivales 🥊, productos seguidos 📦, búsquedas y trends — y el control de competidores, publicaciones, búsquedas y trends — y el control que reporta solo lo que cambió: precios, publicaciones nuevas, ventas estimadas del rival, cambios de líder y keywords en alza |
 | ml_version | Versión instalada, chequeo de actualizaciones y cómo actualizar |
 
 ✏️ = escribe en tu tienda real. Claude siempre pide confirmación antes, y con
