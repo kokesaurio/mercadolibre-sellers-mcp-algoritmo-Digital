@@ -186,7 +186,7 @@ responder?"*, *"¿estoy ganando el catálogo?"*.
 
 ## Skills incluidas (8)
 
-En [`skills/`](skills/) vienen 8 skills fijas para Claude (Configuración →
+En [`skills/`](skills/) — con [índice propio y rutina sugerida](skills/README.md) — vienen 8 skills fijas para Claude (Configuración →
 Capacidades → Skills → subir la carpeta) que convierten las herramientas en
 flujos de trabajo completos:
 
