@@ -185,9 +185,9 @@ responder?"*, *"¿estoy ganando el catálogo?"*.
 ✏️ = escribe en tu tienda real. Claude siempre pide confirmación antes, y con
 `ML_SOLO_LECTURA=1` esas herramientas directamente no existen.
 
-## Skills incluidas (9)
+## Skills incluidas (10)
 
-En [`skills/`](skills/) — con [índice propio y rutina sugerida](skills/README.md) — vienen 9 skills fijas para Claude (Configuración →
+En [`skills/`](skills/) — con [índice propio y rutina sugerida](skills/README.md) — vienen 10 skills fijas para Claude (Configuración →
 Capacidades → Skills → subir la carpeta) que convierten las herramientas en
 flujos de trabajo completos:
 
@@ -197,6 +197,7 @@ flujos de trabajo completos:
 | [reporte-ventas-ml](skills/reporte-ventas-ml/) | El "¿cómo vienen las ventas?" diario: facturación, unidades y alertas en formato de 4 líneas apto celular |
 | [responder-preguntas-ml](skills/responder-preguntas-ml/) | Junta las preguntas pendientes, propone TODAS las respuestas para aprobar de una, y publica solo lo confirmado — nunca datos de contacto |
 | [mejorar-publicaciones-ml](skills/mejorar-publicaciones-ml/) | Diagnóstico con datos → priorización → propuestas de título/precio/stock → aplica solo con confirmación por ítem |
+| [imagenes-ml](skills/imagenes-ml/) | Genera las imágenes de venta (medidas con cotas, beneficios, qué incluye) desde las [plantillas](plantillas/) del repo, cumpliendo las reglas de imágenes de ML, y audita tu imagen principal |
 | [copiar-publicaciones-ml](skills/copiar-publicaciones-ml/) | Duplica publicaciones entre tus tiendas (multicuenta) o crea nuevas tomando otra de referencia — con la regla legal clara: lo ajeno se redacta, no se clona |
 | [revisar-publicaciones-aldi](skills/revisar-publicaciones-aldi/) | Auditoría externa con [Aldi 2.0](https://chatgpt.com/g/g-698f16e0eebc819182455494732d40a0-aldi-2-0-mercado-libre-algoritmo-digital), el GPT revisor de Algoritmo Digital en ChatGPT: arma el paquete de revisión, procesa el veredicto y aplica los cambios confirmados |
 | [vigilancia-ml](skills/vigilancia-ml/) | Seguimiento continuo: armá la lista de competidores/búsquedas/trends y corré el control semanal que detecta precios movidos, publicaciones nuevas, ventas estimadas del rival y keywords en alza |

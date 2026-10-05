@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" font-family="Archivo, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+<rect width="1200" height="1200" fill="#FFFFFF"/>
+<rect x="0" y="0" width="1200" height="14" fill="#FFE600"/><text x="600" y="110" text-anchor="middle" font-size="56" font-weight="800" fill="#1A1A1A">El paquete incluye</text><g transform="translate(85,240)">
+  <rect x="0" y="0" width="330" height="330" rx="24" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="2"/>
+  <circle cx="165" cy="120" r="64" fill="#FFE600"/>
+  <text x="165" y="142" text-anchor="middle" font-size="60" font-weight="800" fill="#1A1A1A">1</text>
+  <text x="165" y="240" text-anchor="middle" font-size="36" font-weight="800" fill="#1A1A1A">{{ITEM_1}}</text>
+  <text x="165" y="286" text-anchor="middle" font-size="28" fill="#6B7280">{{ITEM_1_DET}}</text>
+</g><g transform="translate(435,240)">
+  <rect x="0" y="0" width="330" height="330" rx="24" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="2"/>
+  <circle cx="165" cy="120" r="64" fill="#FFE600"/>
+  <text x="165" y="142" text-anchor="middle" font-size="60" font-weight="800" fill="#1A1A1A">2</text>
+  <text x="165" y="240" text-anchor="middle" font-size="36" font-weight="800" fill="#1A1A1A">{{ITEM_2}}</text>
+  <text x="165" y="286" text-anchor="middle" font-size="28" fill="#6B7280">{{ITEM_2_DET}}</text>
+</g><g transform="translate(785,240)">
+  <rect x="0" y="0" width="330" height="330" rx="24" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="2"/>
+  <circle cx="165" cy="120" r="64" fill="#FFE600"/>
+  <text x="165" y="142" text-anchor="middle" font-size="60" font-weight="800" fill="#1A1A1A">3</text>
+  <text x="165" y="240" text-anchor="middle" font-size="36" font-weight="800" fill="#1A1A1A">{{ITEM_3}}</text>
+  <text x="165" y="286" text-anchor="middle" font-size="28" fill="#6B7280">{{ITEM_3_DET}}</text>
+</g><g transform="translate(85,640)">
+  <rect x="0" y="0" width="330" height="330" rx="24" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="2"/>
+  <circle cx="165" cy="120" r="64" fill="#FFE600"/>
+  <text x="165" y="142" text-anchor="middle" font-size="60" font-weight="800" fill="#1A1A1A">4</text>
+  <text x="165" y="240" text-anchor="middle" font-size="36" font-weight="800" fill="#1A1A1A">{{ITEM_4}}</text>
+  <text x="165" y="286" text-anchor="middle" font-size="28" fill="#6B7280">{{ITEM_4_DET}}</text>
+</g><g transform="translate(435,640)">
+  <rect x="0" y="0" width="330" height="330" rx="24" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="2"/>
+  <circle cx="165" cy="120" r="64" fill="#FFE600"/>
+  <text x="165" y="142" text-anchor="middle" font-size="60" font-weight="800" fill="#1A1A1A">5</text>
+  <text x="165" y="240" text-anchor="middle" font-size="36" font-weight="800" fill="#1A1A1A">{{ITEM_5}}</text>
+  <text x="165" y="286" text-anchor="middle" font-size="28" fill="#6B7280">{{ITEM_5_DET}}</text>
+</g><g transform="translate(785,640)">
+  <rect x="0" y="0" width="330" height="330" rx="24" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="2"/>
+  <circle cx="165" cy="120" r="64" fill="#FFE600"/>
+  <text x="165" y="142" text-anchor="middle" font-size="60" font-weight="800" fill="#1A1A1A">6</text>
+  <text x="165" y="240" text-anchor="middle" font-size="36" font-weight="800" fill="#1A1A1A">{{ITEM_6}}</text>
+  <text x="165" y="286" text-anchor="middle" font-size="28" fill="#6B7280">{{ITEM_6_DET}}</text>
+</g><text x="600" y="1168" text-anchor="middle" font-size="26" fill="#9CA3AF">{{MARCA}} · {{MODELO}}</text>
+</svg>
