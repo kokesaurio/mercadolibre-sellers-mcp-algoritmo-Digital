@@ -183,6 +183,39 @@ async function pruebas() {
     const escrituras = TOOLS.filter((t) => !t.readOnly).map((t) => t.name);
     if (escrituras.length !== 5) throw new Error('esperaba 5 herramientas de escritura, hay ' + escrituras.length);
   });
+  await caso('instalador: crea el config de Claude desde cero', async () => {
+    const dirCfg = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-cfg-'));
+    process.env.CLAUDE_CONFIG_DIR = dirCfg;
+    const { instalar, rutaConfig } = await import('../src/instalar.js');
+    await instalar({ appId: 'APP-X', appSecret: 'SEC-X' });
+    const cfg = JSON.parse(fs.readFileSync(rutaConfig(), 'utf8'));
+    const m = cfg.mcpServers.mercadolibre;
+    if (m.env.ML_APP_ID !== 'APP-X' || m.command !== 'npx' || !m.args[1].includes('mercadolibre-sellers-mcp')) throw new Error('config mal escrito');
+    fs.rmSync(dirCfg, { recursive: true, force: true }); delete process.env.CLAUDE_CONFIG_DIR;
+  });
+  await caso('instalador: respeta otros conectores existentes y hace backup', async () => {
+    const dirCfg = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-cfg-'));
+    process.env.CLAUDE_CONFIG_DIR = dirCfg;
+    const { instalar, rutaConfig } = await import('../src/instalar.js');
+    fs.writeFileSync(rutaConfig(), JSON.stringify({ mcpServers: { otro: { command: 'x' } }, tema: 'oscuro' }));
+    await instalar({ appId: 'APP-Y', appSecret: 'SEC-Y', soloLectura: true });
+    const cfg = JSON.parse(fs.readFileSync(rutaConfig(), 'utf8'));
+    if (!cfg.mcpServers.otro || cfg.tema !== 'oscuro') throw new Error('pisó la config existente');
+    if (cfg.mcpServers.mercadolibre.env.ML_SOLO_LECTURA !== '1') throw new Error('no aplicó solo-lectura');
+    if (!fs.readdirSync(dirCfg).some((f) => f.includes('.backup-'))) throw new Error('no hizo backup');
+    fs.rmSync(dirCfg, { recursive: true, force: true }); delete process.env.CLAUDE_CONFIG_DIR;
+  });
+  await caso('instalador por CLI: npx ... instalar con flags', async () => {
+    const dirCfg = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-cfg-'));
+    const hijo = spawn(process.execPath, ['src/stdio.js', 'instalar', '--app-id', 'APP-CLI', '--secret', 'SEC-CLI'], { env: { ...process.env, CLAUDE_CONFIG_DIR: dirCfg }, stdio: ['ignore', 'pipe', 'pipe'] });
+    let fin = '';
+    hijo.stdout.on('data', (d) => { fin += d; });
+    await new Promise((res) => hijo.on('exit', res));
+    const cfg = JSON.parse(fs.readFileSync(path.join(dirCfg, 'claude_desktop_config.json'), 'utf8'));
+    if (cfg.mcpServers.mercadolibre.env.ML_APP_ID !== 'APP-CLI') throw new Error('CLI no escribió el config');
+    if (!fin.includes('Conector instalado')) throw new Error('no mostró confirmación');
+    fs.rmSync(dirCfg, { recursive: true, force: true });
+  });
   await caso('modo stdio: initialize + tools/list', async () => {
     const hijo = spawn(process.execPath, ['src/stdio.js'], { env: { ...process.env } });
     let salida = '';

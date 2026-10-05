@@ -36,6 +36,40 @@ No hace falta saber programar. Necesitás: una cuenta de vendedor de MercadoLibr
 [Claude Desktop](https://claude.ai/download) y [Node.js LTS](https://nodejs.org)
 instalados (ambos gratis, se instalan con "siguiente, siguiente").
 
+### ⚡ Vía rápida A — Instalador automático (1 solo comando)
+
+Abrí una terminal (**Windows**: `Win + R` → escribí `cmd` → Enter · **Mac**: app Terminal) y pegá:
+
+```bash
+npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital instalar
+```
+
+El instalador te guía para crear tu app gratis de MercadoLibre, te pide el App
+ID y el Secret, y **configura Claude Desktop solo**: respeta los conectores que
+ya tengas, hace backup de tu configuración anterior y te deja a un reinicio de
+usarlo. (Si ya tenés las credenciales: agregá `--app-id TU_APP_ID --secret TU_SECRET`.)
+
+### ⚡ Vía rápida B — Que Claude lo instale por vos (Cowork / Claude Code)
+
+¿Usás Claude Cowork o Claude Code? Pegale este prompt tal cual y listo:
+
+```text
+Instalame el conector de MercadoLibre de Algoritmo Digital:
+1. Si todavía no tengo App ID y Secret, guiame a crearlos gratis en
+   https://developers.mercadolibre.com.ar (app nueva, URI de redirect EXACTA
+   https://kokesaurio.github.io/mercadolibre-sellers-mcp-algoritmo-Digital/conectar.html
+   y scopes read, write y offline_access) y pedímelos.
+2. Ejecutá: npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital instalar --app-id <MI_APP_ID> --secret <MI_SECRET>
+3. Verificá que claude_desktop_config.json quedó con el conector "mercadolibre"
+   y avisame que reinicie Claude Desktop.
+4. Después del reinicio te digo "conectá mi cuenta de MercadoLibre" y me guiás.
+Guía: https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital
+```
+
+### Vía manual paso a paso (con imágenes)
+
+¿Preferís hacerlo a mano o entender cada paso? Seguí la guía ilustrada:
+
 ### Paso 1 — Creá tu aplicación gratis en MercadoLibre
 
 Entrá a [developers.mercadolibre.com.ar](https://developers.mercadolibre.com.ar)
