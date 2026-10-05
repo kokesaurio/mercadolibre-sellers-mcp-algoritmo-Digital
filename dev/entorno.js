@@ -14,6 +14,12 @@ const PUERTO = Number(process.env.MOCK_PORT || 9990);
 let refrescosHechos = 0;
 let ultimoItemCreado = null;
 let versionRemota = '9.9.9';
+let itemMLA111 = { category_id: 'MLA1055', price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', condition: 'new', listing_type_id: 'gold_special', permalink: 'https://articulo.mercadolibre.com.ar/x', pictures: [{ secure_url: 'https://http2.mlstatic.com/f1.jpg' }], attributes: [{ id: 'BRAND', value_name: 'Genérica' }], shipping: { logistic_type: 'fulfillment', free_shipping: true } };
+let mercado = {
+  rival: [{ id: 'R1', title: 'Termo rival 1L', price: 39999, seller: { nickname: 'RIVAL' } }],
+  busqueda: [{ id: 'B1', title: 'Termo lider', price: 35000, seller: { nickname: 'LIDER' } }, { id: 'B2', title: 'Termo 2', price: 37000, seller: { nickname: 'OTRO' } }],
+  tendencias: [{ keyword: 'termo stanley' }, { keyword: 'mate imperial' }],
+};
 
 // ─────────────────────── API de MercadoLibre simulada ───────────────────────
 export function crearMockMeli() {
@@ -61,7 +67,7 @@ export function crearMockMeli() {
   app.get('/orders/101/shipments', auth, (_q, res) => res.json({ status: 'shipped', substatus: 'in_transit', tracking_number: 'TRK123', logistic_type: 'fulfillment' }));
   app.get('/users/:uid/items/search', auth, (_q, res) => res.json({ paging: { total: 2 }, results: ['MLA111', 'MLA222'] }));
   app.get('/items', auth, (req, res) => res.json(String(req.query.ids).split(',').map((id) => ({ code: 200, body: { id, title: 'Producto ' + id, price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', permalink: 'https://articulo.mercadolibre.com.ar/' + id, catalog_listing: id === 'MLA111' } }))));
-  app.get('/items/:id', auth, (req, res) => res.json({ id: req.params.id, title: 'Producto ' + req.params.id, category_id: 'MLA1055', price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', condition: 'new', listing_type_id: 'gold_special', permalink: 'https://articulo.mercadolibre.com.ar/x', pictures: [{ secure_url: 'https://http2.mlstatic.com/f1.jpg' }], attributes: [{ id: 'BRAND', value_name: 'Genérica' }], shipping: { logistic_type: 'fulfillment', free_shipping: true } }));
+  app.get('/items/:id', auth, (req, res) => res.json({ ...itemMLA111, id: req.params.id, title: 'Producto ' + req.params.id }));
   app.get('/items/:id/description', auth, (_q, res) => res.json({ plain_text: 'Descripción original del producto.' }));
   app.post('/items', auth, (req, res) => {
     ultimoItemCreado = req.body;
@@ -75,11 +81,15 @@ export function crearMockMeli() {
   app.get('/questions/search', auth, (_q, res) => res.json({ total: 1, questions: [{ id: 555, item_id: 'MLA111', text: '¿Tenés stock?' }] }));
   app.post('/answers', auth, (req, res) => req.body?.question_id ? res.json({ ok: true }) : res.status(400).json({ message: 'falta question_id' }));
   app.get('/sites/MLA/listing_prices', auth, (_q, res) => res.json([{ listing_type_id: 'gold_special', listing_type_name: 'Clásica', sale_fee_amount: 5900, sale_fee_details: { percentage_fee: 14, fixed_fee: 0 } }]));
-  app.get('/sites/MLA/search', auth, (req, res) => res.json({ paging: { total: 2 }, results: [{ title: 'Termo rival', price: 39999, currency_id: 'ARS', seller: { nickname: 'RIVAL' }, shipping: { free_shipping: true } }, { title: 'Termo caro', price: 52000, currency_id: 'ARS', seller: { nickname: 'OTRO' } }] }));
+  app.get('/sites/MLA/search', auth, (req, res) => {
+    if (req.query.nickname || req.query.seller_id) return res.json({ paging: { total: mercado.rival.length }, results: mercado.rival });
+    if (req.query.q === 'termo 1 litro') return res.json({ paging: { total: mercado.busqueda.length }, results: mercado.busqueda });
+    return res.json({ paging: { total: 2 }, results: [{ title: 'Termo rival', price: 39999, currency_id: 'ARS', seller: { nickname: 'RIVAL' }, shipping: { free_shipping: true } }, { title: 'Termo caro', price: 52000, currency_id: 'ARS', seller: { nickname: 'OTRO' } }] });
+  });
   app.get('/seller-promotions/users/777', auth, (_q, res) => res.json({ results: [{ id: 'P-HOT', name: 'Hot Sale', type: 'DEAL', status: 'candidate' }] }));
   app.get('/seller-promotions/promotions/P-HOT/items', auth, (_q, res) => res.json({ results: [{ id: 'MLA111', original_price: 42000, suggested_discounted_price: 37800, meli_percentage: 5 }] }));
   app.post('/seller-promotions/items/:id', auth, (req, res) => req.body?.promotion_id ? res.json({ ok: true }) : res.status(400).json({ message: 'falta promotion_id' }));
-  app.get('/trends/MLA', auth, (_q, res) => res.json([{ keyword: 'termo stanley' }, { keyword: 'mate imperial' }]));
+  app.get('/trends/MLA', auth, (_q, res) => res.json(mercado.tendencias));
   return app;
 }
 
@@ -185,6 +195,36 @@ async function pruebas() {
     crearServidor({ allowWrite: false }); // si registrara mal, tiraría; el conteo real se valida por stdio abajo
     const escrituras = TOOLS.filter((t) => !t.readOnly).map((t) => t.name);
     if (escrituras.length !== 5) throw new Error('esperaba 5 herramientas de escritura, hay ' + escrituras.length);
+  });
+  await caso('ml_vigilar agrega competidores y tendencias con primer registro', async () => {
+    contiene(await tool('ml_vigilar').run({ accion: 'agregar', tipo: 'vendedor', ref: 'RIVAL', nota: 'mi competidor directo' }), 'Agregado', 'RIVAL');
+    contiene(await tool('ml_vigilar').run({ accion: 'agregar', tipo: 'publicacion', ref: 'MLA111' }), 'Agregado');
+    contiene(await tool('ml_vigilar').run({ accion: 'agregar', tipo: 'busqueda', ref: 'termo 1 litro' }), 'Agregado');
+    contiene(await tool('ml_vigilar').run({ accion: 'agregar', tipo: 'tendencias' }), 'Agregado');
+    contiene(await tool('ml_vigilar').run({ accion: 'agregar', tipo: 'vendedor', ref: 'RIVAL' }), 'Ya estaba');
+    contiene(await tool('ml_vigilar').run({ accion: 'listar' }), 'RIVAL', 'termo 1 litro', 'mi competidor directo');
+  });
+  await caso('ml_novedades_competencia: sin cambios no inventa nada', async () => {
+    contiene(await tool('ml_novedades_competencia').run({}), 'Sin novedades');
+  });
+  await caso('ml_novedades_competencia detecta precios, publicaciones nuevas, ventas, líder y tendencias', async () => {
+    mercado.rival = [
+      { id: 'R1', title: 'Termo rival 1L', price: 35999, seller: { nickname: 'RIVAL' } },
+      { id: 'R2', title: 'Termo rival 2L NUEVO', price: 49999, seller: { nickname: 'RIVAL' } },
+    ];
+    mercado.busqueda = [{ id: 'B9', title: 'Termo nuevo lider', price: 33000, seller: { nickname: 'USURPADOR' } }, ...mercado.busqueda];
+    mercado.tendencias = [{ keyword: 'termo milan' }, { keyword: 'termo stanley' }];
+    itemMLA111.sold_quantity = 58; itemMLA111.price = 39900;
+    const t = await tool('ml_novedades_competencia').run({});
+    contiene(t, '↓ 10.0%', 'publicó 1 nueva', 'Termo rival 2L NUEVO');     // vendedor
+    contiene(t, 'vendió ~3', '39.900');                                      // publicación (ventas estimadas + precio)
+    contiene(t, 'nuevo líder', 'USURPADOR');                                 // búsqueda
+    contiene(t, 'entraron al top', 'termo milan', 'salieron del top', 'mate imperial'); // tendencias
+  });
+  await caso('ml_vigilar quitar limpia objetivo y snapshot', async () => {
+    contiene(await tool('ml_vigilar').run({ accion: 'quitar', ref: 'RIVAL' }), 'Quitado');
+    const lista = await tool('ml_vigilar').run({ accion: 'listar' });
+    if (lista.includes('RIVAL')) throw new Error('sigue en la lista');
   });
   await caso('ml_version detecta que hay una versión nueva', async () => {
     const t = await tool('ml_version').run({});

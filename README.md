@@ -6,7 +6,7 @@ Conectá tu cuenta de MercadoLibre a Claude y preguntale en lenguaje natural:
 *"¿cómo vienen las ventas?"*, *"¿qué preguntas tengo sin responder?"*, *"¿estoy
 ganando el catálogo?"*, *"¿qué promociones me está ofreciendo MercadoLibre?"*.
 
-**18 herramientas · multicuenta (varias tiendas, con consolidado) · sin servidor propio · tokens guardados solo en tu computadora
+**20 herramientas · multicuenta (varias tiendas, con consolidado) · sin servidor propio · tokens guardados solo en tu computadora
 · hecho por [Algoritmo Digital](https://algoritmodigital.com.ar), consultora
 especializada en MercadoLibre.**
 
@@ -158,7 +158,7 @@ responder?"*, *"¿estoy ganando el catálogo?"*.
 
 ¿Seguís trabado? [Escribinos por WhatsApp](https://wa.me/5491177166060?text=Hola!%20Vengo%20del%20conector%20MCP%20de%20MercadoLibre%20(instalaci%C3%B3n)...) y te ayudamos.
 
-## Herramientas (18)
+## Herramientas (20)
 
 | Herramienta | Qué hace |
 | --- | --- |
@@ -177,14 +177,15 @@ responder?"*, *"¿estoy ganando el catálogo?"*.
 | ml_reputacion | Color, reclamos, demoras y cancelaciones |
 | ml_promociones / ml_aceptar_promocion ✏️ | Promociones ofrecidas y aceptación por ítem |
 | ml_tendencias | Qué está buscando la gente en ML |
+| ml_vigilar / ml_novedades_competencia | Lista de seguimiento de competidores, publicaciones, búsquedas y trends — y el control que reporta solo lo que cambió: precios, publicaciones nuevas, ventas estimadas del rival, cambios de líder y keywords en alza |
 | ml_version | Versión instalada, chequeo de actualizaciones y cómo actualizar |
 
 ✏️ = escribe en tu tienda real. Claude siempre pide confirmación antes, y con
 `ML_SOLO_LECTURA=1` esas herramientas directamente no existen.
 
-## Skills incluidas (7)
+## Skills incluidas (8)
 
-En [`skills/`](skills/) vienen 7 skills fijas para Claude (Configuración →
+En [`skills/`](skills/) vienen 8 skills fijas para Claude (Configuración →
 Capacidades → Skills → subir la carpeta) que convierten las herramientas en
 flujos de trabajo completos:
 
@@ -195,6 +196,7 @@ flujos de trabajo completos:
 | [mejorar-publicaciones-ml](skills/mejorar-publicaciones-ml/) | Diagnóstico con datos → priorización → propuestas de título/precio/stock → aplica solo con confirmación por ítem |
 | [copiar-publicaciones-ml](skills/copiar-publicaciones-ml/) | Duplica publicaciones entre tus tiendas (multicuenta) o crea nuevas tomando otra de referencia — con la regla legal clara: lo ajeno se redacta, no se clona |
 | [revisar-publicaciones-aldi](skills/revisar-publicaciones-aldi/) | Auditoría externa con [Aldi 2.0](https://chatgpt.com/g/g-698f16e0eebc819182455494732d40a0-aldi-2-0-mercado-libre-algoritmo-digital), el GPT revisor de Algoritmo Digital en ChatGPT: arma el paquete de revisión, procesa el veredicto y aplica los cambios confirmados |
+| [vigilancia-ml](skills/vigilancia-ml/) | Seguimiento continuo: armá la lista de competidores/búsquedas/trends y corré el control semanal que detecta precios movidos, publicaciones nuevas, ventas estimadas del rival y keywords en alza |
 | [competencia-ml](skills/competencia-ml/) | Semáforo de precios contra la competencia, buy box del catálogo y recomendaciones validadas por margen |
 | [publicidad-ml](skills/publicidad-ml/) | Product Ads con regla ACOS vs margen, y promociones separando el aporte del vendedor del de MercadoLibre |
 

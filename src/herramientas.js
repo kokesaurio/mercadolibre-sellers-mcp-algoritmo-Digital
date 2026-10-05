@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { MeliClient, MeliError, listarCuentas, urlDeAutorizacion, canjearCode, borrarCuenta, fijarPredeterminada } from './meli.js';
 import { VERSION, chequearActualizacion } from './version.js';
+import { leerVigilancia, agregarObjetivo, quitarObjetivo, claveDe, tomarSnapshot, compararSnapshots, guardarVigilancia } from './vigilancia.js';
 
 const money = (n, moneda = '$') => n == null ? '—' : `${moneda} ${Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
 const cliente = (args) => new MeliClient({ userId: args?.cuenta });
@@ -343,6 +344,71 @@ export const TOOLS = [
     },
   },
 
+  // ───────────────────── Vigilancia de competencia ─────────────────────
+  {
+    name: 'ml_vigilar', title: 'Lista de seguimiento', readOnly: true,
+    description: 'Administra la lista de seguimiento de competencia y tendencias (se guarda local). Tipos: vendedor (nickname o id de un competidor), publicacion (item_id ajeno o propio), busqueda (keyword para vigilar su top 10) y tendencias (sitio o categoría). Acciones: listar, agregar, quitar.',
+    schema: { ...cuentaParam,
+      accion: z.enum(['listar', 'agregar', 'quitar']).describe('Qué hacer'),
+      tipo: z.enum(['vendedor', 'publicacion', 'busqueda', 'tendencias']).optional(),
+      ref: z.string().optional().describe('Nickname/id del vendedor, item_id, keyword, o categoría para tendencias'),
+      nota: z.string().optional().describe('Recordatorio de por qué se vigila') },
+    async run(args) {
+      if (args.accion === 'listar') {
+        const d = leerVigilancia();
+        if (!d.objetivos.length) return 'La lista de seguimiento está vacía. Agregá competidores con ml_vigilar accion=agregar (ej: tipo=vendedor ref=NICK_RIVAL).';
+        return '## Lista de seguimiento (' + d.objetivos.length + ')\n' + d.objetivos.map((o) => `- **${o.tipo}**: ${o.ref}${o.nota ? ' — ' + o.nota : ''} (desde ${o.agregado})`).join('\n') + '\n\nCorré ml_novedades_competencia para ver qué cambió.';
+      }
+      if (args.accion === 'quitar') {
+        if (!args.ref) return 'Indicá ref (lo que aparece en la lista) para quitar.';
+        const n = quitarObjetivo(args.ref);
+        return n ? `Quitado del seguimiento (${n}).` : `No encontré "${args.ref}" en la lista.`;
+      }
+      if (!args.tipo || (!args.ref && args.tipo !== 'tendencias')) return 'Para agregar indicá tipo y ref (en tendencias, ref puede ser una categoría o quedar vacío para el sitio entero).';
+      const c = cliente(args);
+      const sitio = (await c.get('/users/me')).site_id || 'MLA';
+      const o = { tipo: args.tipo, ref: args.ref || sitio, nota: args.nota, sitio };
+      const r = agregarObjetivo(o);
+      if (r.ya) return 'Ya estaba en la lista de seguimiento.';
+      try {
+        const d = leerVigilancia();
+        d.snapshots[claveDe(r.objetivo)] = { t: Date.now(), datos: await tomarSnapshot(c, r.objetivo, sitio) };
+        guardarVigilancia(d);
+      } catch {}
+      return `✅ Agregado al seguimiento: ${o.tipo} **${o.ref}**. Primer registro guardado — corré ml_novedades_competencia en unos días y te digo exactamente qué cambió.`;
+    },
+  },
+  {
+    name: 'ml_novedades_competencia', title: 'Novedades de competencia y tendencias', readOnly: true,
+    description: 'Recorre toda la lista de seguimiento y reporta SOLO lo que cambió desde la última corrida: precios que subieron/bajaron, publicaciones nuevas o dadas de baja, ventas estimadas de competidores, cambios de líder en búsquedas y keywords que entraron/salieron de tendencias. Ideal como rutina semanal.',
+    schema: { ...cuentaParam },
+    async run(args) {
+      const c = cliente(args);
+      const sitio = (await c.get('/users/me')).site_id || 'MLA';
+      const d = leerVigilancia();
+      if (!d.objetivos.length) return 'La lista de seguimiento está vacía: agregá objetivos con ml_vigilar.';
+      const secciones = []; let sinCambios = 0, primeros = 0;
+      for (const o of d.objetivos) {
+        const clave = claveDe(o);
+        let nuevo;
+        try { nuevo = { t: Date.now(), datos: await tomarSnapshot(c, o, o.sitio || sitio) }; }
+        catch (e) { secciones.push(`### ${o.tipo}: ${o.ref}\n- ⚠️ no se pudo consultar (${e.message})`); continue; }
+        const viejo = d.snapshots[clave];
+        if (!viejo) { primeros++; d.snapshots[clave] = nuevo; continue; }
+        const cambios = compararSnapshots(o, viejo.datos, nuevo.datos);
+        const dias = Math.max(1, Math.round((nuevo.t - viejo.t) / 86400000));
+        if (cambios.length) secciones.push(`### ${o.tipo}: ${o.ref}${o.nota ? ' (' + o.nota + ')' : ''} — últimos ${dias} día(s)\n` + cambios.map((x) => '- ' + x).join('\n'));
+        else sinCambios++;
+        d.snapshots[clave] = nuevo;
+      }
+      guardarVigilancia(d);
+      const pie = [];
+      if (sinCambios) pie.push(`${sinCambios} objetivo(s) sin cambios`);
+      if (primeros) pie.push(`${primeros} con primer registro recién guardado`);
+      if (!secciones.length) return `Sin novedades en la competencia. ${pie.join(' · ')}.`;
+      return '# Novedades de competencia y tendencias\n\n' + secciones.join('\n\n') + (pie.length ? `\n\n_${pie.join(' · ')}._` : '');
+    },
+  },
   // ───────────────────────────── Tendencias ─────────────────────────────
   {
     name: 'ml_tendencias', title: 'Tendencias de búsqueda', readOnly: true,
