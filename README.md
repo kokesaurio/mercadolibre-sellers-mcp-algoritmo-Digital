@@ -192,9 +192,9 @@ publicaciones en tarjetas con foto, precio, stock y semáforo de la auditoría �
 tocás las que querés mejorar y te genera el pedido listo para pegarle a Claude.
 La skill visualizador-publicaciones-ml lo llena con tus datos reales.
 
-## Skills incluidas (11)
+## Skills incluidas (12)
 
-En [`skills/`](skills/) — con [índice propio y rutina sugerida](skills/README.md) — vienen 11 skills fijas para Claude (Configuración →
+En [`skills/`](skills/) — con [índice propio y rutina sugerida](skills/README.md) — vienen 12 skills fijas para Claude (Configuración →
 Capacidades → Skills → subir la carpeta) que convierten las herramientas en
 flujos de trabajo completos:
 
@@ -209,6 +209,7 @@ flujos de trabajo completos:
 | [copiar-publicaciones-ml](skills/copiar-publicaciones-ml/) | Duplica publicaciones entre tus tiendas (multicuenta) o crea nuevas tomando otra de referencia — con la regla legal clara: lo ajeno se redacta, no se clona |
 | [revisar-publicaciones-aldi](skills/revisar-publicaciones-aldi/) | Auditoría externa con [Aldi 2.0](https://chatgpt.com/g/g-698f16e0eebc819182455494732d40a0-aldi-2-0-mercado-libre-algoritmo-digital), el GPT revisor de Algoritmo Digital en ChatGPT: arma el paquete de revisión, procesa el veredicto y aplica los cambios confirmados |
 | [vigilancia-ml](skills/vigilancia-ml/) | Seguimiento continuo: armá la lista de competidores/búsquedas/trends y corré el control semanal que detecta precios movidos, publicaciones nuevas, ventas estimadas del rival y keywords en alza |
+| [video-publicaciones-ml](skills/video-publicaciones-ml/) | Videos del producto con HyperFrames desde los datos y fotos reales de la publicación: Reels/ads 9:16 o clip para la publicación, guion por escenas calcado del orden de fotos |
 | [competencia-ml](skills/competencia-ml/) | Semáforo de precios contra la competencia, buy box del catálogo y recomendaciones validadas por margen |
 | [publicidad-ml](skills/publicidad-ml/) | Product Ads con regla ACOS vs margen, y promociones separando el aporte del vendedor del de MercadoLibre |
 
