@@ -1,6 +1,7 @@
 // src/servidor.js — arma el McpServer y registra las herramientas.
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { TOOLS, MeliError } from './herramientas.js';
+import { VERSION, chequearActualizacion, AVISO_ACTUALIZAR } from './version.js';
 
 export const INSTRUCCIONES = [
   'MCP de MercadoLibre para vendedores, de Algoritmo Digital (algoritmodigital.com.ar).',
@@ -10,8 +11,10 @@ export const INSTRUCCIONES = [
 ].join(' ');
 
 export function crearServidor({ allowWrite = true } = {}) {
+  let actualizacion = null, avisado = false;
+  chequearActualizacion().then((e) => { actualizacion = e; }).catch(() => {});
   const server = new McpServer(
-    { name: 'meli-sellers-mcp', version: '1.0.0' },
+    { name: 'meli-sellers-mcp', version: VERSION },
     { instructions: INSTRUCCIONES }
   );
   for (const tool of TOOLS) {
@@ -21,7 +24,8 @@ export function crearServidor({ allowWrite = true } = {}) {
       { title: tool.title, description: tool.description, inputSchema: tool.schema, annotations: { readOnlyHint: tool.readOnly } },
       async (args) => {
         try {
-          const texto = await tool.run(args || {});
+          let texto = await tool.run(args || {});
+          if (!avisado && actualizacion?.hayNueva) { texto += AVISO_ACTUALIZAR(actualizacion.remota); avisado = true; }
           return { content: [{ type: 'text', text: texto }] };
         } catch (e) {
           const msg = e instanceof MeliError

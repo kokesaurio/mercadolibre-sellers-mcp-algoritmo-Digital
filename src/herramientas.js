@@ -1,6 +1,7 @@
 // src/herramientas.js — Herramientas MCP para vendedores, contra la API oficial de ML.
 import { z } from 'zod';
 import { MeliClient, MeliError, listarCuentas, urlDeAutorizacion, canjearCode, borrarCuenta, fijarPredeterminada } from './meli.js';
+import { VERSION, chequearActualizacion } from './version.js';
 
 const money = (n, moneda = '$') => n == null ? '—' : `${moneda} ${Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
 const cliente = (args) => new MeliClient({ userId: args?.cuenta });
@@ -45,6 +46,20 @@ export const TOOLS = [
     async run(args) { return borrarCuenta(args.cuenta) ? `Cuenta ${args.cuenta} desconectada y tokens borrados.` : `La cuenta ${args.cuenta} no estaba conectada.`; },
   },
 
+  {
+    name: 'ml_version', title: 'Versión del conector', readOnly: true,
+    description: 'Muestra la versión instalada del conector, chequea si hay una actualización publicada y explica cómo actualizar.',
+    schema: {},
+    async run() {
+      const e = await chequearActualizacion({ forzar: true });
+      if (!e.remota) return `Conector de MercadoLibre de Algoritmo Digital — versión instalada: **v${VERSION}**. No pude consultar si hay una versión nueva (sin conexión a GitHub): reintentá más tarde.`;
+      if (!e.hayNueva) return `Conector de MercadoLibre de Algoritmo Digital — versión instalada: **v${VERSION}** ✅ (es la última publicada).`;
+      return [`Conector de MercadoLibre de Algoritmo Digital`,
+        `- Instalada: v${VERSION} · **Última publicada: v${e.remota}** 📦`,
+        `- Para actualizar: cerrá Claude, corré en la terminal \`npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital actualizar\` y volvé a abrir Claude.`,
+        `- Novedades: https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital/commits/main`].join('\n');
+    },
+  },
   // ──────────────────────── Ventas y métricas ────────────────────────
   {
     name: 'ml_ordenes', title: 'Órdenes de venta', readOnly: true,

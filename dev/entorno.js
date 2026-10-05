@@ -13,6 +13,7 @@ import path from 'node:path';
 const PUERTO = Number(process.env.MOCK_PORT || 9990);
 let refrescosHechos = 0;
 let ultimoItemCreado = null;
+let versionRemota = '9.9.9';
 
 // ─────────────────────── API de MercadoLibre simulada ───────────────────────
 export function crearMockMeli() {
@@ -27,6 +28,7 @@ export function crearMockMeli() {
     next();
   };
 
+  app.get('/pkg-remoto', (_q, res) => res.json({ name: 'x', version: versionRemota }));
   app.post('/oauth/token', (req, res) => {
     const b = req.body || {};
     if (b.grant_type === 'authorization_code') {
@@ -90,6 +92,7 @@ async function pruebas() {
   process.env.ML_APP_ID = 'APP-TEST';
   process.env.ML_APP_SECRET = 'SECRET-TEST';
   process.env.ML_REDIRECT_URI = 'https://ejemplo.test/conectar.html';
+  process.env.ML_UPDATE_URL = `http://localhost:${PUERTO}/pkg-remoto`;
 
   const { TOOLS } = await import('../src/herramientas.js');
   const meli = await import('../src/meli.js');
@@ -182,6 +185,44 @@ async function pruebas() {
     crearServidor({ allowWrite: false }); // si registrara mal, tiraría; el conteo real se valida por stdio abajo
     const escrituras = TOOLS.filter((t) => !t.readOnly).map((t) => t.name);
     if (escrituras.length !== 5) throw new Error('esperaba 5 herramientas de escritura, hay ' + escrituras.length);
+  });
+  await caso('ml_version detecta que hay una versión nueva', async () => {
+    const t = await tool('ml_version').run({});
+    contiene(t, '9.9.9', 'actualizar');
+  });
+  await caso('ml_version al día cuando la remota no es mayor', async () => {
+    versionRemota = '0.0.1';
+    contiene(await tool('ml_version').run({}), 'es la última publicada');
+    versionRemota = '9.9.9';
+  });
+  await caso('aviso automático de actualización en la primera respuesta (1 sola vez)', async () => {
+    fs.rmSync(path.join(dirTemp, 'version-check.json'), { force: true });
+    const hijo = spawn(process.execPath, ['src/stdio.js'], { env: { ...process.env } });
+    let salida = '';
+    hijo.stdout.on('data', (d) => { salida += d; });
+    const enviar = (m) => hijo.stdin.write(JSON.stringify(m) + '\n');
+    enviar({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } } });
+    enviar({ jsonrpc: '2.0', method: 'notifications/initialized' });
+    await esperar(900); // dejar terminar el chequeo de versión en background
+    enviar({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'ml_tendencias', arguments: {} } });
+    for (let i = 0; i < 40 && !salida.includes('"id":2'); i++) await esperar(200);
+    enviar({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'ml_tendencias', arguments: {} } });
+    for (let i = 0; i < 40 && !salida.includes('"id":3'); i++) await esperar(200);
+    hijo.kill();
+    const texto = (id) => JSON.parse(salida.split('\n').find((l) => l.includes('"id":' + id)) || '{}').result?.content?.[0]?.text || '';
+    contiene(texto(2), '📦', '9.9.9');
+    if (texto(3).includes('📦')) throw new Error('avisó dos veces en la misma sesión');
+  });
+  await caso('comando actualizar limpia la caché de npx', async () => {
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'npmcache-'));
+    fs.mkdirSync(path.join(cacheDir, '_npx', 'abc'), { recursive: true });
+    const hijo = spawn(process.execPath, ['src/stdio.js', 'actualizar'], { env: { ...process.env, npm_config_cache: cacheDir } });
+    let fin = '';
+    hijo.stdout.on('data', (d) => { fin += d; });
+    await new Promise((res) => hijo.on('exit', res));
+    if (fs.existsSync(path.join(cacheDir, '_npx'))) throw new Error('no borró la caché _npx');
+    contiene(fin, 'Reiniciá Claude');
+    fs.rmSync(cacheDir, { recursive: true, force: true });
   });
   await caso('instalador: crea el config de Claude desde cero', async () => {
     const dirCfg = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-cfg-'));

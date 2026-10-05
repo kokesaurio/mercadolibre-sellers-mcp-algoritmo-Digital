@@ -6,7 +6,7 @@ Conectá tu cuenta de MercadoLibre a Claude y preguntale en lenguaje natural:
 *"¿cómo vienen las ventas?"*, *"¿qué preguntas tengo sin responder?"*, *"¿estoy
 ganando el catálogo?"*, *"¿qué promociones me está ofreciendo MercadoLibre?"*.
 
-**17 herramientas · multicuenta (varias tiendas, con consolidado) · sin servidor propio · tokens guardados solo en tu computadora
+**18 herramientas · multicuenta (varias tiendas, con consolidado) · sin servidor propio · tokens guardados solo en tu computadora
 · hecho por [Algoritmo Digital](https://algoritmodigital.com.ar), consultora
 especializada en MercadoLibre.**
 
@@ -158,7 +158,7 @@ responder?"*, *"¿estoy ganando el catálogo?"*.
 
 ¿Seguís trabado? [Escribinos por WhatsApp](https://wa.me/5491177166060?text=Hola!%20Vengo%20del%20conector%20MCP%20de%20MercadoLibre%20(instalaci%C3%B3n)...) y te ayudamos.
 
-## Herramientas (17)
+## Herramientas (18)
 
 | Herramienta | Qué hace |
 | --- | --- |
@@ -177,6 +177,7 @@ responder?"*, *"¿estoy ganando el catálogo?"*.
 | ml_reputacion | Color, reclamos, demoras y cancelaciones |
 | ml_promociones / ml_aceptar_promocion ✏️ | Promociones ofrecidas y aceptación por ítem |
 | ml_tendencias | Qué está buscando la gente en ML |
+| ml_version | Versión instalada, chequeo de actualizaciones y cómo actualizar |
 
 ✏️ = escribe en tu tienda real. Claude siempre pide confirmación antes, y con
 `ML_SOLO_LECTURA=1` esas herramientas directamente no existen.
@@ -205,6 +206,19 @@ Corré `ml_conectar` una vez por cada cuenta. Todas las herramientas aceptan
 predeterminada el conector pide elegir en vez de adivinar — nunca opera en la
 tienda equivocada. *"¿Cómo vienen las ventas de todas las tiendas?"* usa el
 consolidado.
+
+## Actualizaciones
+
+El conector se chequea solo contra GitHub (una vez por día, sin enviar ningún
+dato): cuando publicamos una mejora, **la primera respuesta de tu sesión te
+avisa** que hay versión nueva. También podés preguntarle a Claude *"¿qué versión
+del conector tengo?"* (`ml_version`). Para actualizar:
+
+```bash
+npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital actualizar
+```
+
+…y reiniciá Claude: al arrancar baja la última versión automáticamente.
 
 ## Seguridad
 
