@@ -1,39 +1,66 @@
 ---
 name: imagenes-ml
-description: Generar imágenes de venta profesionales para publicaciones de MercadoLibre cumpliendo sus reglas — infografía de medidas con flechas de cota, beneficios/características con tildes, "qué incluye el paquete" y checklist de la imagen principal. Usar cuando pidan "armame las imágenes de la publicación", "infografía de medidas", "mejorá las fotos" o "imágenes para MercadoLibre".
+description: Generar el set completo de imágenes de venta para publicaciones de MercadoLibre con el método de Algoritmo Digital — desde la foto 2 (la portada la hace el vendedor), orden de publicación definido, solo datos confirmados, formato cuadrado, y las reglas de imágenes de ML. Usar cuando pidan "armame las imágenes de la publicación", "fotos para MercadoLibre", "infografía de medidas" o mejorar las imágenes de un producto.
 ---
 
-# Imágenes de venta para MercadoLibre
+# Imágenes de venta para MercadoLibre — método Algoritmo Digital
 
-## Qué genera
-Imágenes secundarias 1200×1200 listas para subir, desde las plantillas SVG del
-repo (`plantillas/`): **medidas** (flechas de cota + capacidad/peso),
-**características** (4 beneficios con tilde) e **incluye** (contenido del
-paquete). Además audita la imagen principal contra las reglas de ML.
+## El método (seguir SIEMPRE estos 7 pasos, en orden)
 
-## Flujo
-1. Juntar los datos reales: si hay conector `ml_*`, traer la publicación con
-   `ml_publicacion` (título, atributos); pedir al usuario las medidas exactas
-   y la foto del producto (PNG/JPG, idealmente fondo transparente o blanco).
-2. Elegir con el usuario cuáles de las 3 imágenes generar (recomendar las 3:
-   medidas + características + incluye es el combo que más consultas evita).
-3. Tomar la plantilla de `plantillas/`, reemplazar los `{{CAMPOS}}` con los
-   datos reales y, si hay foto, reemplazar el grupo `<g id="producto">` por
-   `<image href="data:...base64..." x y width height/>` manteniendo la
-   composición (producto grande, aire alrededor).
-4. Renderizar a PNG 1200×1200 (cairosvg) y entregar los archivos.
-5. Pasar el checklist de reglas ANTES de entregar:
-   - ¿Sin datos de contacto, QR, redes, links? (prohibido SIEMPRE)
-   - ¿Sin "OFERTA", "envío gratis", precios ni promesas? (penaliza)
-   - ¿Texto legible en miniatura de celular? (mínimo ~28px a 1200px)
-   - ¿La principal del usuario cumple? (fondo blanco puro, solo producto,
-     sin texto ni logos) — si no, marcarlo como lo primero a arreglar.
-6. Recordar: estas imágenes van de la posición 2 en adelante; en publicaciones
-   de catálogo las fotos las define MercadoLibre.
+### 1. Reviso el producto y sus referencias
+Las fotos que pasa el vendedor MANDAN: respetar forma, color, proporciones,
+botones y accesorios exactos. Las referencias de Amazon, Alibaba o MercadoLibre
+sirven solo para ideas de presentación, y únicamente si corresponden al MISMO
+modelo. Si hay conector `ml_*`, traer título y atributos con `ml_publicacion`.
 
-## Reglas
-- Nunca inventar medidas, materiales ni certificaciones: todo dato sale del
-  usuario o de la publicación. Si falta un dato, preguntarlo, no rellenarlo.
+### 2. Separo los datos confirmados
+Revisar medidas, funciones, materiales y contenido. Lo que falte se le marca al
+vendedor y se pregunta. NUNCA inventar autonomía, potencia, compatibilidad ni
+accesorios: dato no confirmado = dato que no va en la imagen.
+
+### 3. Defino cuántas imágenes necesita
+La cantidad depende del producto y del pedido. No son siempre nueve: cada
+imagen tiene que explicar algo distinto — nada de rellenar con fotos repetidas.
+
+### 4. Organizo el orden de publicación
+La portada (foto 1) la hace el vendedor: el trabajo arranca SIEMPRE en la
+foto 2. Orden base (si el vendedor pasa un orden específico, se sigue ese):
+
+| Foto | Qué comunica |
+| --- | --- |
+| 2 | Beneficio principal |
+| 3 | Producto en uso |
+| 4 | Características o diferencial |
+| 5 | Medidas y compatibilidad |
+| 6 | Qué incluye |
+| 7 | Segundo beneficio o funcionamiento |
+| 8 | Detalles importantes |
+| 9–10 | Otro uso o cierre, solo cuando aporte |
+
+### 5. Diseño cada pieza por separado
+Formato cuadrado (1200×1200), producto protagonista y composiciones variadas:
+uso real, primeros planos, contenido del paquete o explicación de funciones.
+Para medidas/características/incluye están las plantillas SVG del repo
+(`plantillas/`: medidas.svg, caracteristicas.svg, incluye.svg) — reemplazar los
+`{{CAMPOS}}` y el grupo `<g id="producto">` por la foto real.
+
+### 6. Genero y reviso
+Si el entorno tiene generación de imágenes, usarla con las fotos del vendedor
+como referencia; si no, plantillas + fotos reales. ANTES de entregar, revisar
+una por una: ortografía, cantidades, parecido con el modelo real, conexiones y
+coherencia entre lo que dice el texto y lo que muestra la imagen. Corregir lo
+detectado y volver a revisar.
+
+### 7. Entrego agrupadas y numeradas
+Primero todas las de un producto en su orden (foto-2, foto-3, …); después las
+del siguiente. Separadas, sin portada y sin mezclar productos.
+
+## Reglas de MercadoLibre (se chequean en el paso 6)
+- PROHIBIDO siempre: teléfonos, mails, redes, links, QR o cualquier dato de contacto.
+- Nada de "OFERTA", "el mejor precio", "envío gratis" ni precios: penaliza.
+- Texto grande y de alto contraste: legible en la miniatura del celular.
+- La portada del vendedor debe ser fondo blanco puro, solo el producto, sin
+  texto ni logos — si no cumple, marcárselo como lo primero a arreglar.
+- En publicaciones de catálogo las fotos las define MercadoLibre: esto aplica a
+  publicaciones propias.
 - No usar fotos ni textos de publicaciones ajenas (infracción + suspensión).
-- Mantener la estética de las plantillas: fondo blanco, un acento de color,
-  tipografía grande — nada de collages recargados.
