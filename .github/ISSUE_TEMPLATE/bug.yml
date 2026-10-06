@@ -1,0 +1,26 @@
+name: "🐞 Reportar un error"
+description: Algo no funciona como debería
+labels: [bug]
+body:
+  - type: textarea
+    id: que-paso
+    attributes:
+      label: Qué pasó
+      description: Qué le pediste a Claude y qué respondió el conector.
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes:
+      label: Versión del conector
+      description: Preguntale a Claude "¿qué versión del conector tengo?"
+    validations: { required: true }
+  - type: dropdown
+    id: entorno
+    attributes:
+      label: Dónde lo usás
+      options: ["Claude Desktop (Windows)", "Claude Desktop (Mac)", "Claude Code", "Otro"]
+    validations: { required: true }
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Cómo reproducirlo

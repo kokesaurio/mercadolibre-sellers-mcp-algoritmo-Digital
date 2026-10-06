@@ -1,5 +1,10 @@
 # MCP de MercadoLibre para vendedores — conectá tu tienda a Claude sin servidor
 
+[![pruebas](https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital/actions/workflows/pruebas.yml/badge.svg)](https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital/actions)
+[![versión](https://img.shields.io/github/package-json/v/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital?label=versi%C3%B3n&color=3483FA)](CHANGELOG.md)
+[![licencia](https://img.shields.io/badge/licencia-MIT-green)](LICENSE)
+[![estrellas](https://img.shields.io/github/stars/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital?style=social)](https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital/stargazers)
+
 **Palabras clave:** MCP MercadoLibre · MercadoLibre Claude · conectar MercadoLibre a Claude · API MercadoLibre IA · Model Context Protocol MercadoLibre · vendedores MercadoLibre · automatizar MercadoLibre con IA
 
 Conectá tu cuenta de MercadoLibre a Claude y preguntale en lenguaje natural:

@@ -1,0 +1,14 @@
+name: "💡 Pedir una funcionalidad"
+description: Una herramienta, skill o mejora que te gustaría
+labels: [mejora]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Qué necesitás
+      description: Contá el problema de vendedor que resolvería (mejor que la solución técnica).
+    validations: { required: true }
+  - type: textarea
+    id: hoy
+    attributes:
+      label: Cómo lo resolvés hoy
