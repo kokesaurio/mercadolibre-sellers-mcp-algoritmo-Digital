@@ -1,4 +1,4 @@
-# Guía de uso — las 16 skills del conector
+# Guía de uso — las 17 skills del conector
 
 Skills listas para Claude que convierten el [conector de MercadoLibre de
 Algoritmo Digital](../README.md) en flujos de trabajo completos. **Cómo
@@ -73,9 +73,14 @@ skill**. Claude las usa solo cuando corresponde.
 **Pedilo así:** "¿cómo estoy contra la competencia?" · "¿gano el catálogo?"
 **Qué hace:** semáforo de precios contra el mercado, buy box del catálogo y recomendaciones validadas por margen (nunca sugiere un precio que te deje en negativo).
 
+### 💰 [calculadora-ml](calculadora-ml/) — cuánto ganás de verdad
+**Pedilo así:** "¿cuánto gano con este producto?" · "calculame la rentabilidad de MLA..." · "¿me conviene este precio?"
+**Qué hace:** te pregunta precio (o lo trae de la publicación), costo e impuestos — y suma sola la comisión real de ML y la publicidad que estás gastando EN VIVO. Entrega el desglose peso por peso, la ganancia neta con semáforo, el margen y el ACOS máximo que aguanta el producto.
+**Ojo:** costo e impuestos los ponés vos — nunca los inventa.
+
 ### 📣 [publicidad-ml](publicidad-ml/) — ads y promociones
 **Pedilo así:** "revisemos la publicidad" · "¿qué promociones me ofrece ML?"
-**Qué hace:** Product Ads con la regla ACOS vs margen, y promociones separando tu aporte del de MercadoLibre, con aceptación por ítem confirmada.
+**Qué hace:** Product Ads con la regla ACOS vs margen (métricas en vivo con ml_publicidad), y promociones separando tu aporte del de MercadoLibre, con aceptación por ítem confirmada.
 
 ## Rutina sugerida
 

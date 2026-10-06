@@ -95,6 +95,12 @@ export function crearMockMeli() {
   app.get('/seller-promotions/promotions/P-HOT/items', auth, (_q, res) => res.json({ results: [{ id: 'MLA111', original_price: 42000, suggested_discounted_price: 37800, meli_percentage: 5 }] }));
   app.post('/seller-promotions/items/:id', auth, (req, res) => req.body?.promotion_id ? res.json({ ok: true }) : res.status(400).json({ message: 'falta promotion_id' }));
   app.get('/trends/MLA', auth, (_q, res) => res.json(mercado.tendencias));
+  app.get('/advertising/advertisers', auth, (_q, res) => res.json({ advertisers: [{ advertiser_id: 'ADV1', site_id: 'MLA' }] }));
+  app.get('/advertising/product_ads/campaigns', auth, (_q, res) => res.json({ results: [{ id: 'C1', name: 'Campaña general', status: 'active', budget: 5000, metrics: { cost: 30000, acos: 15, units_quantity: 25 } }] }));
+  app.get('/advertising/product_ads/ads/:id', auth, (req, res) => {
+    if (req.params.id !== 'MLA111') return res.status(404).json({ message: 'ad not found' });
+    res.json({ metrics: { clicks: 120, prints: 8000, cost: 15000, acos: 12.5, cpc: 125, units_quantity: 10, total_amount: 420000 } });
+  });
   app.get('/marketplace/items/:id/clips', auth, (req, res) => {
     if (req.params.id !== 'MLA111') return res.status(404).json({ message: 'No clips found for itemId: ' + req.params.id });
     res.json({ parent_item_id: req.params.id, clips: [
@@ -250,6 +256,20 @@ async function pruebas() {
     contiene(t, 'vendió ~3', '39.900');                                      // publicación (ventas estimadas + precio)
     contiene(t, 'nuevo líder', 'USURPADOR');                                 // búsqueda
     contiene(t, 'entraron al top', 'termo milan', 'salieron del top', 'mate imperial'); // tendencias
+  });
+  await caso('ml_publicidad en vivo: detalle del anuncio y campañas', async () => {
+    const t = await tool('ml_publicidad').run({ item_id: 'MLA111', dias: 30 });
+    contiene(t, 'Product Ads', '15.000', 'ACOS', '12.5%', 'en vivo');
+    contiene(await tool('ml_publicidad').run({}), 'Campaña general', '30.000', '15%');
+  });
+  await caso('ml_rentabilidad pide lo que falta sin inventar', async () => {
+    contiene(await tool('ml_rentabilidad').run({ item_id: 'MLA111' }), 'me falta', 'costo del producto', 'impuestos');
+  });
+  await caso('ml_rentabilidad: desglose completo con comisión real, ads en vivo e impuestos', async () => {
+    itemMLA111.price = 42000;
+    const t = await tool('ml_rentabilidad').run({ item_id: 'MLA111', costo: 20000, impuestos_pct: 10 });
+    // 42000 − 5880 (14%) − 1500 (15000/10 ventas ads) − 0 envío − 4200 (10%) − 20000 = 10420 · margen 24,8%
+    contiene(t, '5.880', '1.500', '4.200', '10.420', '24,8', 'ACOS máximo');
   });
   await caso('ml_clips de un ítem muestra estados, motivos y veredicto', async () => {
     const t = await tool('ml_clips').run({ item_id: 'MLA111' });

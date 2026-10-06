@@ -444,6 +444,116 @@ export const TOOLS = [
       return `# Auditoría de publicaciones (${auditorias.length})\n**${rojas} 🔴 urgentes · ${amarillas} 🟡 mejorables · ${auditorias.length - rojas - amarillas} 🟢 OK**\n\n` + filas.join('\n\n') + '\n\n¿Aplico alguna mejora? Decime cuál y la hago con tu confirmación (precio/stock/estado por acá; títulos solo si la publicación no tiene ventas; fotos y descripción van por tu panel).';
     },
   },
+  // ───────────────────────── Publicidad y rentabilidad ─────────────────────────
+  {
+    name: 'ml_publicidad', title: 'Métricas de Product Ads en vivo', readOnly: true,
+    description: 'Métricas de Product Ads al momento de la consulta: con item_id, el detalle del anuncio de esa publicación (inversión, impresiones, clics, CTR, CPC, ACOS, unidades y facturación por ads); sin item_id, las campañas del anunciante con su estado, presupuesto y resultados. Parámetro dias para el período (1 = hoy, default 30).',
+    schema: { ...cuentaParam, item_id: z.string().optional(), dias: z.number().int().min(1).max(90).optional().describe('Período hacia atrás en días (1 = hoy). Default 30') },
+    async run(args) {
+      const c = cliente(args);
+      const dias = args.dias ?? 30;
+      const hasta = new Date(), desde = new Date(Date.now() - (dias - 1) * 86400000);
+      const f = (d) => d.toISOString().slice(0, 10);
+      const dinero = (n) => '$ ' + Number(n || 0).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+      const qy = { date_from: f(desde), date_to: f(hasta), metrics: 'clicks,prints,cost,acos,cpc,units_quantity,total_amount' };
+      if (args.item_id) {
+        let r = null;
+        for (const ruta of [`/advertising/product_ads/ads/${args.item_id}`, `/advertising/product_ads/items/${args.item_id}`]) {
+          try { r = await c.get(ruta, qy); break; } catch (e) { if (![400, 403, 404].includes(e.status)) throw e; }
+        }
+        if (!r) return `**${args.item_id}** no tiene métricas de Product Ads (no está en ninguna campaña, o la cuenta no tiene Product Ads habilitado). Se gestiona desde el panel de Publicidad de MercadoLibre.`;
+        const m = r.metrics || r;
+        const ctr = m.prints ? (m.clicks / m.prints * 100).toFixed(2) : '0';
+        const cpc = m.cpc ?? (m.clicks ? m.cost / m.clicks : 0);
+        return `# 📣 Product Ads de ${args.item_id} — últimos ${dias} día(s) (en vivo)\n` +
+          `- **Inversión:** ${dinero(m.cost)}\n- **Impresiones:** ${Number(m.prints || 0).toLocaleString('es-AR')} · **Clics:** ${Number(m.clicks || 0).toLocaleString('es-AR')} (CTR ${ctr}%)\n` +
+          `- **CPC:** ${dinero(cpc)}\n- **Ventas por ads:** ${m.units_quantity ?? 0} unidad(es) · ${dinero(m.total_amount)}\n` +
+          `- **ACOS:** ${m.acos != null ? m.acos + '%' : 's/d'} (lo que te come la publicidad de cada venta)\n\n` +
+          `¿El ACOS aguanta? Validalo contra tu margen real con ml_rentabilidad: ahí entra este gasto en el desglose del producto.`;
+      }
+      let campañas = null;
+      try {
+        const adv = await c.get('/advertising/advertisers', { product_id: 'PADS' });
+        const a = adv.advertisers?.[0];
+        campañas = await c.get('/advertising/product_ads/campaigns', a ? { advertiser_id: a.advertiser_id, ...qy } : qy);
+      } catch (e) { if (![400, 403, 404].includes(e.status)) throw e; }
+      const lista = campañas?.results || campañas?.campaigns;
+      if (!lista?.length) return 'La cuenta no tiene campañas de Product Ads visibles por API (o Product Ads no está habilitado). Se activa desde el panel de Publicidad de MercadoLibre.';
+      const filas = lista.map((k) => {
+        const m = k.metrics || {};
+        return `| ${k.name || k.id} | ${k.status || '—'} | ${dinero(k.budget)} | ${dinero(m.cost)} | ${m.acos != null ? m.acos + '%' : '—'} | ${m.units_quantity ?? '—'} |`;
+      });
+      const total = lista.reduce((s, k) => s + Number(k.metrics?.cost || 0), 0);
+      return `# 📣 Campañas de Product Ads — últimos ${dias} día(s) (en vivo)\n\n| Campaña | Estado | Presupuesto/día | Invertido | ACOS | Unidades |\n| --- | --- | --- | --- | --- | --- |\n` + filas.join('\n') +
+        `\n\n**Inversión total del período:** ${dinero(total)}. Para ver una publicación puntual: ml_publicidad item_id=MLA... · Para saber si el ACOS cierra: ml_rentabilidad.`;
+    },
+  },
+  {
+    name: 'ml_rentabilidad', title: 'Calculadora de rentabilidad real', readOnly: true,
+    description: 'El desglose real peso por peso de un producto: precio de venta MENOS comisión de MercadoLibre (tarifa real del tipo de publicación) MENOS publicidad por unidad (gasto de Product Ads en vivo del período) MENOS impuestos MENOS costo de envío MENOS costo del producto = ganancia neta y margen. Pide lo que falta (costo e impuestos NUNCA se inventan) y dice hasta qué ACOS aguanta el producto.',
+    schema: { ...cuentaParam,
+      item_id: z.string().optional().describe('Si se indica, trae precio, tipo de publicación y gasto de ads reales'),
+      precio: z.number().positive().optional().describe('Precio de venta; si hay item_id se toma el de la publicación'),
+      costo: z.number().min(0).optional().describe('Costo del producto (lo que te sale a vos) — SIEMPRE preguntarlo al usuario'),
+      impuestos_pct: z.number().min(0).max(60).optional().describe('% de impuestos sobre el precio (IIBB, monotributo/IVA según su situación) — SIEMPRE preguntarlo'),
+      costo_envio: z.number().min(0).optional().describe('Lo que paga el vendedor de envío por unidad (si ofrece envío gratis). Default 0'),
+      dias_ads: z.number().int().min(1).max(90).optional().describe('Período para promediar la publicidad (default 30)') },
+    async run(args) {
+      const c = cliente(args);
+      const dinero = (n) => '$ ' + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+      let precio = args.precio, tipo = 'gold_special', titulo = null;
+      if (args.item_id) {
+        const b = await c.get(`/items/${args.item_id}`);
+        precio = precio ?? b.price; tipo = b.listing_type_id || tipo; titulo = b.title;
+      }
+      const faltan = [];
+      if (!precio) faltan.push('el **precio de venta** (o pasame el item_id y lo traigo)');
+      if (args.costo == null) faltan.push('el **costo del producto** (lo que te sale a vos, con IVA si corresponde)');
+      if (args.impuestos_pct == null) faltan.push('el **% de impuestos** sobre la venta (IIBB + monotributo o IVA según tu situación — si no lo sabés, tu contador lo tiene en 1 minuto)');
+      if (faltan.length) return 'Para calcular la rentabilidad real me falta:\n- ' + faltan.join('\n- ') + '\n\nCon esos datos te doy el desglose peso por peso.';
+      const sitio = (await c.get('/users/me')).site_id || 'MLA';
+      let pct = 14, fijo = 0;
+      try {
+        const lp = await c.get(`/sites/${sitio}/listing_prices`, { price: precio });
+        const fila = (Array.isArray(lp) ? lp : []).find((x) => x.listing_type_id === tipo) || (Array.isArray(lp) ? lp[0] : null);
+        if (fila?.sale_fee_details) { pct = fila.sale_fee_details.percentage_fee ?? pct; fijo = fila.sale_fee_details.fixed_fee ?? 0; }
+        else if (fila?.sale_fee_amount != null) { pct = null; fijo = fila.sale_fee_amount; }
+      } catch {}
+      const comision = pct != null ? precio * pct / 100 + fijo : fijo;
+      // Publicidad por unidad: gasto de ads del período / unidades vendidas por ads
+      let adsPorUnidad = 0, notaAds = 'sin campañas activas (o sin item_id): $ 0';
+      if (args.item_id) {
+        for (const ruta of [`/advertising/product_ads/ads/${args.item_id}`, `/advertising/product_ads/items/${args.item_id}`]) {
+          try {
+            const dias = args.dias_ads ?? 30;
+            const r = await c.get(ruta, { date_from: new Date(Date.now() - (dias - 1) * 86400000).toISOString().slice(0, 10), date_to: new Date().toISOString().slice(0, 10), metrics: 'cost,units_quantity' });
+            const m = r.metrics || r;
+            if (m.units_quantity > 0) { adsPorUnidad = m.cost / m.units_quantity; notaAds = `${dinero(m.cost)} en ${dias} días / ${m.units_quantity} ventas por ads`; }
+            else if (m.cost > 0) { adsPorUnidad = m.cost; notaAds = `⚠️ ${dinero(m.cost)} gastados SIN ventas por ads en ${dias} días`; }
+            break;
+          } catch (e) { if (![400, 403, 404].includes(e.status)) throw e; }
+        }
+      }
+      const envio = args.costo_envio ?? 0;
+      const impuestos = precio * args.impuestos_pct / 100;
+      const ganancia = precio - comision - adsPorUnidad - envio - impuestos - args.costo;
+      const margen = (ganancia / precio * 100);
+      const semaforo = ganancia <= 0 ? '🔴 PÉRDIDA' : margen < 10 ? '🟡 margen finito' : '🟢 margen sano';
+      const acosMax = ((ganancia + adsPorUnidad) / precio * 100);
+      return `# 💰 Rentabilidad real${titulo ? ': ' + titulo : ''}${args.item_id ? ' (' + args.item_id + ')' : ''}\n\n` +
+        `| Concepto | Monto |\n| --- | --- |\n` +
+        `| Precio de venta | ${dinero(precio)} |\n` +
+        `| − Comisión MercadoLibre (${pct != null ? pct + '%' + (fijo ? ' + ' + dinero(fijo) : '') : 'tarifa'}) | −${dinero(comision)} |\n` +
+        `| − Publicidad por unidad (${notaAds}) | −${dinero(adsPorUnidad)} |\n` +
+        `| − Envío a cargo del vendedor | −${dinero(envio)} |\n` +
+        `| − Impuestos (${args.impuestos_pct}% del precio) | −${dinero(impuestos)} |\n` +
+        `| − Costo del producto | −${dinero(args.costo)} |\n` +
+        `| **= Ganancia neta por unidad** | **${dinero(ganancia)}** |\n\n` +
+        `**Margen: ${margen.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%** ${semaforo}\n` +
+        `**ACOS máximo que aguanta este producto: ${Math.max(0, acosMax).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%** — arriba de eso, la publicidad se come toda la ganancia.` +
+        (ganancia <= 0 ? `\n\n⚠️ Así como está, PERDÉS plata en cada venta. Precio de equilibrio (ganancia 0): ${dinero((args.costo + envio + adsPorUnidad + (pct != null ? fijo : comision)) / (1 - ((pct ?? 0) + args.impuestos_pct) / 100))} — validá también contra ml_precio_catalogo antes de subirlo.` : '');
+    },
+  },
   // ─────────────────────────────── Clips ───────────────────────────────
   {
     name: 'ml_clips', title: 'Clips de las publicaciones', readOnly: true,

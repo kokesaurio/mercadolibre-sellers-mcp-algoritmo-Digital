@@ -16,7 +16,7 @@ Conectá tu cuenta de MercadoLibre a Claude y manejá tu tienda en lenguaje natu
 - *"hacé un video para Reels de este producto"* → guion por escenas y video con tus datos verdaderos
 - *"¿qué cambió en la competencia?"* → solo las novedades: precios movidos, publicaciones nuevas, ventas estimadas del rival
 
-**27 herramientas · 16 skills · multicuenta con consolidado · sin servidor propio · tokens solo en tu computadora** — hecho por [Algoritmo Digital](https://algoritmodigital.com.ar), consultora especializada en MercadoLibre.
+**29 herramientas · 17 skills · multicuenta con consolidado · sin servidor propio · tokens solo en tu computadora** — hecho por [Algoritmo Digital](https://algoritmodigital.com.ar), consultora especializada en MercadoLibre.
 
 ```text
 Claude ──MCP──► este conector ──OAuth 2.0 + PKCE──► API oficial de MercadoLibre
@@ -33,7 +33,7 @@ Claude ──MCP──► este conector ──OAuth 2.0 + PKCE──► API ofic
 | Idioma | Castellano, pensado para vendedores | Inglés técnico, pensado para developers |
 | Seguridad | PKCE, escrituras opcionales (`ML_SOLO_LECTURA=1` las desactiva), sin telemetría | Varía |
 | Pruebas | **Suite E2E de 42 casos** contra un MercadoLibre simulado, corriendo en CI en cada cambio | Rara vez |
-| Skills | **16 skills** incluidas, del reporte diario al video del producto | No |
+| Skills | **17 skills** incluidas, del reporte diario al video del producto | No |
 
 ¿Tenés varias tiendas, querés rentabilidad real con tus costos, caja de MercadoPago y vigilancia de competidores gestionada? Eso es nuestro [conector premium con CRM](https://github.com/kokesaurio/mercadolibre-algoritmodigital) — este conector directo es gratis y para cualquier vendedor.
 
@@ -154,7 +154,7 @@ En un chat nuevo decile a Claude: **"conectá mi cuenta de MercadoLibre"** — o
 
 ## Las 14 skills — tu equipo de trabajo
 
-El conector trae [**16 skills listas**](skills/) con [guía de uso de cada una](skills/README.md). Se suben una vez en Claude (**Configuración → Capacidades → Skills → Cargar skill**) y convierten las herramientas en flujos completos: vos pedís en una frase, la skill sabe el procedimiento.
+El conector trae [**17 skills listas**](skills/) con [guía de uso de cada una](skills/README.md). Se suben una vez en Claude (**Configuración → Capacidades → Skills → Cargar skill**) y convierten las herramientas en flujos completos: vos pedís en una frase, la skill sabe el procedimiento.
 
 > 🚀 **Empezá por acá:** subí [setup-ml](skills/setup-ml/) y decile a Claude **"setup"** — conecta tus cuentas, arma la vigilancia inicial y te entrega tu primera foto del negocio con las 3 acciones más urgentes.
 
@@ -192,6 +192,7 @@ El conector trae [**16 skills listas**](skills/) con [guía de uso de cada una](
 | [vigilancia-ml](skills/vigilancia-ml/) | *"¿qué cambió en la competencia?"* — solo novedades: precios movidos, publicaciones nuevas, ventas estimadas del rival, keywords en alza |
 | [competencia-ml](skills/competencia-ml/) | *"¿estoy ganando el catálogo?"* — semáforo de precios y buy box, con recomendaciones validadas por margen |
 | [publicidad-ml](skills/publicidad-ml/) | *"revisemos la publicidad"* — Product Ads con regla ACOS vs margen y promociones separando tu aporte del de ML |
+| [calculadora-ml](skills/calculadora-ml/) | *"¿cuánto gano con este producto?"* — el desglose peso por peso: comisión real + publicidad en vivo + impuestos + costo → ganancia neta, margen y ACOS máximo |
 | [setup-ml](skills/setup-ml/) | *"setup"* — la puesta en marcha guiada de todo lo anterior |
 
 **Rutina sugerida:** diaria = panel + preguntas (5 min) · semanal = vigilancia → visualizador → mejoras → publicidad · al publicar algo nuevo = copiar → imágenes → video → revisión con Aldi.
@@ -206,7 +207,7 @@ La skill imagenes-ml genera el **set fijo de 4** — beneficio (foto 2), caracte
 
 Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando: `python3 plantillas/generar.py --plantilla medidas --datos datos.json --foto tu-foto.png --salida foto-5-medidas.png`. El método completo (orden de publicación foto 2→10, solo datos confirmados, revisión pieza por pieza) está grabado en la skill.
 
-## Herramientas (27)
+## Herramientas (29)
 
 | Herramienta | Qué hace |
 | --- | --- |
@@ -221,6 +222,8 @@ Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando
 | ml_actualizar_publicacion ✏️ | Cambiar precio, stock o pausar/activar |
 | ml_crear_publicacion ✏️ | Crear una publicación nueva, o clonar una existente (`copiar_de`) — ideal para duplicar entre tus tiendas |
 | ml_preguntas / ml_responder_pregunta ✏️ | Ver y responder preguntas de compradores |
+| ml_publicidad | Product Ads EN VIVO: inversión, impresiones, clics, CPC, ACOS y ventas por ads de una publicación o de todas las campañas |
+| ml_rentabilidad | La calculadora real: precio − comisión real de ML − publicidad por unidad (en vivo) − impuestos − envío − costo = ganancia neta, margen y ACOS máximo que aguanta |
 | ml_comisiones | Cuánto cobra ML por vender a un precio dado |
 | ml_precio_catalogo | Si ganás la buy box del catálogo y qué precio la gana |
 | ml_buscar | Espiar competencia y precios de mercado |
