@@ -444,6 +444,117 @@ export const TOOLS = [
       return `# Auditoría de publicaciones (${auditorias.length})\n**${rojas} 🔴 urgentes · ${amarillas} 🟡 mejorables · ${auditorias.length - rojas - amarillas} 🟢 OK**\n\n` + filas.join('\n\n') + '\n\n¿Aplico alguna mejora? Decime cuál y la hago con tu confirmación (precio/stock/estado por acá; títulos solo si la publicación no tiene ventas; fotos y descripción van por tu panel).';
     },
   },
+  // ─────────────────────────────── Clips ───────────────────────────────
+  {
+    name: 'ml_clips', title: 'Clips de las publicaciones', readOnly: true,
+    description: 'Consulta los Clips (videos verticales cortos) de tus publicaciones por la API y dice cuáles sirven: con item_id muestra cada clip y su estado de moderación (publicado ✅, en revisión ⏳ 24-48 hs, rechazado ❌ con el motivo y cómo corregirlo); sin item_id recorre tus publicaciones activas y arma el mapa de video de la tienda (clips + video clásico) con cuáles priorizar.',
+    schema: { ...cuentaParam, item_id: z.string().optional().describe('Una publicación puntual; sin indicarlo, mapa de toda la tienda (hasta 10)') },
+    async run(args) {
+      const c = cliente(args);
+      const ESTADO = {
+        PUBLISHED: '✅ publicado (sirve: ya se muestra en tu publicación y en el feed de clips)',
+        UNDER_REVIEW: '⏳ en revisión (la moderación tarda 24-48 hs)',
+        REJECTED: '❌ rechazado',
+        TRANSCODING_REJECTED: '⚠️ rechazo técnico al procesar el video',
+        PAUSED: '⏸️ pausado',
+      };
+      const RAZON = {
+        DUPLICATED_VIDEO: 'ese video ya se subió antes — grabá/exportá una versión distinta, no resubas el mismo archivo',
+        VIDEO_PROCESSING_ERROR: 'no se pudo procesar el archivo — reexportalo como MP4 (video H.264, audio AAC) y volvé a subir',
+      };
+      const traerClips = async (id) => {
+        for (const ruta of [`/marketplace/items/${id}/clips`, `/items/${id}/clips`]) {
+          try { return await c.get(ruta); } catch (e) {
+            if (e.status === 404 && /no clips/i.test(String(e.message))) return { clips: [] }; // existe pero sin clips
+            if (![400, 403, 404].includes(e.status)) throw e;
+          }
+        }
+        return null;
+      };
+      if (args.item_id) {
+        const r = await traerClips(args.item_id);
+        if (!r || !r.clips?.length) return `**${args.item_id}** no tiene clips cargados (o tu cuenta todavía no tiene la API de clips habilitada — hoy MercadoLibre la documenta para Global Selling; en ese caso se gestionan desde el panel del vendedor). Para crear uno: skill video-publicaciones-ml o ugc-ml, y subirlo con ml_subir_clip.`;
+        const filas = r.clips.map((cl) => {
+          const porSitio = (cl.metadata || []).map((md) => {
+            let linea = `  - ${md.site_id}: ${ESTADO[md.moderation_status] || md.moderation_status}`;
+            for (const [cod, txt] of Object.entries(md.moderation_reasons || {})) linea += `\n    · motivo: ${RAZON[cod] || txt}`;
+            return linea;
+          });
+          return `- clip \`${String(cl.clip_uuid).slice(0, 8)}…\`\n` + porSitio.join('\n');
+        });
+        const estados = r.clips.flatMap((cl) => (cl.metadata || []).map((md) => md.moderation_status));
+        const sirven = estados.filter((s) => s === 'PUBLISHED').length;
+        return `# Clips de ${args.item_id} (${r.clips.length})\n\n` + filas.join('\n') +
+          `\n\n**Veredicto:** ${sirven} sirviendo ahora mismo · ${estados.filter((s) => s === 'UNDER_REVIEW').length} en revisión · ${estados.filter((s) => s === 'REJECTED' || s === 'TRANSCODING_REJECTED').length} para corregir. Los rechazados se borran con ml_borrar_clip y se vuelve a subir la versión corregida.`;
+      }
+      const id = await sellerId(c);
+      const lista = await c.get(`/users/${id}/items/search`, { status: 'active', limit: 10 });
+      const ids = (lista.results || []).slice(0, 10);
+      if (!ids.length) return 'No hay publicaciones activas para revisar.';
+      const multi = await c.get('/items', { ids: ids.join(',') });
+      const filas = [];
+      let sinNada = [];
+      for (const mres of multi) {
+        if (mres.code !== 200) continue;
+        const b = mres.body;
+        const r = await traerClips(b.id);
+        const estados = r?.clips?.flatMap((cl) => (cl.metadata || []).map((md) => md.moderation_status)) || [];
+        const clipsTxt = !r ? '—' : estados.length ? [
+          estados.filter((s) => s === 'PUBLISHED').length ? `✅ ${estados.filter((s) => s === 'PUBLISHED').length}` : '',
+          estados.filter((s) => s === 'UNDER_REVIEW').length ? `⏳ ${estados.filter((s) => s === 'UNDER_REVIEW').length}` : '',
+          estados.filter((s) => s === 'REJECTED' || s === 'TRANSCODING_REJECTED').length ? `❌ ${estados.filter((s) => s === 'REJECTED' || s === 'TRANSCODING_REJECTED').length}` : '',
+        ].filter(Boolean).join(' ') : 'sin clips';
+        if (!estados.some((s) => s === 'PUBLISHED') && !b.video_id) sinNada.push(b.id);
+        filas.push(`| ${b.id} | ${String(b.title).slice(0, 38)} | ${b.video_id ? '✅' : '❌'} | ${clipsTxt} |`);
+      }
+      return `# Mapa de video de la tienda (${filas.length} publicaciones activas)\n\n| Publicación | Título | Video clásico | Clips |\n| --- | --- | --- | --- |\n` + filas.join('\n') +
+        (sinNada.length ? `\n\n**Prioridad:** ${sinNada.join(', ')} no tienen NINGÚN video — las publicaciones con video convierten más. Producilos con video-publicaciones-ml o ugc-ml y subilos con ml_subir_clip.` : '\n\n✅ Todas tienen al menos un video sirviendo.');
+    },
+  },
+  {
+    name: 'ml_subir_clip', title: 'Subir un clip', readOnly: false,
+    description: 'Sube un Clip (video vertical corto) a una publicación por la API. Requisitos de MercadoLibre: MP4/MOV/MPEG/AVI, vertical, 10 a 61 segundos, mínimo 360x640, máximo 280 MB, publicación activa. La moderación tarda 24-48 hs (verificar después con ml_clips).',
+    schema: { ...cuentaParam, item_id: z.string(), archivo: z.string().describe('Ruta local del video (ej /ruta/MLA123-clip.mp4)') },
+    async run(args) {
+      const fs = await import('node:fs');
+      if (!fs.existsSync(args.archivo)) return `No encuentro el archivo "${args.archivo}". Pasame la ruta completa del video.`;
+      const ext = args.archivo.toLowerCase().split('.').pop();
+      if (!['mp4', 'mov', 'mpeg', 'avi'].includes(ext)) return `MercadoLibre solo acepta MP4, MOV, MPEG o AVI (recibí .${ext}). Exportá el video como MP4 (H.264 + AAC) y volvé a intentar.`;
+      const stat = fs.statSync(args.archivo);
+      if (stat.size > 280 * 1024 * 1024) return `El archivo pesa ${(stat.size / 1048576).toFixed(0)} MB y el máximo es 280 MB: comprimilo (MP4 H.264) y volvé a intentar.`;
+      const c = cliente(args);
+      const form = new FormData();
+      form.append('file', new Blob([fs.readFileSync(args.archivo)], { type: 'video/' + (ext === 'mp4' ? 'mp4' : ext) }), args.archivo.split(/[\\/]/).pop());
+      let r, ultimoError;
+      for (const ruta of [`/marketplace/items/${args.item_id}/clips/upload`, `/items/${args.item_id}/clips/upload`]) {
+        try { r = await c.postMultipart(ruta, form); break; } catch (e) { ultimoError = e; if (![400, 403, 404].includes(e.status)) throw e; }
+      }
+      if (!r) {
+        const msj = String(ultimoError?.message || '');
+        if (/duration is shorter/i.test(msj)) return '❌ MercadoLibre lo rechazó: el video dura menos de 10 segundos.';
+        if (/duration is longer|exceed 61/i.test(msj)) return '❌ MercadoLibre lo rechazó: el video supera los 61 segundos — recortalo.';
+        if (/resolution|360x640|calidad del video/i.test(msj)) return '❌ MercadoLibre lo rechazó: resolución menor a 360x640 — reescalalo (ideal 1080x1920 vertical).';
+        if (/extension|type not allowed/i.test(msj)) return '❌ MercadoLibre rechazó el formato: exportá como MP4 (H.264 + AAC).';
+        return `❌ No se pudo subir: ${msj || 'tu cuenta puede no tener la API de clips habilitada todavía (MercadoLibre la documenta para Global Selling); en ese caso subilo desde el panel del vendedor'}.`;
+      }
+      return `✅ Clip subido a **${args.item_id}** (id ${r.clip_uuid || 's/d'}). Entró a moderación: tarda **24-48 hs** en aprobarse y publicarse — verificalo después con ml_clips. Ojo: MercadoLibre modera hasta 1.000 clips por día en total, si subís muchos hacelo en tandas.`;
+    },
+  },
+  {
+    name: 'ml_borrar_clip', title: 'Borrar un clip', readOnly: false,
+    description: 'Borra un clip de una publicación (por ejemplo uno rechazado, para subir la versión corregida). Funciona en cualquier estado de moderación.',
+    schema: { ...cuentaParam, item_id: z.string(), clip_uuid: z.string().describe('El id del clip (sale de ml_clips)') },
+    async run(args) {
+      const c = cliente(args);
+      let r, ultimoError;
+      for (const ruta of [`/marketplace/items/${args.item_id}/clips/${args.clip_uuid}`, `/items/${args.item_id}/clips/${args.clip_uuid}`]) {
+        try { r = await c.del(ruta); break; } catch (e) { ultimoError = e; if (![400, 403, 404].includes(e.status)) throw e; }
+      }
+      if (!r) return `❌ No se pudo borrar: ${ultimoError?.message || 'clip o publicación no encontrados'}.`;
+      const filas = (Array.isArray(r) ? r : [r]).map((x) => `- ${x.site_id || args.item_id}: ${x.status === 'DELETED' ? '✅ borrado' : x.status}`);
+      return `# Borrado de clip ${String(args.clip_uuid).slice(0, 8)}…\n` + filas.join('\n') + '\n\nSi era un rechazado, ya podés subir la versión corregida con ml_subir_clip.';
+    },
+  },
   // ───────────────────── Vigilancia de competencia ─────────────────────
   {
     name: 'ml_vigilar', title: 'Lista de seguimiento', readOnly: true,

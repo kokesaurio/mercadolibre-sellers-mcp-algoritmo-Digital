@@ -188,4 +188,24 @@ export class MeliClient {
   get(ruta, query) { return this.pedir('GET', ruta, { query }); }
   post(ruta, body, query) { return this.pedir('POST', ruta, { body, query }); }
   put(ruta, body) { return this.pedir('PUT', ruta, { body }); }
+  del(ruta) { return this.pedir('DELETE', ruta, {}); }
+
+  // Subida multipart (clips): fetch arma el boundary solo, sin Content-Type manual
+  async postMultipart(ruta, form) {
+    const hacer = async (tk) => fetch(API + ruta, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + tk, Accept: 'application/json' },
+      body: form,
+      signal: AbortSignal.timeout(120000),
+    });
+    let r = await hacer(await this.token());
+    if (r.status === 401) {
+      const d = leerCuentas(); const c = this.cuenta();
+      d.cuentas[String(c.user_id)].vence = 0; guardarCuentas(d);
+      r = await hacer(await this.token());
+    }
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new MeliError(r.status, j.message || j.error || ('MercadoLibre respondió ' + r.status + ' en ' + ruta));
+    return j;
+  }
 }

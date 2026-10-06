@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.11.0
+- **Clips por API**: `ml_clips` (mapa de video de la tienda + estado de moderación por clip con motivos traducidos y cómo corregir), `ml_subir_clip` (subida multipart validando formato/duración/peso antes de gastar la subida) y `ml_borrar_clip`.
+- Skill `clips-ml` (16ª): el flujo completo de Clips — mapear cuáles sirven, producir los que faltan y subirlos cumpliendo los requisitos de ML (vertical, 10-61 s, ≤280 MB, moderación 24-48 hs).
+
 ## 1.10.0
 - **Base de datos de competencia**: cada control de vigilancia guarda un punto histórico (precio, ventas, líder) y `ml_historial_competencia` muestra la evolución con mínimos, máximos y variación.
 - **`ml_descubrir_ganadores`**: artículos ganadores por categoría (ranking oficial de más vendidos + tendencias) o por keyword (competencia, precios, dominancia, señal de oportunidad 🟢🟡⚪).

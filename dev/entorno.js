@@ -95,6 +95,16 @@ export function crearMockMeli() {
   app.get('/seller-promotions/promotions/P-HOT/items', auth, (_q, res) => res.json({ results: [{ id: 'MLA111', original_price: 42000, suggested_discounted_price: 37800, meli_percentage: 5 }] }));
   app.post('/seller-promotions/items/:id', auth, (req, res) => req.body?.promotion_id ? res.json({ ok: true }) : res.status(400).json({ message: 'falta promotion_id' }));
   app.get('/trends/MLA', auth, (_q, res) => res.json(mercado.tendencias));
+  app.get('/marketplace/items/:id/clips', auth, (req, res) => {
+    if (req.params.id !== 'MLA111') return res.status(404).json({ message: 'No clips found for itemId: ' + req.params.id });
+    res.json({ parent_item_id: req.params.id, clips: [
+      { clip_uuid: 'clip-publicado-001', metadata: [{ site_id: 'MLA', moderation_status: 'PUBLISHED' }] },
+      { clip_uuid: 'clip-revision-002', metadata: [{ site_id: 'MLA', moderation_status: 'UNDER_REVIEW' }] },
+      { clip_uuid: 'clip-rechazo-003', metadata: [{ site_id: 'MLA', moderation_status: 'REJECTED', moderation_reasons: { DUPLICATED_VIDEO: 'This video had already been uploaded before.' } }] },
+    ] });
+  });
+  app.post('/marketplace/items/:id/clips/upload', auth, (_q, res) => res.json({ status: 'accepted', clip_uuid: 'clip-nuevo-999' }));
+  app.delete('/marketplace/items/:id/clips/:uuid', auth, (_q, res) => res.json([{ status: 'DELETED', site_id: 'MLA' }]));
   app.get('/trends/MLA/:cat', auth, (_q, res) => res.json([{ keyword: 'termo acero 1 litro' }, { keyword: 'termo con cebador' }]));
   app.get('/highlights/MLA/category/:cat', auth, (_q, res) => res.json({ content: [{ id: 'MLA111', position: 1, type: 'ITEM' }, { id: 'MLA777', position: 2, type: 'ITEM' }] }));
   return app;
@@ -205,7 +215,7 @@ async function pruebas() {
     const { crearServidor } = await import('../src/servidor.js');
     crearServidor({ allowWrite: false }); // si registrara mal, tiraría; el conteo real se valida por stdio abajo
     const escrituras = TOOLS.filter((t) => !t.readOnly).map((t) => t.name);
-    if (escrituras.length !== 5) throw new Error('esperaba 5 herramientas de escritura, hay ' + escrituras.length);
+    if (escrituras.length !== 7) throw new Error('esperaba 7 herramientas de escritura, hay ' + escrituras.length);
   });
   await caso('ml_vigilar agrega competidores y tendencias con primer registro', async () => {
     contiene(await tool('ml_vigilar').run({ accion: 'agregar', tipo: 'vendedor', ref: 'RIVAL', nota: 'mi competidor directo' }), 'Agregado', 'RIVAL');
@@ -240,6 +250,23 @@ async function pruebas() {
     contiene(t, 'vendió ~3', '39.900');                                      // publicación (ventas estimadas + precio)
     contiene(t, 'nuevo líder', 'USURPADOR');                                 // búsqueda
     contiene(t, 'entraron al top', 'termo milan', 'salieron del top', 'mate imperial'); // tendencias
+  });
+  await caso('ml_clips de un ítem muestra estados, motivos y veredicto', async () => {
+    const t = await tool('ml_clips').run({ item_id: 'MLA111' });
+    contiene(t, '✅ publicado', '⏳ en revisión', '❌ rechazado', 'ya se subió antes', 'Veredicto', '1 sirviendo');
+  });
+  await caso('ml_clips sin item arma el mapa de video de la tienda', async () => {
+    const t = await tool('ml_clips').run({});
+    contiene(t, 'Mapa de video', 'MLA111', 'MLA222', 'sin clips');
+  });
+  await caso('ml_subir_clip valida local y sube con moderación informada', async () => {
+    const fs = await import('node:fs');
+    fs.writeFileSync('/tmp/clip-prueba.txt', 'x');
+    contiene(await tool('ml_subir_clip').run({ item_id: 'MLA111', archivo: '/tmp/clip-prueba.txt' }), 'MP4');
+    fs.writeFileSync('/tmp/clip-prueba.mp4', Buffer.alloc(2048));
+    const t = await tool('ml_subir_clip').run({ item_id: 'MLA111', archivo: '/tmp/clip-prueba.mp4' });
+    contiene(t, 'Clip subido', 'clip-nuevo-999', '24-48', 'ml_clips');
+    contiene(await tool('ml_borrar_clip').run({ item_id: 'MLA111', clip_uuid: 'clip-rechazo-003' }), 'borrado');
   });
   await caso('ml_descubrir_ganadores por categoría usa el ranking oficial + tendencias', async () => {
     const t = await tool('ml_descubrir_ganadores').run({ categoria: 'MLA1055' });

@@ -1,4 +1,4 @@
-# Guía de uso — las 15 skills del conector
+# Guía de uso — las 16 skills del conector
 
 Skills listas para Claude que convierten el [conector de MercadoLibre de
 Algoritmo Digital](../README.md) en flujos de trabajo completos. **Cómo
@@ -52,6 +52,10 @@ skill**. Claude las usa solo cuando corresponde.
 ### 🎬 [video-publicaciones-ml](video-publicaciones-ml/) — video del producto
 **Pedilo así:** "hacé un video para Reels de MLA..." · "clip para la publicación"
 **Qué hace:** guion por escenas calcado del orden de fotos y producción con HyperFrames usando fotos reales + placas del set. Dentro de ML va sin precio ni contacto; en Reels/ads con precio y CTA. Guion y música se confirman antes de renderizar.
+
+### 🎞️ [clips-ml](clips-ml/) — los videos cortos de ML
+**Pedilo así:** "¿qué clips tengo?" · "¿qué publicaciones están sin video?" · "subí este clip a MLA..."
+**Qué hace:** mapa de Clips de toda la tienda (publicado ✅ / en revisión ⏳ / rechazado ❌ con el motivo y cómo corregirlo), produce los que faltan con las skills de video y los sube por API validando formato, duración y peso. Moderación de ML: 24-48 hs.
 
 ### 🧑‍🎤 [ugc-ml](ugc-ml/) — UGC limpio con avatar
 **Pedilo así:** "hacé un UGC de este producto" · "video con avatar"
