@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.10.0
+- **Base de datos de competencia**: cada control de vigilancia guarda un punto histórico (precio, ventas, líder) y `ml_historial_competencia` muestra la evolución con mínimos, máximos y variación.
+- **`ml_descubrir_ganadores`**: artículos ganadores por categoría (ranking oficial de más vendidos + tendencias) o por keyword (competencia, precios, dominancia, señal de oportunidad 🟢🟡⚪).
+- Skill `descubrir-ganadores-ml` (15ª): el flujo completo "¿qué conviene vender?" validado por margen.
+
 ## 1.9.1
 - Pedido de ⭐ en los 3 momentos de oro (instalación, primera conexión, versión al día), con apertura opcional de GitHub desde el instalador.
 

@@ -104,3 +104,31 @@ export function compararSnapshots(o, viejo, nuevo) {
   }
   return cambios;
 }
+
+// ───────── historial: la base de datos de competencia (evolución en el tiempo) ─────────
+function puntoHistorial(o, datos) {
+  if (o.tipo === 'publicacion') return { precio: datos.precio, vendidos: datos.vendidos };
+  if (o.tipo === 'busqueda') return datos.top?.[0] ? { lider: datos.top[0].vendedor, precioLider: datos.top[0].precio } : null;
+  if (o.tipo === 'vendedor') {
+    const precios = Object.values(datos.items || {}).map((x) => x.precio).filter((n) => n > 0).sort((a, b) => a - b);
+    return { publicaciones: datos.total, precioMediana: precios.length ? precios[Math.floor(precios.length / 2)] : null };
+  }
+  return null;
+}
+export function registrarHistorial(d, clave, o, datos) {
+  const p = puntoHistorial(o, datos);
+  if (!p) return;
+  d.historial = d.historial || {};
+  const arr = (d.historial[clave] = d.historial[clave] || []);
+  const ultimo = arr[arr.length - 1];
+  // No duplicar: si nada cambió y el último punto tiene menos de 20 hs, no se agrega
+  if (ultimo && JSON.stringify({ ...ultimo, t: 0 }) === JSON.stringify({ ...p, t: 0 }) && Date.now() - ultimo.t < 20 * 3600000) return;
+  arr.push({ t: Date.now(), ...p });
+  if (arr.length > 36) arr.splice(0, arr.length - 36);
+}
+export function leerHistorial(ref) {
+  const d = leerVigilancia();
+  const o = d.objetivos.find((x) => x.ref === String(ref).trim() || claveDe(x) === String(ref).trim());
+  if (!o) return null;
+  return { objetivo: o, puntos: (d.historial || {})[claveDe(o)] || [] };
+}

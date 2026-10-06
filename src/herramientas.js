@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { MeliClient, MeliError, listarCuentas, urlDeAutorizacion, canjearCode, borrarCuenta, fijarPredeterminada } from './meli.js';
 import { VERSION, chequearActualizacion } from './version.js';
-import { leerVigilancia, agregarObjetivo, quitarObjetivo, claveDe, tomarSnapshot, compararSnapshots, guardarVigilancia } from './vigilancia.js';
+import { leerVigilancia, agregarObjetivo, quitarObjetivo, claveDe, tomarSnapshot, compararSnapshots, guardarVigilancia, registrarHistorial, leerHistorial } from './vigilancia.js';
 
 const money = (n, moneda = '$') => n == null ? '—' : `${moneda} ${Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
 const cliente = (args) => new MeliClient({ userId: args?.cuenta });
@@ -487,7 +487,9 @@ export const TOOLS = [
       if (r.ya) return 'Ya estaba en la lista de seguimiento.';
       try {
         const d = leerVigilancia();
-        d.snapshots[claveDe(r.objetivo)] = { t: Date.now(), datos: await tomarSnapshot(c, r.objetivo, sitio) };
+        const datos0 = await tomarSnapshot(c, r.objetivo, sitio);
+        d.snapshots[claveDe(r.objetivo)] = { t: Date.now(), datos: datos0 };
+        registrarHistorial(d, claveDe(r.objetivo), r.objetivo, datos0);
         guardarVigilancia(d);
       } catch {}
       return `✅ Agregado al seguimiento: ${o.tipo} **${o.ref}**. Primer registro guardado — corré ml_novedades_competencia en unos días y te digo exactamente qué cambió.`;
@@ -509,12 +511,13 @@ export const TOOLS = [
         try { nuevo = { t: Date.now(), datos: await tomarSnapshot(c, o, o.sitio || sitio) }; }
         catch (e) { secciones.push(`### ${o.tipo}: ${o.ref}\n- ⚠️ no se pudo consultar (${e.message})`); continue; }
         const viejo = d.snapshots[clave];
-        if (!viejo) { primeros++; d.snapshots[clave] = nuevo; continue; }
+        if (!viejo) { primeros++; d.snapshots[clave] = nuevo; registrarHistorial(d, clave, o, nuevo.datos); continue; }
         const cambios = compararSnapshots(o, viejo.datos, nuevo.datos);
         const dias = Math.max(1, Math.round((nuevo.t - viejo.t) / 86400000));
         if (cambios.length) secciones.push(`### ${o.tipo}: ${o.ref}${o.nota ? ' (' + o.nota + ')' : ''} — últimos ${dias} día(s)\n` + cambios.map((x) => '- ' + x).join('\n'));
         else sinCambios++;
         d.snapshots[clave] = nuevo;
+        registrarHistorial(d, clave, o, nuevo.datos);
       }
       guardarVigilancia(d);
       const pie = [];
@@ -522,6 +525,85 @@ export const TOOLS = [
       if (primeros) pie.push(`${primeros} con primer registro recién guardado`);
       if (!secciones.length) return `Sin novedades en la competencia. ${pie.join(' · ')}.`;
       return '# Novedades de competencia y tendencias\n\n' + secciones.join('\n\n') + (pie.length ? `\n\n_${pie.join(' · ')}._` : '');
+    },
+  },
+  {
+    name: 'ml_historial_competencia', title: 'Historial de competencia', readOnly: true,
+    description: 'La base de datos de competencia: evolución en el tiempo de un objetivo vigilado — precio y ventas de una publicación rival, líder y precio líder de una búsqueda, o cantidad de publicaciones y precio mediana de un vendedor. Se alimenta sola con cada control de ml_novedades_competencia.',
+    schema: { ref: z.string().describe('El objetivo tal como figura en la lista de seguimiento (item_id, nickname o keyword)') },
+    async run(args) {
+      const r = leerHistorial(args.ref);
+      if (!r) return `"${args.ref}" no está en la lista de seguimiento. Agregalo con ml_vigilar y el historial se arma solo con cada control.`;
+      if (!r.puntos.length) return `**${r.objetivo.ref}** está vigilado pero todavía sin historial: corré ml_novedades_competencia para registrar el primer punto.`;
+      const f = (t) => new Date(t).toLocaleDateString('es-AR');
+      const dinero = (n) => '$ ' + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+      let filas, resumen = '';
+      if (r.objetivo.tipo === 'publicacion') {
+        filas = r.puntos.map((p, i) => {
+          const ant = r.puntos[i - 1];
+          const delta = ant && ant.precio ? ` (${p.precio >= ant.precio ? '+' : '−'}${Math.abs((p.precio - ant.precio) / ant.precio * 100).toFixed(1)}%)` : '';
+          return `| ${f(p.t)} | ${dinero(p.precio)}${delta} | ${p.vendidos ?? '—'} |`;
+        });
+        filas.unshift('| Fecha | Precio | Vendidos |', '| --- | --- | --- |');
+        const precios = r.puntos.map((p) => p.precio);
+        const primero = r.puntos[0], ultimo = r.puntos[r.puntos.length - 1];
+        const total = primero.precio ? ((ultimo.precio - primero.precio) / primero.precio * 100).toFixed(1) : '0';
+        resumen = `\n**Resumen:** ${dinero(Math.min(...precios))} mínimo · ${dinero(Math.max(...precios))} máximo · ${total > 0 ? '+' : ''}${total}% desde el primer registro` +
+          (ultimo.vendidos != null && primero.vendidos != null ? ` · ~${Math.max(0, ultimo.vendidos - primero.vendidos)} ventas en el período` : '');
+      } else if (r.objetivo.tipo === 'busqueda') {
+        filas = ['| Fecha | Líder | Precio líder |', '| --- | --- | --- |', ...r.puntos.map((p) => `| ${f(p.t)} | ${p.lider} | ${dinero(p.precioLider)} |`)];
+      } else {
+        filas = ['| Fecha | Publicaciones | Precio mediana |', '| --- | --- | --- |', ...r.puntos.map((p) => `| ${f(p.t)} | ${p.publicaciones} | ${p.precioMediana ? dinero(p.precioMediana) : '—'} |`)];
+      }
+      return `# Historial: ${r.objetivo.tipo} ${r.objetivo.ref}\n(${r.puntos.length} registro(s) — se suma uno con cada control)\n\n` + filas.join('\n') + resumen;
+    },
+  },
+  {
+    name: 'ml_descubrir_ganadores', title: 'Descubrir artículos ganadores', readOnly: true,
+    description: 'Encuentra artículos ganadores dentro de lo que permite la API: por CATEGORÍA usa el ranking oficial de más vendidos (highlights) + las tendencias de esa categoría; por BÚSQUEDA analiza el mercado de una keyword (competencia, precios, envío gratis, vendedores que dominan y ventas visibles). Indicar categoria (id tipo MLA1234) o busqueda (keyword).',
+    schema: { ...cuentaParam, categoria: z.string().optional().describe('ID de categoría, ej MLA1055'), busqueda: z.string().optional().describe('Keyword a analizar, ej "termo 1 litro"'), sitio: z.string().optional() },
+    async run(args) {
+      const c = cliente(args);
+      const sitio = args.sitio || (await c.get('/users/me')).site_id || 'MLA';
+      const dinero = (n) => '$ ' + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+      if (args.categoria) {
+        const hl = await c.get(`/highlights/${sitio}/category/${args.categoria}`);
+        const ids = (hl.content || []).filter((x) => x.type === 'ITEM').slice(0, 20);
+        let detalles = {};
+        if (ids.length) {
+          const multi = await c.get('/items', { ids: ids.map((x) => x.id).join(',') });
+          for (const m of multi) if (m.code === 200) detalles[m.body.id] = m.body;
+        }
+        const filas = ids.map((x) => {
+          const b = detalles[x.id] || {};
+          return `${x.position}. **${b.title || x.id}** — ${b.price ? dinero(b.price) : 's/d'}${b.sold_quantity ? ` · ${b.sold_quantity} vendidos` : ''}${b.catalog_listing ? ' · 🏷️ catálogo' : ''}`;
+        });
+        let trends = [];
+        try { const t = await c.get(`/trends/${sitio}/${args.categoria}`); trends = (Array.isArray(t) ? t : []).slice(0, 8).map((x) => x.keyword); } catch {}
+        return `# 🏆 Artículos ganadores — categoría ${args.categoria}\n\n## Ranking oficial de más vendidos (highlights de MercadoLibre)\n` + (filas.length ? filas.join('\n') : 'Esta categoría no publica ranking de más vendidos.') +
+          (trends.length ? `\n\n## 📈 Qué está buscando la gente en la categoría\n` + trends.map((k, i) => `${i + 1}. ${k}`).join('\n') : '') +
+          `\n\n**Cómo leerlo:** un producto que está en el ranking Y coincide con una tendencia es demanda validada. Antes de entrar: ml_buscar para medir la competencia de esa keyword y ml_comisiones para validar el margen.`;
+      }
+      if (args.busqueda) {
+        const r = await c.get(`/sites/${sitio}/search`, { q: args.busqueda, limit: 20 });
+        const items = r.results || [];
+        if (!items.length) return `Sin resultados para "${args.busqueda}".`;
+        const total = r.paging?.total ?? items.length;
+        const precios = items.map((x) => x.price).filter((n) => n > 0).sort((a, b) => a - b);
+        const mediana = precios[Math.floor(precios.length / 2)];
+        const gratis = items.filter((x) => x.shipping?.free_shipping).length;
+        const porVendedor = {};
+        for (const x of items) { const v = x.seller?.nickname || String(x.seller?.id || '?'); porVendedor[v] = (porVendedor[v] || 0) + 1; }
+        const dominan = Object.entries(porVendedor).filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]);
+        let enTendencias = false;
+        try { const t = await c.get(`/trends/${sitio}`); enTendencias = (Array.isArray(t) ? t : []).some((x) => x.keyword.toLowerCase().includes(args.busqueda.toLowerCase()) || args.busqueda.toLowerCase().includes(x.keyword.toLowerCase())); } catch {}
+        const top = items.slice(0, 5).map((x, i) => `${i + 1}. **${x.title}** — ${dinero(x.price)} · ${x.seller?.nickname || '—'}${x.sold_quantity ? ` · ${x.sold_quantity} vendidos` : ''}${x.shipping?.free_shipping ? ' · 🚚 gratis' : ''}`);
+        return `# 🔎 Análisis de mercado: "${args.busqueda}"\n\n- **Competencia:** ${total.toLocaleString('es-AR')} publicaciones compitiendo\n- **Precios (top 20):** ${dinero(precios[0])} a ${dinero(precios[precios.length - 1])} · mediana ${dinero(mediana)}\n- **Envío gratis:** ${gratis}/${items.length} del top lo ofrecen${gratis / items.length > 0.6 ? ' (casi obligatorio para competir)' : ''}\n- **En tendencias del sitio:** ${enTendencias ? '✅ SÍ — demanda validada' : 'no aparece hoy'}\n` +
+          (dominan.length ? `- **Vendedores que dominan el top:** ${dominan.map(([v, n]) => `${v} (${n})`).join(', ')}\n` : '- **Top repartido:** ningún vendedor domina — más fácil entrar\n') +
+          `\n## Top 5 del momento\n` + top.join('\n') +
+          `\n\n**Señal de oportunidad:** ${enTendencias && !dominan.length ? '🟢 ALTA — demanda validada y top repartido' : enTendencias ? '🟡 MEDIA — hay demanda pero el top tiene dueños' : '⚪ a validar — medí la demanda con ml_tendencias de la categoría'}. Validá margen con ml_comisiones antes de entrar, y sumá la búsqueda a la vigilancia (ml_vigilar) para ver su evolución.`;
+      }
+      return 'Indicá categoria (ej MLA1055) para el ranking de más vendidos, o busqueda (keyword) para el análisis de mercado.';
     },
   },
   // ───────────────────────────── Tendencias ─────────────────────────────

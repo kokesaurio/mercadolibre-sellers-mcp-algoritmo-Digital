@@ -95,6 +95,8 @@ export function crearMockMeli() {
   app.get('/seller-promotions/promotions/P-HOT/items', auth, (_q, res) => res.json({ results: [{ id: 'MLA111', original_price: 42000, suggested_discounted_price: 37800, meli_percentage: 5 }] }));
   app.post('/seller-promotions/items/:id', auth, (req, res) => req.body?.promotion_id ? res.json({ ok: true }) : res.status(400).json({ message: 'falta promotion_id' }));
   app.get('/trends/MLA', auth, (_q, res) => res.json(mercado.tendencias));
+  app.get('/trends/MLA/:cat', auth, (_q, res) => res.json([{ keyword: 'termo acero 1 litro' }, { keyword: 'termo con cebador' }]));
+  app.get('/highlights/MLA/category/:cat', auth, (_q, res) => res.json({ content: [{ id: 'MLA111', position: 1, type: 'ITEM' }, { id: 'MLA777', position: 2, type: 'ITEM' }] }));
   return app;
 }
 
@@ -238,6 +240,23 @@ async function pruebas() {
     contiene(t, 'vendió ~3', '39.900');                                      // publicación (ventas estimadas + precio)
     contiene(t, 'nuevo líder', 'USURPADOR');                                 // búsqueda
     contiene(t, 'entraron al top', 'termo milan', 'salieron del top', 'mate imperial'); // tendencias
+  });
+  await caso('ml_descubrir_ganadores por categoría usa el ranking oficial + tendencias', async () => {
+    const t = await tool('ml_descubrir_ganadores').run({ categoria: 'MLA1055' });
+    contiene(t, 'ganadores', 'más vendidos', 'MLA111', 'termo acero 1 litro', 'demanda validada');
+  });
+  await caso('ml_descubrir_ganadores por búsqueda analiza competencia, precios y dominancia', async () => {
+    const t = await tool('ml_descubrir_ganadores').run({ busqueda: 'termo 1 litro' });
+    contiene(t, 'Análisis de mercado', 'Competencia', 'mediana', 'Señal de oportunidad');
+  });
+  await caso('ml_historial_competencia arma la base de datos con cada control', async () => {
+    itemMLA111.price = 42000; itemMLA111.sold_quantity = 55;
+    contiene(await tool('ml_vigilar').run({ accion: 'agregar', tipo: 'publicacion', ref: 'MLA333' }), 'Agregado');
+    itemMLA111.price = 36500; itemMLA111.sold_quantity = 61;
+    await tool('ml_novedades_competencia').run({});
+    const t = await tool('ml_historial_competencia').run({ ref: 'MLA333' });
+    contiene(t, 'Historial', 'MLA333', '42.000', '36.500', '%', 'Resumen');
+    itemMLA111.price = 42000; itemMLA111.sold_quantity = 55;
   });
   await caso('ml_vigilar quitar limpia objetivo y snapshot', async () => {
     contiene(await tool('ml_vigilar').run({ accion: 'quitar', ref: 'RIVAL' }), 'Quitado');

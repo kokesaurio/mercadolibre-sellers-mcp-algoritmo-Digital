@@ -1,4 +1,4 @@
-# Guía de uso — las 14 skills del conector
+# Guía de uso — las 15 skills del conector
 
 Skills listas para Claude que convierten el [conector de MercadoLibre de
 Algoritmo Digital](../README.md) en flujos de trabajo completos. **Cómo
@@ -57,9 +57,13 @@ skill**. Claude las usa solo cuando corresponde.
 **Pedilo así:** "hacé un UGC de este producto" · "video con avatar"
 **Qué hace:** video vertical estilo usuario real pero prolijo, con AVATAR de IA siempre (el mismo en todos tus videos) y castellano latino neutro. Prueba social solo con números reales del conector.
 
+### 🏆 [descubrir-ganadores-ml](descubrir-ganadores-ml/) — qué conviene vender
+**Pedilo así:** "¿qué conviene vender?" · "buscá productos ganadores" · "¿este producto tiene mercado?"
+**Qué hace:** ranking oficial de más vendidos por categoría + tendencias + análisis de mercado por keyword (competencia, precios, quién domina) con señal de oportunidad 🟢🟡⚪ — y valida el margen con tus costos antes de recomendar entrar.
+
 ### 🥊 [vigilancia-ml](vigilancia-ml/) — seguimiento de competencia y trends
 **Pedilo así:** "vigilá a [rival]" · "¿qué cambió en la competencia?" · "mis rivales"
-**Qué hace:** lista de rivales, productos seguidos, búsquedas y tendencias; el control semanal reporta SOLO lo que cambió (precios, publicaciones nuevas, ventas estimadas del rival, keywords en alza) y lo traduce en máximo 3 acciones.
+**Qué hace:** lista de rivales, productos seguidos, búsquedas y tendencias; el control semanal reporta SOLO lo que cambió (precios, publicaciones nuevas, ventas estimadas del rival, keywords en alza) y lo traduce en máximo 3 acciones. Cada control suma un punto a la **base de datos de competencia**: pedí "historial de [rival/producto]" para ver la evolución de precios en el tiempo.
 
 ### ⚔️ [competencia-ml](competencia-ml/) — foto del momento
 **Pedilo así:** "¿cómo estoy contra la competencia?" · "¿gano el catálogo?"
