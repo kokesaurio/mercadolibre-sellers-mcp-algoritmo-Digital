@@ -7,13 +7,16 @@
 
 **Palabras clave:** MCP MercadoLibre · MercadoLibre Claude · conectar MercadoLibre a Claude · API MercadoLibre IA · Model Context Protocol MercadoLibre · vendedores MercadoLibre · automatizar MercadoLibre con IA
 
-Conectá tu cuenta de MercadoLibre a Claude y preguntale en lenguaje natural:
-*"¿cómo vienen las ventas?"*, *"¿qué preguntas tengo sin responder?"*, *"¿estoy
-ganando el catálogo?"*, *"¿qué promociones me está ofreciendo MercadoLibre?"*.
+Conectá tu cuenta de MercadoLibre a Claude y manejá tu tienda en lenguaje natural:
 
-**22 herramientas · multicuenta (varias tiendas, con consolidado) · sin servidor propio · tokens guardados solo en tu computadora
-· hecho por [Algoritmo Digital](https://algoritmodigital.com.ar), consultora
-especializada en MercadoLibre.**
+- *"¿cómo vienen las ventas hoy?"* → tablero con facturación, top productos, envíos y provincias
+- *"¿qué preguntas tengo sin responder?"* → te propone todas las respuestas y publica las que apruebes
+- *"auditá mis publicaciones"* → semáforo 🔴🟡🟢 con qué arreglar en cada una (fotos, título, video faltante, catálogo)
+- *"armame las imágenes de esta publicación"* → el set de 4 infografías profesionales con tus fotos reales
+- *"hacé un video para Reels de este producto"* → guion por escenas y video con tus datos verdaderos
+- *"¿qué cambió en la competencia?"* → solo las novedades: precios movidos, publicaciones nuevas, ventas estimadas del rival
+
+**22 herramientas · 14 skills · multicuenta con consolidado · sin servidor propio · tokens solo en tu computadora** — hecho por [Algoritmo Digital](https://algoritmodigital.com.ar), consultora especializada en MercadoLibre.
 
 ```text
 Claude ──MCP──► este conector ──OAuth 2.0 + PKCE──► API oficial de MercadoLibre
@@ -25,23 +28,18 @@ Claude ──MCP──► este conector ──OAuth 2.0 + PKCE──► API ofic
 
 | | Este conector | Alternativas típicas |
 | --- | --- | --- |
-| Onboarding | **Guiado desde cero**: `ml_conectar` te da el link, autorizás y pegás el código. Listo. | Asumen que ya tenés los tokens de ML (conseguirlos es la parte difícil) o exigen una base Supabase |
+| Onboarding | **Guiado desde cero**: decile "setup" a Claude y te deja operativo | Asumen que ya tenés los tokens de ML (conseguirlos es la parte difícil) o exigen una base Supabase |
 | Infraestructura | **Ninguna**: tokens en un archivo local (0600), refresh automático serializado | Backend propio, Supabase o VPS |
 | Idioma | Castellano, pensado para vendedores | Inglés técnico, pensado para developers |
 | Seguridad | PKCE, escrituras opcionales (`ML_SOLO_LECTURA=1` las desactiva), sin telemetría | Varía |
-| Pruebas | Suite E2E de 21 casos contra un MercadoLibre simulado (`npm test`) | Rara vez |
-| Skills | 5 skills de Claude incluidas (reportes, preguntas, competencia, publicidad, optimización) | No |
+| Pruebas | **Suite E2E de 42 casos** contra un MercadoLibre simulado, corriendo en CI en cada cambio | Rara vez |
+| Skills | **14 skills** incluidas, del reporte diario al video del producto | No |
 
-¿Tenés varias tiendas, querés rentabilidad real con tus costos, caja de
-MercadoPago y vigilancia de competidores gestionada? Eso es nuestro
-[conector premium con CRM](https://github.com/kokesaurio/mercadolibre-algoritmodigital)
-— este conector directo es gratis y para cualquier vendedor.
+¿Tenés varias tiendas, querés rentabilidad real con tus costos, caja de MercadoPago y vigilancia de competidores gestionada? Eso es nuestro [conector premium con CRM](https://github.com/kokesaurio/mercadolibre-algoritmodigital) — este conector directo es gratis y para cualquier vendedor.
 
 ## Guía de instalación (10 minutos, sin servidor, paso a paso)
 
-No hace falta saber programar. Necesitás: una cuenta de vendedor de MercadoLibre,
-[Claude Desktop](https://claude.ai/download) y [Node.js LTS](https://nodejs.org)
-instalados (ambos gratis, se instalan con "siguiente, siguiente").
+No hace falta saber programar. Necesitás: una cuenta de vendedor de MercadoLibre, [Claude Desktop](https://claude.ai/download) y [Node.js LTS](https://nodejs.org) instalados (ambos gratis, se instalan con "siguiente, siguiente").
 
 ### ⚡ Vía rápida A — Instalador automático (1 solo comando)
 
@@ -51,10 +49,7 @@ Abrí una terminal (**Windows**: `Win + R` → escribí `cmd` → Enter · **Mac
 npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital instalar
 ```
 
-El instalador te guía para crear tu app gratis de MercadoLibre, te pide el App
-ID y el Secret, y **configura Claude Desktop solo**: respeta los conectores que
-ya tengas, hace backup de tu configuración anterior y te deja a un reinicio de
-usarlo. (Si ya tenés las credenciales: agregá `--app-id TU_APP_ID --secret TU_SECRET`.)
+El instalador te guía para crear tu app gratis de MercadoLibre, te pide el App ID y el Secret, y **configura Claude Desktop solo**: respeta los conectores que ya tengas, hace backup de tu configuración anterior y te deja a un reinicio de usarlo. (Si ya tenés las credenciales: agregá `--app-id TU_APP_ID --secret TU_SECRET`.)
 
 ### ⚡ Vía rápida B — Que Claude lo instale por vos (Cowork / Claude Code)
 
@@ -79,9 +74,7 @@ Guía: https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital
 
 ### Paso 1 — Creá tu aplicación gratis en MercadoLibre
 
-Entrá a [developers.mercadolibre.com.ar](https://developers.mercadolibre.com.ar)
-con tu cuenta de vendedor → **Mis aplicaciones** → **Crear nueva aplicación** y
-completá así:
+Entrá a [developers.mercadolibre.com.ar](https://developers.mercadolibre.com.ar) con tu cuenta de vendedor → **Mis aplicaciones** → **Crear nueva aplicación** y completá así:
 
 ![Paso 1: crear la aplicación en el DevCenter de MercadoLibre](docs/img/paso-1-crear-app.svg)
 
@@ -91,8 +84,7 @@ completá así:
   https://kokesaurio.github.io/mercadolibre-sellers-mcp-algoritmo-Digital/conectar.html
   ```
 
-- **Scopes**: marcá `read`, `write` y **`offline_access`** — sin este último, la
-  conexión se corta cada 6 horas.
+- **Scopes**: marcá `read`, `write` y **`offline_access`** — sin este último, la conexión se corta cada 6 horas.
 
 ### Paso 2 — Anotá el App ID y el Secret Key
 
@@ -111,8 +103,7 @@ Abrí el archivo de configuración:
 
 ![Paso 3: configurar Claude Desktop](docs/img/paso-3-configurar-claude.svg)
 
-Si el archivo está vacío, pegá este bloque completo (reemplazando tus dos datos
-del paso 2). Si ya tenés otros conectores, agregá solo la parte `"mercadolibre"`:
+Si el archivo está vacío, pegá este bloque completo (reemplazando tus dos datos del paso 2). Si ya tenés otros conectores, agregá solo la parte `"mercadolibre"`:
 
 ```json
 {
@@ -141,17 +132,13 @@ claude mcp add mercadolibre \
 
 ### Paso 4 — Conectá tu cuenta (una sola vez)
 
-En un chat nuevo decile a Claude: **"conectá mi cuenta de MercadoLibre"**.
+En un chat nuevo decile a Claude: **"conectá mi cuenta de MercadoLibre"** — o directamente **"setup"** para que la skill de puesta en marcha haga todo esto por vos.
 
 ![Paso 4: autorizar con tu cuenta y pegar el código](docs/img/paso-4-conectar-cuenta.svg)
 
 1. Claude te da un link → abrilo e iniciá sesión con **tu** cuenta de vendedor.
 2. Tocá **Autorizar** → la página te muestra un código.
-3. **Copiá el código y pegáselo a Claude.** Listo: la sesión se renueva sola para
-   siempre. ¿Más de una tienda? Repetí este paso con cada cuenta.
-
-Probá: *"¿cómo vienen las ventas de la semana?"*, *"¿qué preguntas tengo sin
-responder?"*, *"¿estoy ganando el catálogo?"*.
+3. **Copiá el código y pegáselo a Claude.** Listo: la sesión se renueva sola para siempre. ¿Más de una tienda? Repetí este paso con cada cuenta.
 
 ### Si algo falla (los 5 errores clásicos)
 
@@ -165,6 +152,58 @@ responder?"*, *"¿estoy ganando el catálogo?"*.
 
 ¿Seguís trabado? [Escribinos por WhatsApp](https://wa.me/5491177166060?text=Hola!%20Vengo%20del%20conector%20MCP%20de%20MercadoLibre%20(instalaci%C3%B3n)...) y te ayudamos.
 
+## Las 14 skills — tu equipo de trabajo
+
+El conector trae [**14 skills listas**](skills/) con [guía de uso de cada una](skills/README.md). Se suben una vez en Claude (**Configuración → Capacidades → Skills → Cargar skill**) y convierten las herramientas en flujos completos: vos pedís en una frase, la skill sabe el procedimiento.
+
+> 🚀 **Empezá por acá:** subí [setup-ml](skills/setup-ml/) y decile a Claude **"setup"** — conecta tus cuentas, arma la vigilancia inicial y te entrega tu primera foto del negocio con las 3 acciones más urgentes.
+
+### 📊 Operación diaria
+
+| Skill | Pedila así |
+| --- | --- |
+| [panel-ventas-ml](skills/panel-ventas-ml/) | *"¿cómo venimos hoy?"* — facturación de hoy y del mes, top productos, envíos FULL/Flex/Colecta y provincias |
+| [reporte-ventas-ml](skills/reporte-ventas-ml/) | *"reporte de ventas"* — el resumen de 4 líneas apto WhatsApp |
+| [responder-preguntas-ml](skills/responder-preguntas-ml/) | *"respondamos las preguntas"* — todas las respuestas propuestas juntas, publica solo lo que apruebes |
+
+### 🔍 Optimización de publicaciones
+
+| Skill | Pedila así |
+| --- | --- |
+| [mejorar-publicaciones-ml](skills/mejorar-publicaciones-ml/) | *"auditá mis publicaciones"* — semáforo 🔴🟡🟢 con la acción concreta por ítem, las peores primero |
+| [visualizador-publicaciones-ml](skills/visualizador-publicaciones-ml/) | *"armame el visualizador"* — [tablero interactivo](panel/visualizador.html) con foto y semáforo: tocás cuáles mejorar y te genera el pedido |
+| [copiar-publicaciones-ml](skills/copiar-publicaciones-ml/) | *"copiá esta publicación a la otra tienda"* — clona entre tus cuentas; lo ajeno se redacta, nunca se clona |
+| [revisar-publicaciones-aldi](skills/revisar-publicaciones-aldi/) | *"pasá esta publicación por Aldi"* — segunda opinión con [Aldi 2.0](https://chatgpt.com/g/g-698f16e0eebc819182455494732d40a0-aldi-2-0-mercado-libre-algoritmo-digital), el GPT revisor de Algoritmo Digital |
+
+### 🎨 Kit creativo: imágenes y videos
+
+| Skill | Pedila así |
+| --- | --- |
+| [imagenes-ml](skills/imagenes-ml/) | *"armame las imágenes de MLA..."* — el set fijo de 4 infografías con tus fotos reales (abajo hay ejemplos) |
+| [video-publicaciones-ml](skills/video-publicaciones-ml/) | *"hacé un video para Reels de MLA..."* — guion por escenas y producción con HyperFrames desde datos reales |
+| [ugc-ml](skills/ugc-ml/) | *"hacé un UGC de este producto"* — estilo usuario real con avatar de IA siempre y castellano latino neutro |
+
+### 🥊 Competencia y crecimiento
+
+| Skill | Pedila así |
+| --- | --- |
+| [vigilancia-ml](skills/vigilancia-ml/) | *"¿qué cambió en la competencia?"* — solo novedades: precios movidos, publicaciones nuevas, ventas estimadas del rival, keywords en alza |
+| [competencia-ml](skills/competencia-ml/) | *"¿estoy ganando el catálogo?"* — semáforo de precios y buy box, con recomendaciones validadas por margen |
+| [publicidad-ml](skills/publicidad-ml/) | *"revisemos la publicidad"* — Product Ads con regla ACOS vs margen y promociones separando tu aporte del de ML |
+| [setup-ml](skills/setup-ml/) | *"setup"* — la puesta en marcha guiada de todo lo anterior |
+
+**Rutina sugerida:** diaria = panel + preguntas (5 min) · semanal = vigilancia → visualizador → mejoras → publicidad · al publicar algo nuevo = copiar → imágenes → video → revisión con Aldi.
+
+## El set de imágenes de venta (así salen)
+
+La skill imagenes-ml genera el **set fijo de 4** — beneficio (foto 2), características (foto 4), medidas con cotas (foto 5) y qué incluye (foto 6) — en 1200×1200, **con las fotos reales de tu publicación incrustadas** y cumpliendo las reglas de imágenes de MercadoLibre (sin datos de contacto, sin "OFERTA", legible en miniatura):
+
+| Foto 2 — Beneficio | Foto 5 — Medidas |
+| --- | --- |
+| ![Ejemplo: beneficio principal](docs/img/foto-2-beneficio.png) | ![Ejemplo: medidas con cotas](docs/img/foto-5-medidas.png) |
+
+Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando: `python3 plantillas/generar.py --plantilla medidas --datos datos.json --foto tu-foto.png --salida foto-5-medidas.png`. El método completo (orden de publicación foto 2→10, solo datos confirmados, revisión pieza por pieza) está grabado en la skill.
+
 ## Herramientas (22)
 
 | Herramienta | Qué hace |
@@ -174,7 +213,7 @@ responder?"*, *"¿estoy ganando el catálogo?"*.
 | ml_panel_ventas | El tablero completo: facturación de hoy y del mes, top productos, métodos de envío y en qué provincias se concentra la venta |
 | ml_metricas | Facturación, unidades y ticket vs período anterior; con `cuenta="todas"` consolida todas tus tiendas |
 | ml_envios | Estado y tracking del envío de una orden |
-| ml_publicaciones / ml_publicacion | Tus publicaciones y su detalle |
+| ml_publicaciones / ml_publicacion | Tus publicaciones y su detalle (incluye fotos y si tiene video) |
 | ml_auditar_publicaciones | Semáforo 🔴🟡🟢 de TUS publicaciones con cómo mejorar cada una: título, fotos, descripción, envío, stock, **video faltante**, tipo y catálogo — las peores primero |
 | ml_visitas | Tráfico de una publicación |
 | ml_actualizar_publicacion ✏️ | Cambiar precio, stock o pausar/activar |
@@ -186,63 +225,24 @@ responder?"*, *"¿estoy ganando el catálogo?"*.
 | ml_reputacion | Color, reclamos, demoras y cancelaciones |
 | ml_promociones / ml_aceptar_promocion ✏️ | Promociones ofrecidas y aceptación por ítem |
 | ml_tendencias | Qué está buscando la gente en ML |
-| ml_vigilar / ml_novedades_competencia | Lista de rivales 🥊, productos seguidos 📦, búsquedas y trends — y el control de competidores, publicaciones, búsquedas y trends — y el control que reporta solo lo que cambió: precios, publicaciones nuevas, ventas estimadas del rival, cambios de líder y keywords en alza |
+| ml_vigilar / ml_novedades_competencia | Lista de rivales 🥊, productos seguidos 📦, búsquedas y trends — y el control que reporta solo lo que cambió: precios, publicaciones nuevas, ventas estimadas del rival, cambios de líder y keywords en alza |
 | ml_version | Versión instalada, chequeo de actualizaciones y cómo actualizar |
 
-✏️ = escribe en tu tienda real. Claude siempre pide confirmación antes, y con
-`ML_SOLO_LECTURA=1` esas herramientas directamente no existen.
-
-## Visualizador de publicaciones
-
-En [`panel/visualizador.html`](panel/visualizador.html): todas tus
-publicaciones en tarjetas con foto, precio, stock y semáforo de la auditoría —
-tocás las que querés mejorar y te genera el pedido listo para pegarle a Claude.
-La skill visualizador-publicaciones-ml lo llena con tus datos reales.
-
-## Skills incluidas (14)
-
-En [`skills/`](skills/) vienen 14 skills fijas — con [guía de uso de cada una](skills/README.md) — para Claude (Configuración →
-Capacidades → Skills → subir la carpeta) que convierten las herramientas en
-flujos de trabajo completos:
-
-| Skill | Qué hace |
-| --- | --- |
-| [setup-ml](skills/setup-ml/) | Puesta en marcha guiada: conecta cuentas, arma la vigilancia inicial y entrega tu primera foto del negocio — decile "setup" |
-| [panel-ventas-ml](skills/panel-ventas-ml/) | El tablero del día: facturación de hoy y del mes, más vendidos, envíos (FULL/Flex/Colecta) y provincias donde se concentra la venta, con lecturas accionables |
-| [reporte-ventas-ml](skills/reporte-ventas-ml/) | El "¿cómo vienen las ventas?" diario: facturación, unidades y alertas en formato de 4 líneas apto celular |
-| [responder-preguntas-ml](skills/responder-preguntas-ml/) | Junta las preguntas pendientes, propone TODAS las respuestas para aprobar de una, y publica solo lo confirmado — nunca datos de contacto |
-| [mejorar-publicaciones-ml](skills/mejorar-publicaciones-ml/) | Diagnóstico con datos → priorización → propuestas de título/precio/stock → aplica solo con confirmación por ítem |
-| [visualizador-publicaciones-ml](skills/visualizador-publicaciones-ml/) | Arma el [tablero interactivo](panel/visualizador.html) con foto, precio y semáforo de cada publicación: tocás cuáles mejorar y te genera el pedido para Claude |
-| [imagenes-ml](skills/imagenes-ml/) | Genera las imágenes de venta (medidas con cotas, beneficios, qué incluye) desde las [plantillas](plantillas/) del repo, cumpliendo las reglas de imágenes de ML, y audita tu imagen principal |
-| [copiar-publicaciones-ml](skills/copiar-publicaciones-ml/) | Duplica publicaciones entre tus tiendas (multicuenta) o crea nuevas tomando otra de referencia — con la regla legal clara: lo ajeno se redacta, no se clona |
-| [revisar-publicaciones-aldi](skills/revisar-publicaciones-aldi/) | Auditoría externa con [Aldi 2.0](https://chatgpt.com/g/g-698f16e0eebc819182455494732d40a0-aldi-2-0-mercado-libre-algoritmo-digital), el GPT revisor de Algoritmo Digital en ChatGPT: arma el paquete de revisión, procesa el veredicto y aplica los cambios confirmados |
-| [vigilancia-ml](skills/vigilancia-ml/) | Seguimiento continuo: armá la lista de competidores/búsquedas/trends y corré el control semanal que detecta precios movidos, publicaciones nuevas, ventas estimadas del rival y keywords en alza |
-| [ugc-ml](skills/ugc-ml/) | UGC limpio con avatar de IA SIEMPRE y castellano latino neutro — estilo usuario real, claims verificados y prueba social con números reales |
-| [video-publicaciones-ml](skills/video-publicaciones-ml/) | Videos del producto con HyperFrames desde los datos y fotos reales de la publicación: Reels/ads 9:16 o clip para la publicación, guion por escenas calcado del orden de fotos |
-| [competencia-ml](skills/competencia-ml/) | Semáforo de precios contra la competencia, buy box del catálogo y recomendaciones validadas por margen |
-| [publicidad-ml](skills/publicidad-ml/) | Product Ads con regla ACOS vs margen, y promociones separando el aporte del vendedor del de MercadoLibre |
+✏️ = escribe en tu tienda real. Claude siempre pide confirmación antes, y con `ML_SOLO_LECTURA=1` esas herramientas directamente no existen.
 
 ## Varias tiendas
 
-Corré `ml_conectar` una vez por cada cuenta. Todas las herramientas aceptan
-`cuenta` (el user_id) para elegir tienda; sin indicarla se usa la
-**predeterminada** (⭐, se cambia con `ml_cuentas`), y si hay varias sin
-predeterminada el conector pide elegir en vez de adivinar — nunca opera en la
-tienda equivocada. *"¿Cómo vienen las ventas de todas las tiendas?"* usa el
-consolidado.
+Corré `ml_conectar` una vez por cada cuenta. Todas las herramientas aceptan `cuenta` (el user_id) para elegir tienda; sin indicarla se usa la **predeterminada** (⭐, se cambia con `ml_cuentas`), y si hay varias sin predeterminada el conector pide elegir en vez de adivinar — nunca opera en la tienda equivocada. *"¿Cómo vienen las ventas de todas las tiendas?"* usa el consolidado.
 
 ## Actualizaciones
 
-El conector se chequea solo contra GitHub (una vez por día, sin enviar ningún
-dato): cuando publicamos una mejora, **la primera respuesta de tu sesión te
-avisa** que hay versión nueva. También podés preguntarle a Claude *"¿qué versión
-del conector tengo?"* (`ml_version`). Para actualizar:
+El conector se chequea solo contra GitHub (una vez por día, sin enviar ningún dato): cuando publicamos una mejora, **la primera respuesta de tu sesión te avisa** que hay versión nueva. También podés preguntarle a Claude *"¿qué versión del conector tengo?"* (`ml_version`). Para actualizar:
 
 ```bash
 npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital actualizar
 ```
 
-…y reiniciá Claude: al arrancar baja la última versión automáticamente.
+…y reiniciá Claude: al arrancar baja la última versión automáticamente. Historial de cambios en el [CHANGELOG](CHANGELOG.md) y en los [releases](https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital/releases).
 
 ## Seguridad
 
@@ -250,23 +250,21 @@ npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital actualizar
 - El refresh token de ML es de un solo uso: el conector serializa los refresh (single-flight) para que dos llamadas concurrentes no revoquen tu cuenta.
 - La página del código de autorización es estática (GitHub Pages) y no envía nada a ningún servidor.
 - Cero telemetría, cero base de datos externa.
+- ¿Encontraste una vulnerabilidad? Leé la [política de seguridad](SECURITY.md) — reporte privado, respuesta en 72 hs.
 
-## Desarrollo en el entorno de Claude
+## Desarrollo y comunidad
 
 ```bash
 npm install
-npm test      # 21 pruebas E2E contra un MercadoLibre simulado
+npm test      # 42 pruebas E2E contra un MercadoLibre simulado
 npm run dev   # levanta el simulado en :9990 (conectar con code CODE-OK)
 ```
 
-Regla para contribuir (humano o IA): todo cambio deja `npm test` en verde, y
-cada funcionalidad nueva suma su caso a `dev/entorno.js`.
+Cada push corre la suite completa en [GitHub Actions](https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital/actions). ¿Querés sumar algo? Leé [cómo contribuir](CONTRIBUTING.md) — regla de oro: todo cambio deja `npm test` en verde y cada funcionalidad nueva trae su caso E2E. ¿Encontraste un error o te falta una herramienta? [Abrí un issue](https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital/issues/new/choose).
 
 ## ¿Querés más?
 
-Algoritmo Digital hace [consultoría, gestión de cuentas y desarrollo a medida
-sobre MercadoLibre](https://algoritmodigital.com.ar) hace más de 15 años.
-Escribinos: [WhatsApp](https://wa.me/5491177166060?text=Hola!%20Vengo%20del%20conector%20MCP%20de%20MercadoLibre%20(GitHub)...)
+Algoritmo Digital hace [consultoría, gestión de cuentas y desarrollo a medida sobre MercadoLibre](https://algoritmodigital.com.ar) hace más de 15 años. Escribinos: [WhatsApp](https://wa.me/5491177166060?text=Hola!%20Vengo%20del%20conector%20MCP%20de%20MercadoLibre%20(GitHub)...)
 
 ## Licencia
 
