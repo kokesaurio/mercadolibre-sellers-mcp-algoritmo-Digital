@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { MeliClient, MeliError, listarCuentas, urlDeAutorizacion, canjearCode, borrarCuenta, fijarPredeterminada } from './meli.js';
 import { VERSION, chequearActualizacion } from './version.js';
+import { leerCerebro, saberDe, aprender, olvidar } from './cerebro.js';
 import { leerVigilancia, agregarObjetivo, quitarObjetivo, claveDe, tomarSnapshot, compararSnapshots, guardarVigilancia, registrarHistorial, leerHistorial } from './vigilancia.js';
 
 const money = (n, moneda = '$') => n == null ? '—' : `${moneda} ${Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
@@ -444,6 +445,58 @@ export const TOOLS = [
       return `# Auditoría de publicaciones (${auditorias.length})\n**${rojas} 🔴 urgentes · ${amarillas} 🟡 mejorables · ${auditorias.length - rojas - amarillas} 🟢 OK**\n\n` + filas.join('\n\n') + '\n\n¿Aplico alguna mejora? Decime cuál y la hago con tu confirmación (precio/stock/estado por acá; títulos solo si la publicación no tiene ventas; fotos y descripción van por tu panel).';
     },
   },
+  // ─────────────────────────────── Cerebro ───────────────────────────────
+  {
+    name: 'ml_cerebro', title: 'El cerebro del conector (memoria del negocio)', readOnly: true,
+    description: 'La base de datos local del negocio: guarda lo que el vendedor le enseña (costo de cada producto, % de impuestos, costo de envío, medidas, qué incluye, notas) y las demás herramientas lo usan solas — la calculadora de rentabilidad deja de preguntar lo que ya sabe. Todo queda en un archivo local de la máquina del vendedor, nunca sale de ahí. Acciones: guardar, ver, olvidar. Para datos del negocio entero (ej impuestos de todas las ventas), guardar sin item_id.',
+    schema: {
+      accion: z.enum(['guardar', 'ver', 'olvidar']).describe('guardar conocimiento, ver lo que sabe, u olvidar un producto'),
+      item_id: z.string().optional().describe('Producto (MLA...) o SKU. Sin item_id, el dato es del negocio entero'),
+      costo: z.number().min(0).optional().describe('Costo del producto'),
+      impuestos_pct: z.number().min(0).max(60).optional().describe('% de impuestos sobre la venta'),
+      costo_envio: z.number().min(0).optional().describe('Costo de envío por unidad a cargo del vendedor'),
+      medidas: z.string().optional().describe('Medidas reales, ej "27 cm alto, 8,5 cm diámetro, 480 g"'),
+      incluye: z.string().optional().describe('Qué incluye el paquete, separado por comas'),
+      nota: z.string().optional().describe('Cualquier cosa que el vendedor quiera que Claude recuerde de este producto o del negocio'),
+    },
+    async run(args) {
+      const dinero = (n) => '$ ' + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+      if (args.accion === 'guardar') {
+        const { accion, item_id, ...datos } = args;
+        if (!Object.values(datos).some((v) => v !== undefined)) return 'Decime qué guardar: costo, impuestos_pct, costo_envio, medidas, incluye o una nota.';
+        aprender(item_id || null, datos);
+        const campos = Object.entries(datos).filter(([, v]) => v !== undefined).map(([k]) => k).join(', ');
+        return `🧠 Guardado en el cerebro${item_id ? ` de **${item_id}**` : ' del **negocio** (vale para todos los productos que no tengan el dato propio)'}: ${campos}. Queda en tu máquina y las herramientas lo usan solas (la calculadora ya no te lo vuelve a preguntar).`;
+      }
+      if (args.accion === 'olvidar') {
+        if (!args.item_id) return 'Indicá el item_id del producto a olvidar.';
+        return olvidar(args.item_id) ? `🧠 Olvidado todo lo guardado de ${args.item_id}.` : `No había nada guardado de ${args.item_id}.`;
+      }
+      const d = leerCerebro();
+      if (args.item_id) {
+        const p = saberDe(args.item_id);
+        const lineas = [];
+        if (p.costo != null) lineas.push(`- Costo: ${dinero(p.costo)}`);
+        if (p.impuestos_pct != null) lineas.push(`- Impuestos: ${p.impuestos_pct}%${d.productos[args.item_id]?.impuestos_pct == null ? ' (heredado del negocio)' : ''}`);
+        if (p.costo_envio != null) lineas.push(`- Envío por unidad: ${dinero(p.costo_envio)}`);
+        if (p.medidas) lineas.push(`- Medidas: ${p.medidas}`);
+        if (p.incluye) lineas.push(`- Incluye: ${p.incluye}`);
+        for (const n of p.notas || []) lineas.push(`- 📝 ${n.texto}`);
+        return lineas.length ? `# 🧠 Lo que sé de ${args.item_id}\n` + lineas.join('\n') : `Todavía no sé nada de ${args.item_id}. Enseñame con ml_cerebro guardar (costo, impuestos, medidas, notas).`;
+      }
+      const prods = Object.keys(d.productos);
+      const neg = [];
+      if (d.negocio.impuestos_pct != null) neg.push(`- Impuestos del negocio: ${d.negocio.impuestos_pct}%`);
+      if (d.negocio.costo_envio != null) neg.push(`- Envío por unidad (default): ${dinero(d.negocio.costo_envio)}`);
+      for (const n of d.negocio.notas || []) neg.push(`- 📝 ${n.texto}`);
+      return `# 🧠 El cerebro del conector\n\n## Negocio\n` + (neg.length ? neg.join('\n') : '- (nada guardado todavía)') +
+        `\n\n## Productos con datos (${prods.length})\n` + (prods.length ? prods.map((id) => {
+          const p = d.productos[id];
+          return `- **${id}**: ${[p.costo != null ? 'costo ' + dinero(p.costo) : '', p.medidas ? 'medidas ✔' : '', p.incluye ? 'incluye ✔' : '', (p.notas?.length || 0) ? p.notas.length + ' nota(s)' : ''].filter(Boolean).join(' · ') || 'solo creado'}`;
+        }).join('\n') : '- (ninguno)') +
+        `\n\nTodo esto vive en tu máquina (cerebro.json) y nunca sale de ahí.`;
+    },
+  },
   // ───────────────────────── Publicidad y rentabilidad ─────────────────────────
   {
     name: 'ml_publicidad', title: 'Métricas de Product Ads en vivo', readOnly: true,
@@ -506,11 +559,24 @@ export const TOOLS = [
         const b = await c.get(`/items/${args.item_id}`);
         precio = precio ?? b.price; tipo = b.listing_type_id || tipo; titulo = b.title;
       }
+      // 🧠 El cerebro completa lo que el usuario no pasó, y aprende lo que sí pasó
+      const sabido = args.item_id ? saberDe(args.item_id) : saberDe('__negocio__');
+      const memoria = [];
+      let costoFinal = args.costo, impuestosFinal = args.impuestos_pct, envioFinal = args.costo_envio;
+      if (costoFinal == null && sabido.costo != null) { costoFinal = sabido.costo; memoria.push(`costo ${'$ ' + Number(sabido.costo).toLocaleString('es-AR')} guardado`); }
+      if (impuestosFinal == null && sabido.impuestos_pct != null) { impuestosFinal = sabido.impuestos_pct; memoria.push(`impuestos ${sabido.impuestos_pct}% guardados`); }
+      if (envioFinal == null && sabido.costo_envio != null) { envioFinal = sabido.costo_envio; memoria.push(`envío ${'$ ' + Number(sabido.costo_envio).toLocaleString('es-AR')} guardado`); }
       const faltan = [];
       if (!precio) faltan.push('el **precio de venta** (o pasame el item_id y lo traigo)');
-      if (args.costo == null) faltan.push('el **costo del producto** (lo que te sale a vos, con IVA si corresponde)');
-      if (args.impuestos_pct == null) faltan.push('el **% de impuestos** sobre la venta (IIBB + monotributo o IVA según tu situación — si no lo sabés, tu contador lo tiene en 1 minuto)');
-      if (faltan.length) return 'Para calcular la rentabilidad real me falta:\n- ' + faltan.join('\n- ') + '\n\nCon esos datos te doy el desglose peso por peso.';
+      if (costoFinal == null) faltan.push('el **costo del producto** (lo que te sale a vos, con IVA si corresponde)');
+      if (impuestosFinal == null) faltan.push('el **% de impuestos** sobre la venta (IIBB + monotributo o IVA según tu situación — si no lo sabés, tu contador lo tiene en 1 minuto)');
+      if (faltan.length) return 'Para calcular la rentabilidad real me falta:\n- ' + faltan.join('\n- ') + '\n\nCon esos datos te doy el desglose peso por peso (y los guardo en el cerebro para no volver a preguntarlos).';
+      // Aprender lo que vino nuevo
+      const aprendido = {};
+      if (args.costo != null && args.costo !== sabido.costo) aprendido.costo = args.costo;
+      if (args.impuestos_pct != null && args.impuestos_pct !== sabido.impuestos_pct) aprendido.impuestos_pct = args.impuestos_pct;
+      if (args.costo_envio != null && args.costo_envio !== sabido.costo_envio) aprendido.costo_envio = args.costo_envio;
+      if (Object.keys(aprendido).length) aprender(args.item_id || null, aprendido);
       const sitio = (await c.get('/users/me')).site_id || 'MLA';
       let pct = 14, fijo = 0;
       try {
@@ -534,9 +600,9 @@ export const TOOLS = [
           } catch (e) { if (![400, 403, 404].includes(e.status)) throw e; }
         }
       }
-      const envio = args.costo_envio ?? 0;
-      const impuestos = precio * args.impuestos_pct / 100;
-      const ganancia = precio - comision - adsPorUnidad - envio - impuestos - args.costo;
+      const envio = envioFinal ?? 0;
+      const impuestos = precio * impuestosFinal / 100;
+      const ganancia = precio - comision - adsPorUnidad - envio - impuestos - costoFinal;
       const margen = (ganancia / precio * 100);
       const semaforo = ganancia <= 0 ? '🔴 PÉRDIDA' : margen < 10 ? '🟡 margen finito' : '🟢 margen sano';
       const acosMax = ((ganancia + adsPorUnidad) / precio * 100);
@@ -546,12 +612,12 @@ export const TOOLS = [
         `| − Comisión MercadoLibre (${pct != null ? pct + '%' + (fijo ? ' + ' + dinero(fijo) : '') : 'tarifa'}) | −${dinero(comision)} |\n` +
         `| − Publicidad por unidad (${notaAds}) | −${dinero(adsPorUnidad)} |\n` +
         `| − Envío a cargo del vendedor | −${dinero(envio)} |\n` +
-        `| − Impuestos (${args.impuestos_pct}% del precio) | −${dinero(impuestos)} |\n` +
-        `| − Costo del producto | −${dinero(args.costo)} |\n` +
+        `| − Impuestos (${impuestosFinal}% del precio) | −${dinero(impuestos)} |\n` +
+        `| − Costo del producto | −${dinero(costoFinal)} |\n` +
         `| **= Ganancia neta por unidad** | **${dinero(ganancia)}** |\n\n` +
         `**Margen: ${margen.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%** ${semaforo}\n` +
-        `**ACOS máximo que aguanta este producto: ${Math.max(0, acosMax).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%** — arriba de eso, la publicidad se come toda la ganancia.` +
-        (ganancia <= 0 ? `\n\n⚠️ Así como está, PERDÉS plata en cada venta. Precio de equilibrio (ganancia 0): ${dinero((args.costo + envio + adsPorUnidad + (pct != null ? fijo : comision)) / (1 - ((pct ?? 0) + args.impuestos_pct) / 100))} — validá también contra ml_precio_catalogo antes de subirlo.` : '');
+        (memoria.length ? `🧠 Usando del cerebro: ${memoria.join(' · ')} (actualizalos con ml_cerebro).\n` : (Object.keys(aprendido).length ? '🧠 Datos nuevos guardados en el cerebro: no te los vuelvo a preguntar.\n' : '')) + `**ACOS máximo que aguanta este producto: ${Math.max(0, acosMax).toLocaleString('es-AR', { maximumFractionDigits: 1 })}%** — arriba de eso, la publicidad se come toda la ganancia.` +
+        (ganancia <= 0 ? `\n\n⚠️ Así como está, PERDÉS plata en cada venta. Precio de equilibrio (ganancia 0): ${dinero((costoFinal + envio + adsPorUnidad + (pct != null ? fijo : comision)) / (1 - ((pct ?? 0) + impuestosFinal) / 100))} — validá también contra ml_precio_catalogo antes de subirlo.` : '');
     },
   },
   // ─────────────────────────────── Clips ───────────────────────────────

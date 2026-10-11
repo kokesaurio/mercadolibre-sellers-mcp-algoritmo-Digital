@@ -56,19 +56,20 @@ export function crearMockMeli() {
     seller_reputation: { level_id: '5_green', power_seller_status: 'platinum', transactions: { total: 1543 }, metrics: { claims: { rate: 0.001 }, delayed_handling_time: { rate: 0.02 }, cancellations: { rate: 0 } } },
   }));
   app.get('/orders/search', auth, (req, res) => {
-    const desde = String(req.query['order.date_created.from'] || '');
-    const ayer = new Date(Date.now() - 86400000).toISOString();
-    const recientes = [
-      { id: 101, date_created: new Date().toISOString(), total_amount: 42000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Termo Demo 1L' }, quantity: 1, unit_price: 42000 }] },
-      { id: 102, date_created: new Date().toISOString(), total_amount: 18500, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Mate Demo' }, quantity: 2, unit_price: 9250 }] },
-      { id: 103, date_created: ayer, total_amount: 20000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Termo Demo 1L' }, quantity: 1, unit_price: 20000 }] },
+    const desde = String(req.query['order.date_created.from'] || '1970-01-01');
+    const hasta = String(req.query['order.date_created.to'] || '9999-12-31');
+    const todas = [
+      { id: 101, date_created: new Date(Date.now() - 60000).toISOString(), total_amount: 42000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Termo Demo 1L' }, quantity: 1, unit_price: 42000 }] },
+      { id: 102, date_created: new Date(Date.now() - 60000).toISOString(), total_amount: 18500, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Mate Demo' }, quantity: 2, unit_price: 9250 }] },
+      { id: 103, date_created: new Date(Date.now() - 86400000).toISOString(), total_amount: 20000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Termo Demo 1L' }, quantity: 1, unit_price: 20000 }] },
+      { id: 100, date_created: new Date(Date.now() - 10 * 86400000).toISOString(), total_amount: 20000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Termo viejo' }, quantity: 1, unit_price: 20000 }] },
     ];
-    if (desde >= new Date(Date.now() - 8 * 86400000).toISOString()) return res.json({ paging: { total: recientes.length }, results: recientes });
-    if (desde >= new Date(Date.now() - 16 * 86400000).toISOString()) return res.json({ paging: { total: 1 }, results: [{ id: 100, date_created: new Date(Date.now() - 10 * 86400000).toISOString(), total_amount: 20000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Termo viejo' }, quantity: 1, unit_price: 20000 }] }] });
-    return res.json({ paging: { total: recientes.length }, results: recientes });
+    const resultados = todas.filter((o) => o.date_created >= desde && o.date_created <= hasta);
+    return res.json({ paging: { total: resultados.length }, results: resultados });
   });
   app.get('/orders/101/shipments', auth, (_q, res) => res.json({ status: 'shipped', substatus: 'in_transit', tracking_number: 'TRK123', logistic_type: 'fulfillment', receiver_address: { state: { name: 'Buenos Aires' } } }));
   app.get('/orders/102/shipments', auth, (_q, res) => res.json({ status: 'ready_to_ship', logistic_type: 'self_service', receiver_address: { state: { name: 'Capital Federal' } } }));
+  app.get('/orders/100/shipments', auth, (_q, res) => res.json({ status: 'delivered', logistic_type: 'cross_docking', receiver_address: { state: { name: 'Santa Fe' } } }));
   app.get('/orders/103/shipments', auth, (_q, res) => res.json({ status: 'delivered', logistic_type: 'cross_docking', receiver_address: { state: { name: 'Córdoba' } } }));
   app.get('/users/:uid/items/search', auth, (_q, res) => res.json({ paging: { total: 2 }, results: ['MLA111', 'MLA222'] }));
   app.get('/items', auth, (req, res) => res.json(String(req.query.ids).split(',').map((id) => ({ code: 200, body: { id, title: 'Producto ' + id, price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', permalink: 'https://articulo.mercadolibre.com.ar/' + id, catalog_listing: id === 'MLA111' } }))));
@@ -153,7 +154,7 @@ async function pruebas() {
   await caso('ml_metricas compara períodos', async () => contiene(await tool('ml_metricas').run({ dias: 7 }), 'Facturación', 'vs período anterior'));
   await caso('ml_panel_ventas: hoy, mes, top productos, envíos y provincias', async () => {
     const t = await tool('ml_panel_ventas').run({});
-    contiene(t, 'Hoy', '60.500', 'Mes', '80.500', 'Termo Demo 1L — 2 u.', 'FULL', 'Flex', 'Colecta', 'Buenos Aires', 'Córdoba');
+    contiene(t, 'Hoy', '60.500', 'Mes', 'Termo Demo 1L — 2 u.', 'FULL', 'Flex', 'Colecta', 'Buenos Aires', 'Córdoba');
   });
   await caso('ml_publicaciones', async () => contiene(await tool('ml_publicaciones').run({}), 'MLA111', 'catálogo'));
   await caso('ml_publicacion detalle con fotos de la publicación', async () => contiene(await tool('ml_publicacion').run({ item_id: 'MLA111' }), 'envío gratis', 'sin video', 'Fotos:** 1', 'mlstatic.com/f1.jpg'));
@@ -257,13 +258,30 @@ async function pruebas() {
     contiene(t, 'nuevo líder', 'USURPADOR');                                 // búsqueda
     contiene(t, 'entraron al top', 'termo milan', 'salieron del top', 'mate imperial'); // tendencias
   });
+  await caso('ml_cerebro guarda, hereda del negocio y muestra lo que sabe', async () => {
+    contiene(await tool('ml_cerebro').run({ accion: 'guardar', impuestos_pct: 10, nota: 'Monotributo + IIBB CABA' }), 'Guardado', 'negocio');
+    contiene(await tool('ml_cerebro').run({ accion: 'guardar', item_id: 'MLA111', costo: 20000, medidas: '27 cm alto, 8,5 cm diámetro' }), 'MLA111', 'costo');
+    const t = await tool('ml_cerebro').run({ accion: 'ver', item_id: 'MLA111' });
+    contiene(t, '20.000', '10%', 'heredado del negocio', '27 cm');
+    contiene(await tool('ml_cerebro').run({ accion: 'ver' }), 'Monotributo', 'MLA111', 'medidas ✔');
+  });
+  await caso('ml_rentabilidad usa el cerebro sin volver a preguntar', async () => {
+    itemMLA111.price = 42000;
+    const t = await tool('ml_rentabilidad').run({ item_id: 'MLA111' });
+    contiene(t, 'Usando del cerebro', '20.000', '10.420', '24,8');
+  });
+  await caso('ml_rentabilidad aprende datos nuevos hacia el cerebro', async () => {
+    contiene(await tool('ml_rentabilidad').run({ item_id: 'MLA999X' , precio: 10000, costo: 4000, impuestos_pct: 10 }), 'guardados en el cerebro');
+    contiene(await tool('ml_cerebro').run({ accion: 'ver', item_id: 'MLA999X' }), '4.000');
+    contiene(await tool('ml_cerebro').run({ accion: 'olvidar', item_id: 'MLA999X' }), 'Olvidado');
+  });
   await caso('ml_publicidad en vivo: detalle del anuncio y campañas', async () => {
     const t = await tool('ml_publicidad').run({ item_id: 'MLA111', dias: 30 });
     contiene(t, 'Product Ads', '15.000', 'ACOS', '12.5%', 'en vivo');
     contiene(await tool('ml_publicidad').run({}), 'Campaña general', '30.000', '15%');
   });
   await caso('ml_rentabilidad pide lo que falta sin inventar', async () => {
-    contiene(await tool('ml_rentabilidad').run({ item_id: 'MLA111' }), 'me falta', 'costo del producto', 'impuestos');
+    contiene(await tool('ml_rentabilidad').run({ item_id: 'MLA222' }), 'me falta', 'costo del producto');
   });
   await caso('ml_rentabilidad: desglose completo con comisión real, ads en vivo e impuestos', async () => {
     itemMLA111.price = 42000;

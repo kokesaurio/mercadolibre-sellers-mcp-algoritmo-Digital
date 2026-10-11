@@ -32,6 +32,13 @@ impuestos y el costo. El número que la mayoría de los vendedores no tiene.
    - Si da pérdida: el precio de equilibrio viene calculado; validarlo contra
      `ml_precio_catalogo` (ganar el catálogo perdiendo plata no es ganar).
 
+## El cerebro (memoria)
+`ml_rentabilidad` usa el cerebro del conector solo: si el costo/impuestos/envío
+ya fueron enseñados (ml_cerebro), no se vuelven a preguntar — la respuesta marca
+"🧠 Usando del cerebro: ...". Y los datos nuevos que pasa el usuario quedan
+aprendidos automáticamente. Si un dato guardado parece viejo, confirmar que
+sigue vigente.
+
 ## Reglas
 - Costo e impuestos SIEMPRE los pone el usuario: dato no confirmado = dato que
   se pregunta.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.13.0
+- **🧠 El cerebro del conector**: base de datos local (`cerebro.json`, cero instalación) con la memoria del negocio — costos, impuestos, envío, medidas, qué incluye y notas, por producto o del negocio entero con herencia.
+- `ml_cerebro` (guardar/ver/olvidar) y `ml_rentabilidad` que **usa y alimenta la memoria sola**: lo enseñado no se vuelve a preguntar, lo nuevo se aprende, siempre avisando qué dato guardado se usó.
+- Skill `cerebro-ml` (18ª) + mock de órdenes con filtrado real por fecha (pruebas estables cualquier día del mes).
+
 ## 1.12.0
 - **`ml_publicidad`**: métricas de Product Ads en vivo — inversión, impresiones, clics, CTR, CPC, ACOS y ventas por ads, por publicación o por campaña.
 - **`ml_rentabilidad`**: la calculadora de rentabilidad real — precio − comisión real de ML − publicidad por unidad (ads en vivo) − impuestos − envío − costo = ganancia neta, margen con semáforo y ACOS máximo; pide costo e impuestos (nunca los inventa) y calcula el precio de equilibrio si da pérdida.

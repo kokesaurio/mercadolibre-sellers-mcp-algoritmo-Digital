@@ -14,7 +14,9 @@ sirven solo para ideas de presentación, y únicamente si corresponden al MISMO
 modelo. Si hay conector `ml_*`, traer título y atributos con `ml_publicacion`.
 
 ### 2. Separo los datos confirmados
-Revisar medidas, funciones, materiales y contenido. Lo que falte se le marca al
+Primero mirar el 🧠 cerebro (`ml_cerebro accion=ver item_id=...`): si las medidas
+y el "qué incluye" ya están guardados, usarlos avisando. Después revisar
+medidas, funciones, materiales y contenido. Lo que falte se le marca al
 vendedor y se pregunta. NUNCA inventar autonomía, potencia, compatibilidad ni
 accesorios: dato no confirmado = dato que no va en la imagen.
 

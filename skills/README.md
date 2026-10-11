@@ -1,4 +1,4 @@
-# Guía de uso — las 17 skills del conector
+# Guía de uso — las 18 skills del conector
 
 Skills listas para Claude que convierten el [conector de MercadoLibre de
 Algoritmo Digital](../README.md) en flujos de trabajo completos. **Cómo
@@ -73,9 +73,14 @@ skill**. Claude las usa solo cuando corresponde.
 **Pedilo así:** "¿cómo estoy contra la competencia?" · "¿gano el catálogo?"
 **Qué hace:** semáforo de precios contra el mercado, buy box del catálogo y recomendaciones validadas por margen (nunca sugiere un precio que te deje en negativo).
 
+### 🧠 [cerebro-ml](cerebro-ml/) — la memoria del negocio
+**Pedilo así:** "acordate que el costo del termo es $20.000" · "mis impuestos son 12%" · "¿qué sabés de MLA...?"
+**Qué hace:** guarda en tu máquina los datos del negocio (costos, impuestos, envío, medidas, qué incluye, notas) una sola vez — y las demás herramientas los usan solas: la calculadora deja de preguntarte lo que ya le enseñaste, y lo nuevo lo aprende automáticamente.
+**Ojo:** memoria transparente — siempre te avisa qué dato guardado está usando, para que puedas corregirlo.
+
 ### 💰 [calculadora-ml](calculadora-ml/) — cuánto ganás de verdad
 **Pedilo así:** "¿cuánto gano con este producto?" · "calculame la rentabilidad de MLA..." · "¿me conviene este precio?"
-**Qué hace:** te pregunta precio (o lo trae de la publicación), costo e impuestos — y suma sola la comisión real de ML y la publicidad que estás gastando EN VIVO. Entrega el desglose peso por peso, la ganancia neta con semáforo, el margen y el ACOS máximo que aguanta el producto.
+**Qué hace:** te pregunta precio (o lo trae de la publicación), costo e impuestos SOLO la primera vez (después los recuerda el 🧠 cerebro) — y suma sola la comisión real de ML y la publicidad que estás gastando EN VIVO. Entrega el desglose peso por peso, la ganancia neta con semáforo, el margen y el ACOS máximo que aguanta el producto.
 **Ojo:** costo e impuestos los ponés vos — nunca los inventa.
 
 ### 📣 [publicidad-ml](publicidad-ml/) — ads y promociones
