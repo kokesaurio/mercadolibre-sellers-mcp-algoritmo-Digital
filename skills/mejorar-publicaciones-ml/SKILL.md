@@ -91,3 +91,9 @@ compradores. Por eso:
 - No inventes datos: si una herramienta falla o no devuelve algo, decilo.
 - No propongas cambios masivos ("actualizo las 40") ni los apliques en lote.
 - No toques publicaciones que el usuario no priorizó sin avisar.
+
+## 🧠 Guardar lo aprendido
+Al trabajar cada publicación, ofrecer guardar con `ml_cerebro` los datos que
+aparezcan: costo (si el vendedor lo menciona al validar un precio), medidas,
+qué incluye, o una nota del producto. Antes de proponer precio, mirar si el
+cerebro ya tiene el costo para validar el margen.

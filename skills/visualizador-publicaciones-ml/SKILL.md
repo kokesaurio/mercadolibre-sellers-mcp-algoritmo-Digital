@@ -39,6 +39,11 @@ elegidas para seguir el trabajo en el chat.
    mejorar-publicaciones-ml y trabajar SOLO las seleccionadas, una por una y
    con confirmación antes de cada cambio.
 
+## 🧠 Guardar lo aprendido
+Si al elegir qué mejorar el vendedor comenta datos de un producto ("ese me
+cuesta $X", "a ese le falta la funda en el paquete"), ofrecer guardarlos con
+`ml_cerebro` antes de pasar a las mejoras.
+
 ## Reglas
 - El semáforo y los problemas salen de la auditoría real, nunca estimados.
 - Si hay varias cuentas, confirmar de cuál tienda es el tablero (o hacer uno

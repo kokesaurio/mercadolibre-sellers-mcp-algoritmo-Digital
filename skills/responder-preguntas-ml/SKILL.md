@@ -27,6 +27,12 @@ Con varias tiendas, resolvé la cuenta con `ml_cuentas`.
    confirmación explícita de ese texto exacto en esta conversación.
 5. Cerrar con el resumen: respondidas, pendientes que quedaron y por qué.
 
+## 🧠 Guardar lo aprendido
+Las preguntas repetidas son conocimiento: si la respuesta aprobada contiene un
+dato durable del producto (medidas, qué incluye, compatibilidad), ofrecer
+guardarlo con `ml_cerebro item_id=...` (medidas, incluye o nota) — la próxima
+respuesta y las imágenes salen solas de ahí.
+
 ## Reglas de redacción (políticas de MercadoLibre)
 
 - Nunca incluir teléfonos, mails, redes, links externos ni invitar a

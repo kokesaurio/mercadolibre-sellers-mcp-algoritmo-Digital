@@ -45,6 +45,11 @@ líder, ventas del rival) para confirmar la tendencia antes de invertir.
 Encadenar: copiar-publicaciones-ml (crear la publicación) → imagenes-ml (set
 de 4) → video/ugc → publicidad-ml con regla ACOS vs margen.
 
+## 🧠 Guardar lo aprendido
+Cuando una candidata pasa el filtro, ofrecer guardar con `ml_cerebro` el costo
+estimado que dio el vendedor y una nota de la decisión ("entrar con combo",
+"esperar a marzo") — la próxima sesión retoma desde ahí.
+
 ## Reglas
 - Solo datos que la API devuelve: si un dato no está (ej. ventas exactas de
   terceros), se dice "estimado" o no se dice — nunca se inventa.

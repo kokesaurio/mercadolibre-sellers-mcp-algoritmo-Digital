@@ -9,6 +9,12 @@ skill**. Claude las usa solo cuando corresponde.
 > ¿Primera vez? Decile a Claude **"setup"** y la skill de puesta en marcha te
 > configura todo: cuenta, vigilancia y tu primera foto del negocio.
 
+> 🧠 **Todas las skills guardan lo que aprenden**: cuando en el trabajo aparece
+> un dato durable del negocio o de un producto (costo, impuestos, medidas, qué
+> incluye, un avatar elegido, una regla tuya), la skill te ofrece guardarlo en
+> el [cerebro del conector](cerebro-ml/) — se guarda UNA vez, en tu máquina, y
+> ninguna herramienta te lo vuelve a preguntar.
+
 ## Cómo usar cada una
 
 ### 🚀 [setup-ml](setup-ml/) — puesta en marcha

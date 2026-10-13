@@ -28,6 +28,11 @@ repo o el premium con CRM). Si no están, indicá instalarlo según el README y 
    la skill vigilancia-ml si el bajón coincide con un movimiento de la
    competencia.
 
+## 🧠 Guardar lo aprendido
+Si el vendedor comenta un dato durable mirando el panel ("ese producto me
+cuesta $X", "el envío me sale $Y"), ofrecer guardarlo en el momento con
+`ml_cerebro` para que la calculadora de rentabilidad lo use después.
+
 ## Reglas
 - Nunca inventar números: todo sale de la herramienta.
 - Si no hay ventas en el día, decirlo directo y pasar al dato del mes.

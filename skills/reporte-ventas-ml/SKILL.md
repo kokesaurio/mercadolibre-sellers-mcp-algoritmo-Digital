@@ -46,3 +46,7 @@ silencio.
 - No mezclar facturación con margen como si fueran lo mismo: si hablás de
   ganancia, usá `ml_rentabilidad`.
 - No inventar comparaciones que las herramientas no devuelven.
+
+## 🧠 Guardar lo aprendido
+Si al leer el reporte el vendedor suelta un dato del negocio (costo, impuestos,
+una nota), ofrecer guardarlo con `ml_cerebro` en una línea antes de cerrar.

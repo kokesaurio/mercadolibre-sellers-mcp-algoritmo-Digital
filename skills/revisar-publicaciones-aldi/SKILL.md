@@ -40,6 +40,11 @@ aplicados. El usuario hace de puente (copiar → pegar → traer la respuesta).
 6. Cerrar con el checklist manual pendiente y ofrecer re-medir visitas en 7
    días para comparar el antes/después.
 
+## 🧠 Guardar lo aprendido
+Si el veredicto de Aldi se aplica y el vendedor valida costos o datos del
+producto en el proceso, ofrecer guardarlos con `ml_cerebro` para las próximas
+revisiones.
+
 ## Reglas
 - El veredicto de Aldi es una recomendación: el que decide es el usuario.
 - Si la respuesta de Aldi contradice datos duros del conector (ej. sugiere

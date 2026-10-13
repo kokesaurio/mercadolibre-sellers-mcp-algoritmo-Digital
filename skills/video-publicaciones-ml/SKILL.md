@@ -57,6 +57,11 @@ Revisar el render escena por escena (ortografía, precio vigente con
 Entregar el MP4 nombrado por publicación (`MLA123-reel.mp4`), agrupado por
 producto, y mostrar el resultado al usuario antes de dar por cerrado.
 
+## 🧠 Guardar lo aprendido
+Los claims confirmados para el guion (beneficios, datos técnicos) son
+conocimiento del producto: ofrecer guardarlos como nota con `ml_cerebro` para
+que el próximo video/UGC arranque con los claims ya validados.
+
 ## Reglas
 - Un video por producto por tanda, salvo pedido explícito de variantes.
 - Si el precio aparece en el video, verificarlo con el conector en el momento

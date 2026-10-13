@@ -33,6 +33,13 @@ vigilancia armada y su primera foto del negocio, sin que toque nada técnico.
    semanal: vigilancia + visualizador + mejoras) y las 3 primeras acciones
    concretas que salieron de la auditoría.
 
+## 🧠 Guardar lo aprendido
+Durante el setup salen datos de oro: al cierre, ofrecer guardarlos con
+`ml_cerebro` — % de impuestos del negocio, costo de envío típico y cualquier
+dato que el vendedor haya mencionado ("Monotributo", "no vendo a X provincia").
+Una línea: "¿Guardo esto para no volver a preguntártelo?" y guardar lo que
+confirme.
+
 ## Reglas
 - Un paso por vez, confirmando que funcionó antes de seguir.
 - Nunca pedir el Secret por el chat si ya está configurado: solo se usa en la

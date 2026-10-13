@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.13.1
+- 🧠 Todas las skills ofrecen guardar lo aprendido en el cerebro: cada una con su dato (setup → impuestos del negocio, preguntas → medidas/incluye del producto, imágenes → medidas e incluye, UGC → el avatar de referencia, vigilancia → reglas propias, competencia/publicidad → costos para validar margen, ganadores → decisiones).
+
 ## 1.13.0
 - **🧠 El cerebro del conector**: base de datos local (`cerebro.json`, cero instalación) con la memoria del negocio — costos, impuestos, envío, medidas, qué incluye y notas, por producto o del negocio entero con herencia.
 - `ml_cerebro` (guardar/ver/olvidar) y `ml_rentabilidad` que **usa y alimenta la memoria sola**: lo enseñado no se vuelve a preguntar, lo nuevo se aprende, siempre avisando qué dato guardado se usó.

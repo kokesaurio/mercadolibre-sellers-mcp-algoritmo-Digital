@@ -42,6 +42,11 @@ repo o el premium con CRM). Si no están, indicá instalarlo según el README y 
 4. Las primeras corridas pueden decir "primer registro": explicar que la
    próxima ya compara.
 
+## 🧠 Guardar lo aprendido
+Si al revisar novedades el vendedor decide una regla propia ("nunca bajar de
+$X ese producto", "a ese rival no lo sigo más"), ofrecer guardarla como nota
+con `ml_cerebro` — el control siguiente la tiene presente.
+
 ## Reglas
 - Nunca recomendar igualar un precio que dé margen negativo: mostrar el
   cálculo con `ml_comisiones`.

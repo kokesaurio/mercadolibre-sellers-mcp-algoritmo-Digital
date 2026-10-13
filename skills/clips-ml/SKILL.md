@@ -43,6 +43,11 @@ usuario: es escritura). El conector valida extensión y peso antes de gastar la
 subida. A las 24-48 hs, `ml_clips item_id=...` para confirmar ✅ publicado; si
 quedó ❌, corregir según el motivo, `ml_borrar_clip` del rechazado y resubir.
 
+## 🧠 Guardar lo aprendido
+Si un clip fue rechazado y se corrigió, guardar la lección como nota del
+producto con `ml_cerebro` (ej: "el clip con música X fue rechazado por
+duplicado") para no repetir el error en la próxima subida.
+
 ## Reglas
 - Un clip por publicación por tanda; versiones alternativas solo a pedido.
 - Si la cuenta no tiene la API de clips habilitada (hoy MercadoLibre la

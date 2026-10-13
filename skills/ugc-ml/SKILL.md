@@ -47,6 +47,12 @@ infladas.
    contra la ficha, precio vigente si aparece, avatar consistente con los
    anteriores. Entregar MP4 nombrado (`MLA123-ugc.mp4`).
 
+## 🧠 Guardar lo aprendido
+El avatar elegido es LA referencia a mantener: guardar con `ml_cerebro`
+(nota del negocio) qué avatar/voz se usó para que todos los videos siguientes
+usen el mismo. También los claims confirmados del producto, como nota del
+item.
+
 ## Reglas
 - El avatar nunca afirma ser un comprador real ni inventa experiencias
   específicas ("lo uso hace 3 meses"): recomienda en base a características y

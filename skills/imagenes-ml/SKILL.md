@@ -73,6 +73,13 @@ detectado y volver a revisar.
 Primero todas las de un producto en su orden (foto-2, foto-3, …); después las
 del siguiente. Separadas, sin portada y sin mezclar productos.
 
+## 🧠 Guardar lo aprendido
+Las medidas y el "qué incluye" que el vendedor pasa para las imágenes son
+exactamente lo que el cerebro guarda: al terminar el set, ofrecer
+`ml_cerebro accion=guardar item_id=... medidas=... incluye=...` en una línea —
+la próxima tanda de imágenes (y las respuestas a preguntas) salen sin
+preguntar nada.
+
 ## Reglas de MercadoLibre (se chequean en el paso 6)
 - PROHIBIDO siempre: teléfonos, mails, redes, links, QR o cualquier dato de contacto.
 - Nada de "OFERTA", "el mejor precio", "envío gratis" ni precios: penaliza.

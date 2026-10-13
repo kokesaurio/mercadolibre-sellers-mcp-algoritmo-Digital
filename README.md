@@ -192,7 +192,7 @@ El conector trae [**18 skills listas**](skills/) con [guía de uso de cada una](
 | [vigilancia-ml](skills/vigilancia-ml/) | *"¿qué cambió en la competencia?"* — solo novedades: precios movidos, publicaciones nuevas, ventas estimadas del rival, keywords en alza |
 | [competencia-ml](skills/competencia-ml/) | *"¿estoy ganando el catálogo?"* — semáforo de precios y buy box, con recomendaciones validadas por margen |
 | [publicidad-ml](skills/publicidad-ml/) | *"revisemos la publicidad"* — Product Ads con regla ACOS vs margen y promociones separando tu aporte del de ML |
-| [cerebro-ml](skills/cerebro-ml/) | *"acordate que el costo es..."* — la memoria del negocio: costos, impuestos, medidas y notas guardados UNA vez, usados por todas las herramientas |
+| [cerebro-ml](skills/cerebro-ml/) | *"acordate que el costo es..."* — la memoria del negocio: costos, impuestos, medidas y notas guardados UNA vez, usados por todas las herramientas. **Todas las skills ofrecen guardar lo que aprenden acá** |
 | [calculadora-ml](skills/calculadora-ml/) | *"¿cuánto gano con este producto?"* — el desglose peso por peso: comisión real + publicidad en vivo + impuestos + costo → ganancia neta, margen y ACOS máximo |
 | [setup-ml](skills/setup-ml/) | *"setup"* — la puesta en marcha guiada de todo lo anterior |
 

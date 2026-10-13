@@ -35,6 +35,11 @@ repo o el premium con CRM). Si no están, indicá instalarlo según el README y 
 6. Ofrecer el siguiente paso: revisarla con la skill
    `revisar-publicaciones-aldi` antes de meterle tráfico.
 
+## 🧠 Guardar lo aprendido
+Al crear o clonar, ofrecer guardar con `ml_cerebro` el costo y los datos del
+producto nuevo (medidas, qué incluye) apenas el vendedor los pase — la
+publicación nace con su ficha de rentabilidad lista.
+
 ## Reglas
 - Escrituras SIEMPRE con confirmación previa por ítem; nunca en lote sin
   listar cada una.

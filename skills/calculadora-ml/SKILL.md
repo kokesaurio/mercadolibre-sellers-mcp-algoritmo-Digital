@@ -39,6 +39,11 @@ ya fueron enseñados (ml_cerebro), no se vuelven a preguntar — la respuesta ma
 aprendidos automáticamente. Si un dato guardado parece viejo, confirmar que
 sigue vigente.
 
+## 🧠 Guardar lo aprendido
+`ml_rentabilidad` ya aprende solo los datos nuevos. Además, si el vendedor
+menciona costos de OTROS productos durante la charla, ofrecer guardarlos
+también con `ml_cerebro` aunque no se estén calculando ahora.
+
 ## Reglas
 - Costo e impuestos SIEMPRE los pone el usuario: dato no confirmado = dato que
   se pregunta.

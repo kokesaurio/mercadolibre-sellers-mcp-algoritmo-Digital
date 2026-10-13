@@ -53,3 +53,8 @@ cada cambio. Después verificá con `ml_publicaciones`.
 - No presentar estimaciones de ventas de competidores como datos exactos:
   son estimaciones y hay que decirlo.
 - No cambiar ningún precio sin confirmación explícita por ítem.
+
+## 🧠 Guardar lo aprendido
+Para validar margen hace falta el costo: si el cerebro no lo tiene, preguntarlo
+UNA vez y ofrecer guardarlo con `ml_cerebro item_id=... costo=...` — los
+próximos análisis de catálogo validan margen solos.

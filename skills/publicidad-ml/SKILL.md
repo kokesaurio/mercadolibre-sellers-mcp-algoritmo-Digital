@@ -49,3 +49,8 @@ repo o el premium con CRM). Si no están, indicá instalarlo según el README y 
 - Las escrituras (pausar campañas, cambiar precios) no están disponibles por
   el conector salvo `ml_actualizar_publicacion`: para aceptar promociones,
   indicar el panel de promociones de Algoritmo Digital o el Seller Center.
+
+## 🧠 Guardar lo aprendido
+La regla ACOS-vs-margen necesita el costo: si el cerebro no lo tiene,
+preguntarlo y ofrecer guardarlo con `ml_cerebro`. También guardar como nota
+los topes que el vendedor fije ("máximo $5.000/día en esta campaña").
