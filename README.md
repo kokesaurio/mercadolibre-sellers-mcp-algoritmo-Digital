@@ -273,6 +273,10 @@ npm run dev   # levanta el simulado en :9990 (conectar con code CODE-OK)
 
 Cada push corre la suite completa en [GitHub Actions](https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital/actions). ¿Querés sumar algo? Leé [cómo contribuir](CONTRIBUTING.md) — regla de oro: todo cambio deja `npm test` en verde y cada funcionalidad nueva trae su caso E2E. ¿Encontraste un error o te falta una herramienta? [Abrí un issue](https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital/issues/new/choose).
 
+## Comunidad
+
+📲 **[Sumate al grupo de WhatsApp de vendedores](https://chat.whatsapp.com/JIVta9yFA7n4wRZ51p42iO)** — novedades del conector, tips de MercadoLibre y ayuda entre vendedores que ya lo usan.
+
 ## ¿Querés más?
 
 Algoritmo Digital hace [consultoría, gestión de cuentas y desarrollo a medida sobre MercadoLibre](https://algoritmodigital.com.ar) hace más de 15 años. Escribinos: [WhatsApp](https://wa.me/5491177166060?text=Hola!%20Vengo%20del%20conector%20MCP%20de%20MercadoLibre%20(GitHub)...)

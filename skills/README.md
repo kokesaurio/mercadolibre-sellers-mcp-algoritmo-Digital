@@ -99,5 +99,7 @@ skill**. Claude las usa solo cuando corresponde.
 - **Semanal:** vigilancia-ml → visualizador-publicaciones-ml para elegir qué mejorar → mejorar-publicaciones-ml → publicidad-ml.
 - **Al publicar algo nuevo:** copiar-publicaciones-ml → imagenes-ml → video-publicaciones-ml o ugc-ml → revisar-publicaciones-aldi antes de meterle tráfico.
 
+📲 ¿Dudas usando las skills? [Sumate al grupo de WhatsApp de vendedores](https://chat.whatsapp.com/JIVta9yFA7n4wRZ51p42iO).
+
 ¿Querés skills a medida para tu operación?
 [WhatsApp de Algoritmo Digital](https://wa.me/5491177166060?text=Hola!%20Vengo%20de%20las%20skills%20del%20conector%20MCP%20(GitHub)...)
