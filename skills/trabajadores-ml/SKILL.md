@@ -1,0 +1,74 @@
+---
+name: trabajadores-ml
+description: El equipo de 5 trabajadores que vigilan MercadoLibre solos y constantemente — Vera (precios), Tomás (ventas de rivales y quiebres de stock), Martina (ranking en búsquedas), Bruno (rivales nuevos) y Sofía (tendencias). Darles tareas, ver qué encontraron y despachar cada alerta a la skill que maneja ese trabajador. Usar cuando pidan "poné a vigilar", "dale una tarea a Vera", "¿qué encontraron los trabajadores?", "informe del equipo", "vigilá 24/7" o nombren a cualquiera del equipo.
+---
+
+# Equipo de trabajadores 24/7
+
+## Requisito
+Herramienta `ml_trabajadores` del conector de MercadoLibre de Algoritmo Digital
+(v1.14.0 o superior). Si no está, indicá actualizar (`ml_version`) y frená.
+
+## El equipo y sus skills a cargo
+
+| Trabajador | Vigila | Cada | Skills que maneja |
+| --- | --- | --- | --- |
+| 🕵️ **Vera** · Centinela de precios | precio de publicaciones y vendedores rivales; si le das `mi_item`, avisa cuando un rival queda más barato que vos | 30 min | `vigilancia-ml`, `calculadora-ml`, `cerebro-ml` |
+| 📦 **Tomás** · Contador de ventas | ventas estimadas del rival (ritmo/día y $/mes), sin stock, pausas | 60 min | `panel-ventas-ml`, `reporte-ventas-ml`, `responder-preguntas-ml` |
+| 🏆 **Martina** · Vigía de búsquedas | top 50 de tus keywords: líder, precio líder y TU puesto (`mi_item`) | 60 min | `mejorar-publicaciones-ml`, `visualizador-publicaciones-ml`, `imagenes-ml`, `publicidad-ml` |
+| 🎯 **Bruno** · Cazador de rivales nuevos | vendedores que aparecen por primera vez en tus búsquedas | 3 h | `competencia-ml`, `revisar-publicaciones-aldi` |
+| 📈 **Sofía** · Radar de tendencias | keywords que entran, salen o suben en tendencias | 12 h | `descubrir-ganadores-ml`, `video-publicaciones-ml`, `clips-ml`, `ugc-ml` |
+
+Si un trabajador no tiene tareas propias, vigila solo tus seguidos de
+`ml_vigilar` de su tipo (rivales 🥊, productos 📦, búsquedas, tendencias).
+
+## Armar el equipo (una vez, 5 minutos)
+1. `ml_trabajadores accion=equipo` → mostrar quién está y qué vigila.
+2. Pedir lo mínimo y asignar (se puede nombrar por nombre o puesto):
+   - Vera: 2-5 publicaciones rivales directas **con `mi_item`** (tu publicación
+     equivalente) y `umbral=2` para no avisar por centavos.
+   - Tomás: las mismas publicaciones rivales (ve sus ventas y quiebres).
+   - Martina: 2-3 keywords donde se juega tu venta **con `mi_item`**.
+   - Bruno: esas mismas keywords.
+   - Sofía: tu categoría principal (o vacío = todo el sitio).
+3. `ml_trabajadores accion=correr` → primera pasada = foto de base (no avisa nada).
+4. Explicar cómo siguen trabajando:
+   - Mientras Claude está abierto, se despiertan solos cada minuto y cada uno
+     controla según su frecuencia.
+   - **24/7 con la PC prendida** (recomendado): en la terminal
+     `npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital trabajadores instalar`
+     — arrancan solos al iniciar sesión, sin admin. Para sacarlo: `... trabajadores desinstalar`.
+
+## El informe (la rutina)
+1. `ml_trabajadores accion=informe` → alertas sin leer, por trabajador, urgentes 🔴 primero.
+2. Cada alerta trae `👉 skill X`: es la skill de ESE trabajador para resolverla.
+   Proponer al vendedor las 3 acciones de más plata y, con su OK, correr esa skill:
+   - 🔴 Vera "más barato que tu ..." → `calculadora-ml` con el precio del rival:
+     solo sugerir igualar si el margen sigue positivo.
+   - 🔴 Tomás "SIN STOCK" → ventana de 24-72 h: `publicidad-ml` para empujar la
+     tuya y tener `responder-preguntas-ml` al día.
+   - 🔴 Martina "bajaste / saliste del top" → `mejorar-publicaciones-ml`
+     (y `visualizador-publicaciones-ml` para compararte con el líder).
+   - 🔴 Bruno "rival nuevo" → `competencia-ml`; si conviene seguirlo, `ml_vigilar`
+     tipo=vendedor y asignárselo a Vera.
+   - Sofía "entraron al top" → `descubrir-ganadores-ml` para validar si conviene venderlo.
+3. Las alertas leídas quedan en el historial (`todas=true`).
+
+## Ajustes
+- `frecuencia` (mínimo 10 min, para cuidar el límite de la API de ML).
+- `pausar` / `activar` a uno o a `todos` (ej: pausar a Sofía fuera de temporada).
+- `quitar` una tarea. Las que vienen de tus seguidos se quitan con `ml_vigilar`.
+- Webhook opcional para mandar cada alerta al CRM/WhatsApp: variable
+  `ML_TRABAJADORES_WEBHOOK` (solo https) en el config del conector.
+
+## 🧠 Guardar lo aprendido
+Cuando el vendedor fije una regla frente a una alerta ("a Vera: nunca igualar
+por debajo de $X", "ese rival no me importa"), ofrecer guardarla con
+`ml_cerebro` como nota del producto, y ajustar `umbral` o quitar la tarea.
+
+## Reglas
+- Nunca cambiar precios por una alerta sin confirmación explícita y sin pasar
+  por `calculadora-ml`.
+- Las ventas de rivales son estimadas (MercadoLibre redondea lo público): decirlo.
+- Todo vive en la computadora del vendedor; solo se leen datos públicos de ML
+  y los de su propia cuenta.

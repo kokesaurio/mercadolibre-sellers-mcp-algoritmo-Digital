@@ -9,6 +9,9 @@ if (process.argv[2] === 'actualizar') {
   const cache = join(process.env.npm_config_cache || join(homedir(), '.npm'), '_npx');
   if (existsSync(cache)) rmSync(cache, { recursive: true, force: true });
   console.log('✅ Caché limpiada. Reiniciá Claude Desktop: al arrancar baja la última versión del conector automáticamente.');
+} else if (process.argv[2] === 'trabajadores') {
+  const { mainTrabajadores } = await import('./servicio.js');
+  await mainTrabajadores(process.argv[3]);
 } else if (process.argv[2] === 'instalar') {
   const { mainInstalador } = await import('./instalar.js');
   await mainInstalador();
@@ -19,4 +22,11 @@ if (process.argv[2] === 'actualizar') {
   const server = crearServidor({ allowWrite });
   await server.connect(new StdioServerTransport());
   console.error(`[meli-sellers-mcp] listo (${allowWrite ? 'lectura y escritura' : 'solo lectura'})`);
+  // Los trabajadores se despiertan solos mientras Claude está abierto (si no hay un servicio 24/7 corriendo).
+  if (process.env.ML_TRABAJADORES !== '0') {
+    const { arrancarBucle, avisoWebhook } = await import('./trabajadores.js');
+    const parar = arrancarBucle({ modo: 'conector', alAvisar: avisoWebhook() || undefined });
+    for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { parar(); process.exit(0); });
+    process.stdin.on('end', parar);
+  }
 }

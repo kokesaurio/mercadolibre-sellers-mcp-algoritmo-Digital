@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.14.0
+- **👷 Equipo de trabajadores 24/7** (`ml_trabajadores`): 5 trabajadores con nombre que vigilan solos y constantemente — 🕵️ **Vera** (precios; avisa si un rival queda más barato que tu publicación), 📦 **Tomás** (ventas estimadas del rival, ritmo/día y $/mes, quiebres de stock y pausas), 🏆 **Martina** (líder del top 50 y tu puesto en cada keyword), 🎯 **Bruno** (rivales nuevos en tus búsquedas) y 📈 **Sofía** (tendencias).
+- Cada trabajador tiene **skills a cargo** y cada alerta recomienda cuál correr (ej: Vera → calculadora-ml, Tomás → publicidad-ml, Martina → mejorar-publicaciones-ml, Bruno → competencia-ml, Sofía → descubrir-ganadores-ml).
+- Tareas con `mi_item`, `umbral` y frecuencia propia (mínimo 10 min); sin tareas propias vigilan tus seguidos de `ml_vigilar`. Bandeja de alertas con informe por trabajador.
+- Corren solos mientras Claude está abierto, o **24/7 como servicio de la PC** (`npx ... trabajadores instalar`, sin admin: Windows/macOS/Linux). Candado con latido: nunca corren dos veces.
+- 🔒 **Refresh de sesión con candado entre procesos**: Claude y el servicio nunca renuevan el token a la vez (el refresh de ML es de un solo uso — sin esto se revocaba la cuenta).
+- Webhook opcional `ML_TRABAJADORES_WEBHOOK` (solo https) para mandar alertas al CRM/WhatsApp.
+- Skill `trabajadores-ml` (19ª). Suite: 68 pruebas.
+
 ## 1.13.1
 - 🧠 Todas las skills ofrecen guardar lo aprendido en el cerebro: cada una con su dato (setup → impuestos del negocio, preguntas → medidas/incluye del producto, imágenes → medidas e incluye, UGC → el avatar de referencia, vigilancia → reglas propias, competencia/publicidad → costos para validar margen, ganadores → decisiones).
 

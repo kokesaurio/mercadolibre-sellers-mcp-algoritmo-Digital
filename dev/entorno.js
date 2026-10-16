@@ -12,6 +12,7 @@ import path from 'node:path';
 
 const PUERTO = Number(process.env.MOCK_PORT || 9990);
 let refrescosHechos = 0;
+let demoraRefresh = 0; // ms: simula un refresh lento para forzar carreras entre procesos
 let ultimoItemCreado = null;
 let versionRemota = '9.9.9';
 let itemMLA111 = { catalog_listing: true, category_id: 'MLA1055', price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', condition: 'new', listing_type_id: 'gold_special', permalink: 'https://articulo.mercadolibre.com.ar/x', pictures: [{ secure_url: 'https://http2.mlstatic.com/f1.jpg' }], attributes: [{ id: 'BRAND', value_name: 'Genérica' }], shipping: { logistic_type: 'fulfillment', free_shipping: true } };
@@ -35,7 +36,7 @@ export function crearMockMeli() {
   };
 
   app.get('/pkg-remoto', (_q, res) => res.json({ name: 'x', version: versionRemota }));
-  app.post('/oauth/token', (req, res) => {
+  app.post('/oauth/token', async (req, res) => {
     const b = req.body || {};
     if (b.grant_type === 'authorization_code') {
       if (!b.code_verifier) return res.status(400).json({ error_description: 'sin PKCE' });
@@ -45,6 +46,7 @@ export function crearMockMeli() {
     }
     if (b.grant_type === 'refresh_token') {
       refrescosHechos++;
+      if (demoraRefresh) await esperar(demoraRefresh);
       if (b.refresh_token !== 'REFRESH-1' && b.refresh_token !== 'REFRESH-2') return res.status(400).json({ error_description: 'refresh inválido (¿reusado?)' });
       return res.json({ access_token: 'ACCESS-VALIDO', refresh_token: 'REFRESH-2', expires_in: 21600, user_id: 777 });
     }
@@ -73,7 +75,7 @@ export function crearMockMeli() {
   app.get('/orders/103/shipments', auth, (_q, res) => res.json({ status: 'delivered', logistic_type: 'cross_docking', receiver_address: { state: { name: 'Córdoba' } } }));
   app.get('/users/:uid/items/search', auth, (_q, res) => res.json({ paging: { total: 2 }, results: ['MLA111', 'MLA222'] }));
   app.get('/items', auth, (req, res) => res.json(String(req.query.ids).split(',').map((id) => ({ code: 200, body: { id, title: 'Producto ' + id, price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', permalink: 'https://articulo.mercadolibre.com.ar/' + id, catalog_listing: id === 'MLA111' } }))));
-  app.get('/items/:id', auth, (req, res) => res.json({ ...itemMLA111, id: req.params.id, title: 'Producto ' + req.params.id }));
+  app.get('/items/:id', auth, (req, res) => res.json({ ...itemMLA111, id: req.params.id, title: 'Producto ' + req.params.id, ...(mercado.items?.[req.params.id] || {}) }));
   app.get('/items/:id/description', auth, (_q, res) => res.json({ plain_text: 'Descripción original del producto.' }));
   app.post('/items', auth, (req, res) => {
     ultimoItemCreado = req.body;
@@ -127,6 +129,7 @@ async function pruebas() {
   process.env.ML_APP_SECRET = 'SECRET-TEST';
   process.env.ML_REDIRECT_URI = 'https://ejemplo.test/conectar.html';
   process.env.ML_UPDATE_URL = `http://localhost:${PUERTO}/pkg-remoto`;
+  process.env.ML_TRABAJADORES_PAUSA_MS = '0';
 
   const { TOOLS } = await import('../src/herramientas.js');
   const meli = await import('../src/meli.js');
@@ -366,6 +369,125 @@ async function pruebas() {
     contiene(fin, 'Reiniciá Claude');
     fs.rmSync(cacheDir, { recursive: true, force: true });
   });
+  // ───────────── Equipo de trabajadores 24/7 ─────────────
+  const tr = await import('../src/trabajadores.js');
+  const T = tool('ml_trabajadores');
+  await caso('trabajadores: equipo con 5 nombres, puestos y skills a cargo', async () => {
+    const t = await T.run({ accion: 'equipo' });
+    contiene(t, 'Vera', 'Tomás', 'Martina', 'Bruno', 'Sofía', 'Centinela de precios', 'Cazador de rivales', 'calculadora-ml', 'competencia-ml', 'descubrir-ganadores-ml', 'mejorar-publicaciones-ml', 'panel-ventas-ml');
+    if (tr.IDS.length !== 5) throw new Error('el equipo no tiene 5');
+    const todas = tr.IDS.flatMap((id) => tr.EQUIPO[id].skills.map((x) => x.skill));
+    if (new Set(todas).size !== todas.length) throw new Error('una skill está asignada a dos trabajadores');
+    for (const sk of todas) if (!fs.existsSync(path.join('skills', sk, 'SKILL.md'))) throw new Error('skill inexistente: ' + sk);
+  });
+  await caso('trabajadores: asignar por nombre (con y sin acento) o puesto, tipo deducido', async () => {
+    mercado.items = { MLA500: { price: 45000, sold_quantity: 10, available_quantity: 5, status: 'active', title: 'Termo rival A' }, MLA600: { price: 30000, sold_quantity: 100, available_quantity: 3, status: 'active', title: 'Termo rival B' } };
+    mercado.busqueda = [{ id: 'MLA901', title: 'Termo líder', price: 35000, seller: { nickname: 'LIDER' } }, { id: 'MLA111', title: 'Mi termo', price: 42000, seller: { nickname: 'TIENDA_DEMO' } }];
+    contiene(await T.run({ accion: 'asignar', trabajador: 'Vera', ref: 'MLA500', mi_item: 'MLA111' }), 'Vera', 'publicacion', 'MLA500', 'MLA111', 'calculadora-ml');
+    contiene(await T.run({ accion: 'asignar', trabajador: 'tomas', ref: 'MLA600' }), 'Tomás');
+    contiene(await T.run({ accion: 'asignar', trabajador: 'ranking', ref: 'termo 1 litro', mi_item: 'MLA111', umbral: 1 }), 'Martina', 'busqueda');
+    contiene(await T.run({ accion: 'asignar', trabajador: 'Bruno', ref: 'termo 1 litro' }), 'Bruno');
+    contiene(await T.run({ accion: 'asignar', trabajador: 'Sofía' }), 'Sofía', 'tendencias');
+    contiene(await T.run({ accion: 'asignar', trabajador: 'Vera', ref: 'MLA500', mi_item: 'MLA111' }), 'actualizó');
+  });
+  await caso('trabajadores: rechaza tareas que no son de su oficio y nombres desconocidos', async () => {
+    let msg = '';
+    try { await T.run({ accion: 'asignar', trabajador: 'Bruno', tipo: 'publicacion', ref: 'MLA1' }); } catch (e) { msg = e.message; }
+    contiene(msg, 'no trabaja con');
+    contiene(await T.run({ accion: 'asignar', trabajador: 'Pepe', ref: 'x' }), 'No conozco');
+    try { await T.run({ accion: 'asignar', trabajador: 'Vera', ref: 'MLA1', mi_item: 'javascript:alert(1)' }); msg = ''; } catch (e) { msg = e.message; }
+    contiene(msg, 'mi_item');
+  });
+  await caso('trabajadores: primer control guarda la base y no inventa alertas', async () => {
+    const t = await T.run({ accion: 'correr' });
+    contiene(t, 'Sin novedades', 'foto de base');
+  });
+  await caso('trabajadores: detectan precio por debajo tuyo, quiebre de stock, líder, puesto, rival nuevo y tendencias (con skill sugerida)', async () => {
+    mercado.items.MLA500 = { ...mercado.items.MLA500, price: 39000 };
+    mercado.items.MLA600 = { ...mercado.items.MLA600, sold_quantity: 106, available_quantity: 0 };
+    mercado.busqueda = [{ id: 'MLA902', title: 'Termo usurpador', price: 31000, seller: { nickname: 'USURPADOR' } }, ...mercado.busqueda];
+    mercado.tendencias = [{ keyword: 'termo de vidrio' }, ...mercado.tendencias];
+    const t = await T.run({ accion: 'correr' });
+    contiene(t, 'Vera', 'MÁS BARATO', 'calculadora-ml', 'Tomás', 'vendió ~6', 'SIN STOCK', 'publicidad-ml', 'Martina', 'nuevo líder', 'USURPADOR', 'Bajaste', 'puesto 2 → 3', 'mejorar-publicaciones-ml', 'Bruno', 'Rival nuevo', 'competencia-ml', 'Sofía', 'termo de vidrio', 'descubrir-ganadores-ml');
+    if (t.includes('LIDER**')) throw new Error('Bruno avisó como nuevo a un vendedor ya visto');
+  });
+  await caso('trabajadores: sin cambios → sin alertas repetidas', async () => contiene(await T.run({ accion: 'correr' }), 'Sin novedades'));
+  await caso('trabajadores: informe vacío tras verlas, historial con todas=true y por trabajador', async () => {
+    contiene(await T.run({ accion: 'informe' }), 'Sin alertas nuevas');
+    contiene(await T.run({ accion: 'informe', todas: true }), 'urgente', 'SIN STOCK');
+    const soloBruno = await T.run({ accion: 'informe', todas: true, trabajador: 'Bruno' });
+    contiene(soloBruno, 'USURPADOR');
+    if (soloBruno.includes('SIN STOCK')) throw new Error('el informe de Bruno trae alertas de Tomás');
+  });
+  await caso('trabajadores: frecuencia con mínimo, pausa respeta el ciclo automático, activar', async () => {
+    contiene(await T.run({ accion: 'frecuencia', trabajador: 'Vera', minutos: 1 }), 'cada 10 min', 'mínimo');
+    contiene(await T.run({ accion: 'pausar', trabajador: 'todos' }), 'En pausa');
+    const r = await tr.correrCiclo({});
+    if (r.corridos.length) throw new Error('corrió estando en pausa: ' + r.corridos);
+    contiene(await T.run({ accion: 'activar' }), 'Activados');
+    contiene(await T.run({ accion: 'equipo', trabajador: 'Vera' }), 'activo', 'cada 10 min', 'MLA500');
+  });
+  await caso('trabajadores: sin tareas propias vigilan tus seguidos de ml_vigilar', async () => {
+    contiene(await tool('ml_vigilar').run({ accion: 'agregar', tipo: 'publicacion', ref: 'MLA700' }), 'Agregado');
+    const d = tr.leerEquipo();
+    if (!tr.tareasDe(d, 'ventas').some((t) => t.ref === 'MLA700' && t.deLista)) throw new Error('Tomás no heredó el seguido');
+    contiene(await T.run({ accion: 'quitar', trabajador: 'Tomás', ref: 'MLA600' }), 'dejó la tarea');
+  });
+  await caso('trabajadores: candado — un solo corredor; el servicio 24/7 releva al conector', async () => {
+    const lock = path.join(dirTemp, 'trabajadores.lock');
+    fs.writeFileSync(lock, JSON.stringify({ pid: 999999, modo: 'conector', latido: Date.now() }));
+    if (tr.tomarCandado('conector')) throw new Error('dos conectores a la vez');
+    if (!tr.tomarCandado('servicio')) throw new Error('el servicio no relevó al conector');
+    fs.writeFileSync(lock, JSON.stringify({ pid: 999999, modo: 'servicio', latido: Date.now() }));
+    if (tr.tomarCandado('conector')) throw new Error('el conector le sacó el lugar al servicio');
+    fs.writeFileSync(lock, JSON.stringify({ pid: 999999, modo: 'servicio', latido: Date.now() - 10 * 60000 }));
+    if (!tr.tomarCandado('conector')) throw new Error('no tomó un candado muerto');
+    tr.soltarCandado();
+    if (fs.existsSync(lock)) throw new Error('no soltó el candado');
+  });
+  await caso('trabajadores: webhook solo https (o localhost)', async () => {
+    process.env.ML_TRABAJADORES_WEBHOOK = 'http://evil.example.com/x';
+    if (tr.avisoWebhook()) throw new Error('aceptó http externo');
+    process.env.ML_TRABAJADORES_WEBHOOK = 'https://crm.example.com/hook';
+    if (!tr.avisoWebhook()) throw new Error('rechazó https');
+    delete process.env.ML_TRABAJADORES_WEBHOOK;
+  });
+  await caso('refresh entre PROCESOS (Claude + trabajadores): un solo refresh, sin revocar la cuenta', async () => {
+    const archivo = path.join(dirTemp, 'cuentas.json');
+    const d = JSON.parse(fs.readFileSync(archivo, 'utf8'));
+    d.cuentas['777'].vence = 0; d.cuentas['777'].refresh_token = 'REFRESH-2'; fs.writeFileSync(archivo, JSON.stringify(d));
+    refrescosHechos = 0; demoraRefresh = 1500;
+    const codigo = `const m = await import(${JSON.stringify(new URL('../src/meli.js', import.meta.url).href)}); await new m.MeliClient({ userId: '777' }).get('/users/me'); console.log('ok');`;
+    const hijos = [0, 1].map(() => new Promise((res, rej) => {
+      const h = spawn(process.execPath, ['--input-type=module', '-e', codigo], { env: { ...process.env } });
+      let out = '', err = ''; h.stdout.on('data', (x) => { out += x; }); h.stderr.on('data', (x) => { err += x; });
+      h.on('exit', (code) => code === 0 && out.includes('ok') ? res() : rej(new Error('hijo falló: ' + err.slice(0, 200))));
+    }));
+    await Promise.all([...hijos, esperar(300).then(() => new meli.MeliClient({ userId: '777' }).get('/users/me'))]);
+    demoraRefresh = 0;
+    if (refrescosHechos !== 1) throw new Error(`hubo ${refrescosHechos} refresh entre 3 procesos, esperaba 1`);
+  });
+  await caso('trabajadores 24/7: el servicio arranca, toma el candado, trabaja y lo suelta al detenerse', async () => {
+    const lock = path.join(dirTemp, 'trabajadores.lock');
+    try { fs.unlinkSync(lock); } catch {}
+    const h = spawn(process.execPath, ['src/stdio.js', 'trabajadores'], { env: { ...process.env } });
+    let out = ''; h.stdout.on('data', (x) => { out += x; }); h.stderr.on('data', (x) => { out += x; });
+    for (let i = 0; i < 40 && !fs.existsSync(lock); i++) await esperar(100);
+    const l = JSON.parse(fs.readFileSync(lock, 'utf8'));
+    if (l.modo !== 'servicio') throw new Error('el candado no es del servicio');
+    for (let i = 0; i < 40 && !/Vera|Sin|Equipo en marcha/.test(out); i++) await esperar(100);
+    h.kill('SIGTERM');
+    await new Promise((r) => h.on('exit', r));
+    contiene(out, 'Equipo en marcha', 'Vera', 'Sofía', 'detenido');
+    if (fs.existsSync(lock)) throw new Error('quedó el candado tomado tras detener');
+  });
+  await caso('trabajadores por CLI: estado', async () => {
+    const h = spawn(process.execPath, ['src/stdio.js', 'trabajadores', 'estado'], { env: { ...process.env } });
+    let out = ''; h.stdout.on('data', (x) => { out += x; });
+    await new Promise((r) => h.on('exit', r));
+    contiene(out, 'Vera', 'Sofía', 'cada 10 min');
+  });
+
   await caso('instalador: crea el config de Claude desde cero', async () => {
     const dirCfg = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-cfg-'));
     process.env.CLAUDE_CONFIG_DIR = dirCfg;

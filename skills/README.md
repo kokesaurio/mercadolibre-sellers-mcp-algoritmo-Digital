@@ -1,4 +1,4 @@
-# Guía de uso — las 18 skills del conector
+# Guía de uso — las 19 skills del conector
 
 Skills listas para Claude que convierten el [conector de MercadoLibre de
 Algoritmo Digital](../README.md) en flujos de trabajo completos. **Cómo
@@ -71,6 +71,11 @@ skill**. Claude las usa solo cuando corresponde.
 **Pedilo así:** "¿qué conviene vender?" · "buscá productos ganadores" · "¿este producto tiene mercado?"
 **Qué hace:** ranking oficial de más vendidos por categoría + tendencias + análisis de mercado por keyword (competencia, precios, quién domina) con señal de oportunidad 🟢🟡⚪ — y valida el margen con tus costos antes de recomendar entrar.
 
+### 👷 [trabajadores-ml](trabajadores-ml/) — el equipo que vigila 24/7
+**Pedilo así:** "dale una tarea a Vera" · "Martina, ¿en qué puesto estoy para 'termo 1 litro'?" · "¿qué encontró el equipo?"
+**Qué hace:** 5 trabajadores con nombre que vigilan solos y constantemente — 🕵️ Vera (precios y quién queda más barato que vos), 📦 Tomás (ventas del rival y quiebres de stock), 🏆 Martina (líder y tu puesto en búsquedas), 🎯 Bruno (rivales nuevos) y 📈 Sofía (tendencias). Cada alerta viene con la skill del trabajador que la resuelve.
+**Ojo:** trabajan solos mientras Claude está abierto; para 24/7 corré una vez `npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital trabajadores instalar`.
+
 ### 🥊 [vigilancia-ml](vigilancia-ml/) — seguimiento de competencia y trends
 **Pedilo así:** "vigilá a [rival]" · "¿qué cambió en la competencia?" · "mis rivales"
 **Qué hace:** lista de rivales, productos seguidos, búsquedas y tendencias; el control semanal reporta SOLO lo que cambió (precios, publicaciones nuevas, ventas estimadas del rival, keywords en alza) y lo traduce en máximo 3 acciones. Cada control suma un punto a la **base de datos de competencia**: pedí "historial de [rival/producto]" para ver la evolución de precios en el tiempo.
@@ -96,6 +101,7 @@ skill**. Claude las usa solo cuando corresponde.
 ## Rutina sugerida
 
 - **Todos los días (5 min):** panel-ventas-ml + responder-preguntas-ml.
+- **Siempre (solos):** el equipo de trabajadores-ml vigila 24/7; vos leés el informe y despachás las 🔴.
 - **Semanal:** vigilancia-ml → visualizador-publicaciones-ml para elegir qué mejorar → mejorar-publicaciones-ml → publicidad-ml.
 - **Al publicar algo nuevo:** copiar-publicaciones-ml → imagenes-ml → video-publicaciones-ml o ugc-ml → revisar-publicaciones-aldi antes de meterle tráfico.
 

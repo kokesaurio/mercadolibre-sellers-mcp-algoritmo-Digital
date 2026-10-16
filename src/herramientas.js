@@ -3,9 +3,11 @@ import { z } from 'zod';
 import { MeliClient, MeliError, listarCuentas, urlDeAutorizacion, canjearCode, borrarCuenta, fijarPredeterminada } from './meli.js';
 import { VERSION, chequearActualizacion } from './version.js';
 import { leerCerebro, saberDe, aprender, olvidar } from './cerebro.js';
+import { EQUIPO, IDS, etiqueta, resolverTrabajador, leerEquipo, asignarTarea, quitarTarea, tareasDe, actualizarEquipo, correrCiclo, leerBandeja, quienCorre, INTERVALO_MINIMO } from './trabajadores.js';
 import { leerVigilancia, agregarObjetivo, quitarObjetivo, claveDe, tomarSnapshot, compararSnapshots, guardarVigilancia, registrarHistorial, leerHistorial } from './vigilancia.js';
 
 const money = (n, moneda = '$') => n == null ? '—' : `${moneda} ${Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
+const sinAcento = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 const cliente = (args) => new MeliClient({ userId: args?.cuenta });
 const cuentaParam = { cuenta: z.string().optional().describe('user_id de la cuenta de ML si hay varias conectadas (ver ml_cuentas)') };
 
@@ -812,6 +814,102 @@ export const TOOLS = [
       if (primeros) pie.push(`${primeros} con primer registro recién guardado`);
       if (!secciones.length) return `Sin novedades en la competencia. ${pie.join(' · ')}.`;
       return '# Novedades de competencia y tendencias\n\n' + secciones.join('\n\n') + (pie.length ? `\n\n_${pie.join(' · ')}._` : '');
+    },
+  },
+  // ───────────────────── El equipo de trabajadores 24/7 ─────────────────────
+  {
+    name: 'ml_trabajadores', title: 'Equipo de trabajadores (vigilancia constante)', readOnly: true,
+    description: 'El equipo de 5 trabajadores que vigilan solos y constantemente a tus seguidos (rivales, productos, búsquedas y tendencias): 🕵️ Vera (precios), 📦 Tomás (ventas de rivales y quiebres de stock), 🏆 Martina (ranking en búsquedas y tu puesto), 🎯 Bruno (rivales nuevos) y 📈 Sofía (tendencias). Cada uno tiene sus skills a cargo y cada alerta recomienda qué skill correr. Acciones: equipo (estado de todos), asignar (darle una tarea), quitar, pausar, activar, frecuencia (minutos), correr (que trabajen ya), informe (lo que encontraron). Se puede nombrar al trabajador por su nombre (Vera) o puesto (precios). Si un trabajador no tiene tareas propias vigila tus seguidos de ml_vigilar de su tipo.',
+    schema: { ...cuentaParam,
+      accion: z.enum(['equipo', 'asignar', 'quitar', 'pausar', 'activar', 'frecuencia', 'correr', 'informe']).describe('Qué hacer'),
+      trabajador: z.string().optional().describe('Vera/precios, Tomás/ventas, Martina/ranking, Bruno/rivales, Sofía/tendencias, o "todos"'),
+      tipo: z.enum(['vendedor', 'publicacion', 'busqueda', 'tendencias']).optional().describe('Se deduce solo según el trabajador; Vera acepta vendedor o publicacion'),
+      ref: z.string().optional().describe('item_id rival, nickname/id del vendedor, palabra clave, o categoría (tendencias)'),
+      mi_item: z.string().optional().describe('Tu item_id para comparar: Vera avisa si un rival queda más barato, Martina te dice tu puesto en la búsqueda'),
+      umbral: z.number().optional().describe('Vera: % mínimo de cambio de precio para avisar · Martina: puestos mínimos de cambio · Tomás: unidades mínimas'),
+      minutos: z.number().optional().describe(`Frecuencia de control en minutos (mínimo ${INTERVALO_MINIMO})`),
+      nota: z.string().optional(),
+      todas: z.boolean().optional().describe('informe: incluir también las alertas ya leídas'),
+    },
+    async run(args) {
+      const quien = args.trabajador && sinAcento(args.trabajador) !== 'todos' ? resolverTrabajador(args.trabajador) : null;
+      if (args.trabajador && sinAcento(args.trabajador) !== 'todos' && !quien) return `No conozco a "${args.trabajador}". El equipo: ${IDS.map(etiqueta).join(' · ')}.`;
+      const objetivo = quien ? [quien] : IDS;
+      const hora = (t) => t ? new Date(t).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+      const icono = { alta: '🔴', media: '🟡', baja: '🟢' };
+      const linea = (a) => `- ${icono[a.nivel] || '•'} ${a.texto}${a.skill ? ` → 👉 skill **${a.skill}**` : ''} _(${hora(a.t)})_`;
+      const agrupar = (alertas) => {
+        const orden = { alta: 0, media: 1, baja: 2 };
+        return IDS.filter((id) => alertas.some((a) => a.trabajador === id)).map((id) =>
+          `### ${etiqueta(id)}\n` + alertas.filter((a) => a.trabajador === id).sort((x, y) => (orden[x.nivel] - orden[y.nivel]) || (y.t - x.t)).slice(0, 25).map(linea).join('\n')).join('\n\n');
+      };
+
+      if (args.accion === 'equipo') {
+        const d = leerEquipo(); const corre = quienCorre();
+        const modo = !corre ? '⚪ Nadie los está corriendo ahora. Se despiertan solos mientras Claude esté abierto; para 24/7 corré en la terminal `npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital trabajadores instalar`.'
+          : corre.modo === 'servicio' ? `🟢 Trabajando 24/7 como servicio de la PC (desde ${hora(corre.desde)}).`
+          : '🟢 Trabajando mientras Claude está abierto (para 24/7: `npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital trabajadores instalar`).';
+        const bloques = objetivo.map((id) => {
+          const w = d.trabajadores[id], e = EQUIPO[id];
+          const tareas = tareasDe(d, id), propias = tareas.filter((t) => !t.deLista), heredadas = tareas.length - propias.length;
+          const sinLeer = d.bandeja.filter((a) => a.trabajador === id && !a.leida).length;
+          const prox = w.activo && w.ultimo ? w.ultimo + w.intervalo * 60000 : null;
+          return [`### ${etiqueta(id)} — ${w.activo ? '🟢 activo' : '⏸️ en pausa'} · cada ${w.intervalo} min`,
+            `_${e.oficio}_`,
+            `- **Tareas:** ${propias.length ? propias.map((t) => `${t.ref}${t.mi_item ? ` (vs tu ${t.mi_item})` : ''}${t.umbral != null ? ` [umbral ${t.umbral}]` : ''}`).join(' · ') : 'ninguna propia'}${heredadas ? ` + ${heredadas} de tus seguidos` : ''}${!tareas.length ? ' — 💤 sin nada que vigilar: asignale algo' : ''}`,
+            `- **Último control:** ${hora(w.ultimo)}${prox ? ` · próximo ≈ ${hora(Math.max(prox, Date.now()))}` : ''}${w.ultimoError ? ` · ⚠️ ${w.ultimoError}` : ''}`,
+            `- **Alertas sin leer:** ${sinLeer}`,
+            `- **Skills a cargo:** ${e.skills.map((x) => `\`${x.skill}\` (${x.para})`).join(' · ')}`].join('\n');
+        });
+        return `# Equipo de trabajadores\n${modo}\n\n` + bloques.join('\n\n') + '\n\nDales tareas con ml_trabajadores accion=asignar (ej: trabajador=Vera ref=MLA123 mi_item=TU_ITEM umbral=3) y leé lo que encontraron con accion=informe.';
+      }
+
+      if (args.accion === 'asignar') {
+        if (!quien) return 'Decime a quién: Vera (precios), Tomás (ventas), Martina (ranking), Bruno (rivales) o Sofía (tendencias).';
+        let sitio;
+        if (EQUIPO[quien].tipos.includes('tendencias') && !args.ref) sitio = (await cliente(args).get('/users/me')).site_id || 'MLA';
+        const r = asignarTarea(quien, { tipo: args.tipo, ref: args.ref, mi_item: args.mi_item, umbral: args.umbral, nota: args.nota, cuenta: args.cuenta, sitio });
+        const w = leerEquipo().trabajadores[quien];
+        const skills = EQUIPO[quien].skills.map((x) => '`' + x.skill + '`').join(', ');
+        return `✅ ${etiqueta(quien)} ${r.actualizada ? 'actualizó' : 'tomó'} la tarea: ${r.tarea.tipo} **${r.tarea.ref}**${r.tarea.mi_item ? ` comparando con tu ${r.tarea.mi_item}` : ''}${r.tarea.umbral != null ? ` (umbral ${r.tarea.umbral})` : ''}.\nControla cada ${w.intervalo} min${w.activo ? '' : ' (⚠️ está en pausa: activalo)'}; el primer control guarda la foto de base y desde ahí avisa solo lo que cambia. Cuando encuentre algo te va a recomendar una de sus skills: ${skills}.`;
+      }
+
+      if (args.accion === 'quitar') {
+        if (!quien || !args.ref) return 'Indicá trabajador y ref de la tarea a quitar (ver accion=equipo).';
+        const n = quitarTarea(quien, args.ref);
+        return n ? `${etiqueta(quien)} dejó la tarea "${args.ref}".` : `${EQUIPO[quien].nombre} no tenía la tarea "${args.ref}" (si viene de tus seguidos, quitala con ml_vigilar).`;
+      }
+
+      if (args.accion === 'pausar' || args.accion === 'activar') {
+        actualizarEquipo((d) => { for (const id of objetivo) d.trabajadores[id].activo = args.accion === 'activar'; });
+        return `${args.accion === 'activar' ? '▶️ Activados' : '⏸️ En pausa'}: ${objetivo.map(etiqueta).join(', ')}.`;
+      }
+
+      if (args.accion === 'frecuencia') {
+        if (!args.minutos) return 'Indicá minutos.';
+        const m = Math.max(INTERVALO_MINIMO, Math.round(args.minutos));
+        actualizarEquipo((d) => { for (const id of objetivo) d.trabajadores[id].intervalo = m; });
+        return `⏱️ ${objetivo.map(etiqueta).join(', ')} ahora controla(n) cada ${m} min${m !== Math.round(args.minutos) ? ` (mínimo ${INTERVALO_MINIMO} para cuidar el límite de la API de MercadoLibre)` : ''}.`;
+      }
+
+      if (args.accion === 'correr') {
+        const r = await correrCiclo({ solo: objetivo, forzar: true });
+        const pie = [`Trabajaron: ${r.corridos.length ? r.corridos.map((id) => EQUIPO[id].nombre).join(', ') : 'nadie (sin tareas)'}`];
+        if (r.primeros) pie.push(`${r.primeros} tarea(s) con foto de base recién guardada (avisan desde el próximo control)`);
+        if (r.errores.length) pie.push('⚠️ ' + r.errores.join(' · '));
+        if (r.alertas.length) leerBandeja({ marcar: true }); // ya las viste acá
+        return (r.alertas.length ? '# Lo que encontraron recién\n\n' + agrupar(r.alertas) : '# Sin novedades en este control') + `\n\n_${pie.join(' · ')}._`;
+      }
+
+      // informe
+      const alertas = leerBandeja({ todas: !!args.todas, trabajador: quien || undefined });
+      if (!alertas.length) {
+        const d = leerEquipo();
+        const ultimo = Math.max(0, ...objetivo.map((id) => d.trabajadores[id].ultimo || 0));
+        return `Sin alertas nuevas${quien ? ' de ' + etiqueta(quien) : ''}. Último control: ${hora(ultimo || null)}. (Con todas=true ves el historial de la bandeja.)`;
+      }
+      const altas = alertas.filter((a) => a.nivel === 'alta').length;
+      return `# Informe del equipo — ${alertas.length} alerta(s)${altas ? `, ${altas} 🔴 urgente(s)` : ''}\n\n` + agrupar(alertas) + '\n\nCada 👉 es la skill que maneja ese trabajador para resolverlo: pedímela y la corro.';
     },
   },
   {

@@ -117,6 +117,25 @@ export function borrarCuenta(userId) {
   return habia;
 }
 
+// ───────────── Candado de refresh entre procesos (archivo con O_EXCL) ─────────────
+async function candadoRefresh(clave) {
+  fs.mkdirSync(DIR, { recursive: true, mode: 0o700 });
+  const archivo = path.join(DIR, `refresh-${clave.replace(/\D/g, '')}.lock`);
+  const limite = Date.now() + 30000;
+  for (;;) {
+    try {
+      const fd = fs.openSync(archivo, 'wx', 0o600);
+      fs.writeSync(fd, String(process.pid)); fs.closeSync(fd);
+      return () => { try { fs.unlinkSync(archivo); } catch {} };
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      try { if (Date.now() - fs.statSync(archivo).mtimeMs > 30000) { fs.unlinkSync(archivo); continue; } } catch { continue; }
+      if (Date.now() > limite) throw new MeliError(503, 'Otro proceso está renovando la sesión de MercadoLibre; reintentá en unos segundos.');
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  }
+}
+
 // ─────────────────────────── Cliente autenticado ───────────────────────────
 const refrescos = new Map(); // user_id -> Promise (single-flight: un refresh a la vez)
 
@@ -146,20 +165,25 @@ export class MeliClient {
     const clave = String(c.user_id);
     if (!refrescos.has(clave)) {
       refrescos.set(clave, (async () => {
+        // Candado ENTRE PROCESOS (Claude + trabajadores 24/7): el refresh_token de ML
+        // es de un solo uso, dos procesos refrescando a la vez revocan la cuenta.
+        const liberar = await candadoRefresh(clave);
         try {
+          const fresca = leerCuentas().cuentas[clave] || c; // ¿otro proceso ya refrescó?
+          if (Date.now() < fresca.vence - 5 * 60 * 1000) return fresca.access_token;
           const t = await pedirToken({
             grant_type: 'refresh_token', client_id: this.appId, client_secret: this.appSecret,
-            refresh_token: c.refresh_token,
+            refresh_token: fresca.refresh_token,
           });
           const d = leerCuentas();
           Object.assign(d.cuentas[clave], {
             access_token: t.access_token,
-            refresh_token: t.refresh_token || c.refresh_token,
+            refresh_token: t.refresh_token || fresca.refresh_token,
             vence: Date.now() + (t.expires_in ?? 21600) * 1000,
           });
           guardarCuentas(d);
           return t.access_token;
-        } finally { refrescos.delete(clave); }
+        } finally { liberar(); refrescos.delete(clave); }
       })());
     }
     return refrescos.get(clave);
