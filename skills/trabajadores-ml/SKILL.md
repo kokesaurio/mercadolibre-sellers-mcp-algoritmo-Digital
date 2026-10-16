@@ -1,6 +1,6 @@
 ---
 name: trabajadores-ml
-description: El equipo de 5 trabajadores que vigilan MercadoLibre solos y constantemente — Vera (precios), Tomás (ventas de rivales y quiebres de stock), Martina (ranking en búsquedas), Bruno (rivales nuevos) y Sofía (tendencias). Darles tareas, ver qué encontraron y despachar cada alerta a la skill que maneja ese trabajador. Usar cuando pidan "poné a vigilar", "dale una tarea a Vera", "¿qué encontraron los trabajadores?", "informe del equipo", "vigilá 24/7" o nombren a cualquiera del equipo.
+description: El equipo de 5 trabajadores que vigilan MercadoLibre solos y constantemente — Vera (precios), Tomás (ventas de rivales y quiebres de stock), Martina (ranking en búsquedas), Bruno (rivales nuevos) y Sofía (tendencias). Darles tareas, ver qué encontraron y despachar cada alerta a la skill que maneja ese trabajador. Usar cuando pidan "poné a vigilar", "resultados del equipo", "mandalo a Drive", "conectá la planilla", "dale una tarea a Vera", "¿qué encontraron los trabajadores?", "informe del equipo", "vigilá 24/7" o nombren a cualquiera del equipo.
 ---
 
 # Equipo de trabajadores 24/7
@@ -53,6 +53,36 @@ Si un trabajador no tiene tareas propias, vigila solo tus seguidos de
      tipo=vendedor y asignárselo a Vera.
    - Sofía "entraron al top" → `descubrir-ganadores-ml` para validar si conviene venderlo.
 3. Las alertas leídas quedan en el historial (`todas=true`).
+
+## Resultados (todo lo que saben, no solo alertas)
+`ml_trabajadores accion=resultados` (o `trabajador=Vera` para uno solo) → una
+tabla por trabajador con los datos de su último control:
+- **Vera:** precio de cada rival vs el tuyo, diferencia % y 🔴/🟡/🟢.
+- **Tomás:** ventas desde que lo vigilamos, **ritmo u./día** y **facturación
+  estimada por mes** de cada rival, stock y estado.
+- **Martina:** líder, precio líder, mediana del top 10 y **tu puesto** por keyword.
+- **Bruno:** cuántos vendedores distintos vio y los rivales nuevos de la semana.
+- **Sofía:** el top 10 de tendencias de cada sitio/categoría.
+Arrancar siempre por "Lo importante" (una línea por trabajador) y cerrar con
+máximo 3 acciones, cada una con la skill del trabajador que la resuelve.
+
+## Google Drive (resultados afuera de Claude, solos)
+`ml_trabajadores accion=drive` muestra el estado y los pasos. Dos caminos
+(se pueden usar juntos):
+- **Planilla de Google en vivo (recomendada, 24/7):** el vendedor crea una
+  planilla, pega `docs/drive/planilla-equipo.gs` en Extensiones → Apps Script con
+  la CLAVE que le da la herramienta, implementa como App web y te pasa la URL
+  `/exec` → `accion=drive url=...`. Resultado: pestaña "Alertas" con el
+  historial + una pestaña por trabajador que se reescribe en cada control.
+- **Carpeta de Drive para escritorio:** `accion=drive carpeta=auto` (o la ruta,
+  ej. `G:\Mi unidad`) → carpeta "MercadoLibre - Equipo de trabajadores" con
+  Alertas.csv, un CSV por trabajador y "Resumen del equipo.md".
+- Probar: `accion=drive probar=true` · Desconectar: `accion=drive quitar=todo`.
+- Si en esta conversación de Claude está el conector de Google Drive, también
+  podés guardar ahí el informe o los resultados como documento cuando el
+  vendedor lo pida.
+- Seguridad: la CLAVE es secreta (no pegarla en lugares públicos); ningún texto
+  de un rival se guarda como fórmula en la planilla.
 
 ## Ajustes
 - `frecuencia` (mínimo 10 min, para cuidar el límite de la API de ML).

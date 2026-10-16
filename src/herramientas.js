@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { MeliClient, MeliError, listarCuentas, urlDeAutorizacion, canjearCode, borrarCuenta, fijarPredeterminada } from './meli.js';
 import { VERSION, chequearActualizacion } from './version.js';
 import { leerCerebro, saberDe, aprender, olvidar } from './cerebro.js';
+import { armarResultados, resultadosEnMarkdown, conectarDrive, desconectarDrive, configDrive, claveDrive, exportarADrive, detectarCarpetaDrive, CARPETA_NOMBRE } from './resultados.js';
 import { EQUIPO, IDS, etiqueta, resolverTrabajador, leerEquipo, asignarTarea, quitarTarea, tareasDe, actualizarEquipo, correrCiclo, leerBandeja, quienCorre, INTERVALO_MINIMO } from './trabajadores.js';
 import { leerVigilancia, agregarObjetivo, quitarObjetivo, claveDe, tomarSnapshot, compararSnapshots, guardarVigilancia, registrarHistorial, leerHistorial } from './vigilancia.js';
 
@@ -819,9 +820,9 @@ export const TOOLS = [
   // ───────────────────── El equipo de trabajadores 24/7 ─────────────────────
   {
     name: 'ml_trabajadores', title: 'Equipo de trabajadores (vigilancia constante)', readOnly: true,
-    description: 'El equipo de 5 trabajadores que vigilan solos y constantemente a tus seguidos (rivales, productos, búsquedas y tendencias): 🕵️ Vera (precios), 📦 Tomás (ventas de rivales y quiebres de stock), 🏆 Martina (ranking en búsquedas y tu puesto), 🎯 Bruno (rivales nuevos) y 📈 Sofía (tendencias). Cada uno tiene sus skills a cargo y cada alerta recomienda qué skill correr. Acciones: equipo (estado de todos), asignar (darle una tarea), quitar, pausar, activar, frecuencia (minutos), correr (que trabajen ya), informe (lo que encontraron). Se puede nombrar al trabajador por su nombre (Vera) o puesto (precios). Si un trabajador no tiene tareas propias vigila tus seguidos de ml_vigilar de su tipo.',
+    description: 'El equipo de 5 trabajadores que vigilan solos y constantemente a tus seguidos (rivales, productos, búsquedas y tendencias): 🕵️ Vera (precios), 📦 Tomás (ventas de rivales y quiebres de stock), 🏆 Martina (ranking en búsquedas y tu puesto), 🎯 Bruno (rivales nuevos) y 📈 Sofía (tendencias). Cada uno tiene sus skills a cargo y cada alerta recomienda qué skill correr. Envían sus resultados a Google Drive (planilla en vivo o carpeta de Drive). Acciones: equipo (estado de todos), asignar (darle una tarea), quitar, pausar, activar, frecuencia (minutos), correr (que trabajen ya), informe (alertas nuevas), resultados (tablas con todo lo que sabe cada uno), drive (conectar Google Drive). Se puede nombrar al trabajador por su nombre (Vera) o puesto (precios). Si un trabajador no tiene tareas propias vigila tus seguidos de ml_vigilar de su tipo.',
     schema: { ...cuentaParam,
-      accion: z.enum(['equipo', 'asignar', 'quitar', 'pausar', 'activar', 'frecuencia', 'correr', 'informe']).describe('Qué hacer'),
+      accion: z.enum(['equipo', 'asignar', 'quitar', 'pausar', 'activar', 'frecuencia', 'correr', 'informe', 'resultados', 'drive']).describe('Qué hacer. resultados = las tablas con lo que sabe cada trabajador (precio rival vs el tuyo, ritmo de ventas, tu puesto, rivales nuevos, top de tendencias). drive = conectar/ver/probar el envío a Google Drive'),
       trabajador: z.string().optional().describe('Vera/precios, Tomás/ventas, Martina/ranking, Bruno/rivales, Sofía/tendencias, o "todos"'),
       tipo: z.enum(['vendedor', 'publicacion', 'busqueda', 'tendencias']).optional().describe('Se deduce solo según el trabajador; Vera acepta vendedor o publicacion'),
       ref: z.string().optional().describe('item_id rival, nickname/id del vendedor, palabra clave, o categoría (tendencias)'),
@@ -830,6 +831,10 @@ export const TOOLS = [
       minutos: z.number().optional().describe(`Frecuencia de control en minutos (mínimo ${INTERVALO_MINIMO})`),
       nota: z.string().optional(),
       todas: z.boolean().optional().describe('informe: incluir también las alertas ya leídas'),
+      url: z.string().optional().describe('drive: URL de la app web de Apps Script de tu planilla (https://script.google.com/macros/s/.../exec)'),
+      carpeta: z.string().optional().describe('drive: carpeta de Google Drive para escritorio en esta PC (ej: G:\\Mi unidad) o "auto" para detectarla'),
+      probar: z.boolean().optional().describe('drive: enviar ahora los resultados para probar'),
+      quitar: z.enum(['todo', 'script', 'carpeta']).optional().describe('drive: desconectar el envío'),
     },
     async run(args) {
       const quien = args.trabajador && sinAcento(args.trabajador) !== 'todos' ? resolverTrabajador(args.trabajador) : null;
@@ -861,7 +866,11 @@ export const TOOLS = [
             `- **Alertas sin leer:** ${sinLeer}`,
             `- **Skills a cargo:** ${e.skills.map((x) => `\`${x.skill}\` (${x.para})`).join(' · ')}`].join('\n');
         });
-        return `# Equipo de trabajadores\n${modo}\n\n` + bloques.join('\n\n') + '\n\nDales tareas con ml_trabajadores accion=asignar (ej: trabajador=Vera ref=MLA123 mi_item=TU_ITEM umbral=3) y leé lo que encontraron con accion=informe.';
+        const dv = d.drive || {};
+        const lineaDrive = dv.script || dv.carpeta
+          ? `📁 Google Drive: ${[dv.script ? 'planilla en vivo' : '', dv.carpeta ? 'carpeta ' + dv.carpeta : ''].filter(Boolean).join(' + ')} · último envío ${hora(dv.ultimo)}${dv.ultimoError ? ' · ⚠️ ' + dv.ultimoError : ''}`
+          : '📁 Google Drive: sin conectar (ml_trabajadores accion=drive)';
+        return `# Equipo de trabajadores\n${modo}\n${lineaDrive}\n\n` + bloques.join('\n\n') + '\n\nDales tareas con ml_trabajadores accion=asignar (ej: trabajador=Vera ref=MLA123 mi_item=TU_ITEM umbral=3) y leé lo que encontraron con accion=informe.';
       }
 
       if (args.accion === 'asignar') {
@@ -897,8 +906,51 @@ export const TOOLS = [
         const pie = [`Trabajaron: ${r.corridos.length ? r.corridos.map((id) => EQUIPO[id].nombre).join(', ') : 'nadie (sin tareas)'}`];
         if (r.primeros) pie.push(`${r.primeros} tarea(s) con foto de base recién guardada (avisan desde el próximo control)`);
         if (r.errores.length) pie.push('⚠️ ' + r.errores.join(' · '));
+        if (r.drive) pie.push(r.drive.errores?.length ? '📁 Drive ⚠️ ' + r.drive.errores.join(' · ') : r.drive.error ? '📁 Drive ⚠️ ' + r.drive.error : '📁 resultados enviados a Google Drive');
         if (r.alertas.length) leerBandeja({ marcar: true }); // ya las viste acá
         return (r.alertas.length ? '# Lo que encontraron recién\n\n' + agrupar(r.alertas) : '# Sin novedades en este control') + `\n\n_${pie.join(' · ')}._`;
+      }
+
+      if (args.accion === 'resultados') {
+        const res = armarResultados();
+        const destacados = IDS.filter((id) => (!quien || id === quien) && res[id].destacado).map((id) => `- ${EQUIPO[id].emoji} **${EQUIPO[id].nombre}:** ${res[id].destacado}`);
+        const dv = configDrive();
+        return `# Resultados del equipo\n\n${destacados.length ? '## Lo importante\n' + destacados.join('\n') + '\n\n' : ''}` + resultadosEnMarkdown(res, quien || undefined) +
+          `\n\n${dv.script || dv.carpeta ? '📁 Estas mismas tablas están en tu Google Drive (se actualizan en cada control).' : '📁 ¿Las querés en Google Drive, actualizadas solas? ml_trabajadores accion=drive.'}`;
+      }
+
+      if (args.accion === 'drive') {
+        const GS = 'https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital/blob/main/docs/drive/planilla-equipo.gs';
+        if (args.quitar) return desconectarDrive(args.quitar) ? `Listo: dejé de enviar a Drive (${args.quitar}). Tus archivos y planilla quedan como están.` : 'Drive no estaba conectado.';
+        if (args.url || args.carpeta) {
+          const cfg = conectarDrive({ url: args.url, carpeta: args.carpeta });
+          const r = await exportarADrive([]);
+          const ok = r && !r.errores.length;
+          return [`${ok ? '✅' : '⚠️'} Google Drive ${ok ? 'conectado' : 'configurado, pero la prueba falló'}:`,
+            cfg.script ? `- 📊 Planilla en vivo: ${r?.script ? 'recibió los resultados ✅' : 'sin respuesta'}` : '',
+            cfg.carpeta ? `- 📁 Carpeta: ${cfg.carpeta} ${r?.carpeta ? '✅ (Alertas.csv, una tabla por trabajador y "Resumen del equipo.md")' : ''}` : '',
+            r?.errores.length ? '- ⚠️ ' + r.errores.join(' · ') : '',
+            ok ? 'Desde ahora cada control del equipo actualiza Drive solo: las alertas se suman al historial y cada trabajador tiene su pestaña/archivo al día.' : 'Revisá el paso que falló y volvé a correr accion=drive con probar=true.'].filter(Boolean).join('\n');
+        }
+        if (args.probar) {
+          const r = await exportarADrive([]);
+          if (!r) return 'Drive no está conectado todavía: corré ml_trabajadores accion=drive para ver cómo.';
+          return r.errores.length ? '⚠️ ' + r.errores.join(' · ') : `✅ Resultados enviados a Drive${r.script ? ' (planilla)' : ''}${r.carpeta ? ' (carpeta)' : ''}.`;
+        }
+        const clave = claveDrive(); const dv = configDrive(); const det = detectarCarpetaDrive();
+        return [`# Conectar el equipo a Google Drive`,
+          dv.script || dv.carpeta ? `Estado: ${dv.script ? '📊 planilla conectada' : ''}${dv.script && dv.carpeta ? ' + ' : ''}${dv.carpeta ? '📁 carpeta ' + dv.carpeta : ''} · último envío ${hora(dv.ultimo)}${dv.ultimoError ? ' · ⚠️ ' + dv.ultimoError : ''}\n` : 'Estado: sin conectar.\n',
+          `## Opción A — Planilla de Google en vivo (recomendada, funciona 24/7)`,
+          `Una pestaña "Alertas" con todo el historial + una pestaña por trabajador (Vera, Tomás, Martina, Bruno, Sofía) con sus resultados al día. Sin crear apps en Google Cloud.`,
+          `1. Creá una planilla nueva: sheets.new`,
+          `2. Extensiones → Apps Script → pegá el código de: ${GS}`,
+          `3. En la línea \`const CLAVE = 'PEGAR_LA_CLAVE';\` poné tu clave: \`${clave}\` (no la compartas: es lo que impide que otro escriba en tu planilla)`,
+          `4. Implementar → Nueva implementación → App web · Ejecutar como: Yo · Acceso: Cualquier usuario → Autorizar`,
+          `5. Pasame la URL que termina en /exec y la conecto (accion=drive url=...).`,
+          ``,
+          `## Opción B — Carpeta de Google Drive para escritorio`,
+          det ? `Encontré tu Drive en **${det}**: decime "usá la carpeta" (accion=drive carpeta=auto) y creo "${CARPETA_NOMBRE}" con un CSV por trabajador + Alertas.csv + resumen.` : `Si tenés Google Drive para escritorio instalado, pasame la ruta (ej: G:\\Mi unidad) o carpeta=auto. Se crea "${CARPETA_NOMBRE}" con un CSV por trabajador, Alertas.csv y un resumen.`,
+          ``, `Podés usar las dos a la vez.`].join('\n');
       }
 
       // informe

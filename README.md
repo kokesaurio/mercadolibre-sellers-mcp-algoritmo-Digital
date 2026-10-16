@@ -175,6 +175,13 @@ Cinco trabajadores con nombre que **vigilan solos y constantemente** a tus segui
   Estado: `... trabajadores estado` · Sacarlo: `... trabajadores desinstalar`. Nunca corren dos veces a la vez (candado con latido) y la sesión de ML se renueva con candado entre procesos, así Claude y el servicio no se pisan el token.
 - Opcional: `ML_TRABAJADORES_WEBHOOK=https://...` en el config manda cada alerta a tu CRM, n8n o WhatsApp.
 
+**📊 Resultados, no solo alertas:** *"mostrame los resultados del equipo"* trae una tabla por trabajador con todo lo que sabe — precio de cada rival vs el tuyo, **ritmo de ventas y facturación estimada por mes del rival**, tu puesto en cada búsqueda, rivales nuevos de la semana y el top de tendencias.
+
+**📁 Todo en tu Google Drive, actualizado solo** (*"conectá el equipo a Drive"*):
+- **Planilla de Google en vivo** (24/7, sin crear apps en Google Cloud): pegás [este script](docs/drive/planilla-equipo.gs) en Extensiones → Apps Script de una planilla nueva, con la clave secreta que te da Claude, y la implementás como App web. Queda una pestaña **Alertas** con el historial y **una pestaña por trabajador** que se reescribe en cada control.
+- **Carpeta de Google Drive para escritorio**: se detecta sola y se crea *MercadoLibre - Equipo de trabajadores* con Alertas.csv, un CSV por trabajador y un resumen.
+- Seguro: la planilla rechaza envíos sin tu clave, y ningún texto de un rival (ej. un título con `=IMPORTXML(...)`) se guarda como fórmula.
+
 ## Las 19 skills — tu equipo de trabajo
 
 El conector trae [**19 skills listas**](skills/) con [guía de uso de cada una](skills/README.md). Se suben una vez en Claude (**Configuración → Capacidades → Skills → Cargar skill**) y convierten las herramientas en flujos completos: vos pedís en una frase, la skill sabe el procedimiento.
@@ -258,7 +265,7 @@ Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando
 | ml_tendencias | Qué está buscando la gente en ML |
 | ml_descubrir_ganadores | Artículos ganadores con datos de la API: ranking oficial de más vendidos por categoría (highlights) + análisis de mercado por keyword (competencia, precios, dominancia, señal de oportunidad) |
 | ml_vigilar / ml_novedades_competencia | Lista de rivales 🥊, productos seguidos 📦, búsquedas y trends — y el control que reporta solo lo que cambió: precios, publicaciones nuevas, ventas estimadas del rival, cambios de líder y keywords en alza |
-| ml_trabajadores 👷 | El equipo 24/7: Vera (precios), Tomás (ventas/stock de rivales), Martina (ranking y tu puesto), Bruno (rivales nuevos) y Sofía (tendencias) — asignar tareas, frecuencia, pausar, correr ya e informe con la skill a usar en cada alerta |
+| ml_trabajadores 👷 | El equipo 24/7: Vera (precios), Tomás (ventas/stock de rivales), Martina (ranking y tu puesto), Bruno (rivales nuevos) y Sofía (tendencias) — asignar tareas, frecuencia, pausar, correr ya, informe con la skill a usar en cada alerta, **resultados** (tablas con todo lo que sabe cada uno) y envío a **Google Drive** (planilla en vivo o carpeta) |
 | ml_historial_competencia | La base de datos de competencia: evolución de precios, ventas y líderes de cada objetivo vigilado — se alimenta sola con cada control |
 | ml_clips | Los Clips (videos verticales) de tus publicaciones y cuáles sirven: mapa de la tienda + estado de moderación por clip (publicado/en revisión/rechazado con el motivo y cómo corregirlo) |
 | ml_subir_clip ✏️ / ml_borrar_clip ✏️ | Subir un clip por API (valida formato, duración y peso antes) y borrar los rechazados para resubir corregidos |

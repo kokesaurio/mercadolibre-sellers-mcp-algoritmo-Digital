@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.15.0
+- **📊 Resultados del equipo** (`ml_trabajadores accion=resultados`): una tabla por trabajador con todo lo que sabe — Vera: precio de cada rival vs el tuyo y 🔴/🟡/🟢 · Tomás: ventas desde que vigilamos, **ritmo u./día y facturación estimada/mes del rival** · Martina: líder, mediana del top 10 y tu puesto · Bruno: vendedores vistos y rivales nuevos de la semana · Sofía: top 10 de tendencias. Con "Lo importante" arriba.
+- **📁 Google Drive** (`accion=drive`), sin apps de Google Cloud: **planilla en vivo** vía Apps Script ([docs/drive/planilla-equipo.gs](docs/drive/planilla-equipo.gs)) con pestaña Alertas + una por trabajador, protegida por clave secreta; y/o **carpeta de Drive para escritorio** (detectada sola) con Alertas.csv, un CSV por trabajador y resumen. Cada control del equipo actualiza Drive solo.
+- 🔒 Anti inyección de fórmulas: ningún texto de un rival se guarda como fórmula en la planilla ni en los CSV.
+- Suite: 78 pruebas (incluye la redirección 302 real de Apps Script).
+
 ## 1.14.0
 - **👷 Equipo de trabajadores 24/7** (`ml_trabajadores`): 5 trabajadores con nombre que vigilan solos y constantemente — 🕵️ **Vera** (precios; avisa si un rival queda más barato que tu publicación), 📦 **Tomás** (ventas estimadas del rival, ritmo/día y $/mes, quiebres de stock y pausas), 🏆 **Martina** (líder del top 50 y tu puesto en cada keyword), 🎯 **Bruno** (rivales nuevos en tus búsquedas) y 📈 **Sofía** (tendencias).
 - Cada trabajador tiene **skills a cargo** y cada alerta recomienda cuál correr (ej: Vera → calculadora-ml, Tomás → publicidad-ml, Martina → mejorar-publicaciones-ml, Bruno → competencia-ml, Sofía → descubrir-ganadores-ml).

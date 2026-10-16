@@ -122,7 +122,7 @@ export function tipoPorDefecto(trabajador, ref) {
   if (trabajador === 'precios') return /^[A-Z]{3}\d+$/i.test(String(ref || '').trim()) ? 'publicacion' : 'vendedor';
   return EQUIPO[trabajador].tipos[0];
 }
-const claveTarea = (t) => claveDe(t) + (t.cuenta ? '@' + t.cuenta : '');
+export const claveTarea = (t) => claveDe(t) + (t.cuenta ? '@' + t.cuenta : '');
 
 export function asignarTarea(quien, { tipo, ref, mi_item, umbral, nota, cuenta, sitio }) {
   const trabajador = resolverTrabajador(quien);
@@ -286,6 +286,8 @@ async function correrTarea(trabajador, t, d, c, sitio) {
   } else if (viejo) {
     alertas = OFICIOS[trabajador].cambios(t, viejo.datos, nuevo.datos, (nuevo.t - viejo.t) / 3600000);
   }
+  // Tomás guarda desde cuándo vigila cada publicación para calcular el ritmo real de ventas
+  if (trabajador === 'ventas') nuevo.datos.base = viejo?.datos?.base || (viejo ? { t: viejo.t, vendidos: viejo.datos.vendidos } : { t: nuevo.t, vendidos: nuevo.datos.vendidos });
   d.snapshots[clave] = nuevo;
   return { primera: !viejo, alertas };
 }
@@ -344,6 +346,11 @@ export async function correrCiclo({ solo, forzar = false, alAvisar } = {}) {
     fresco.bandeja.push(...res.alertas);
     if (fresco.bandeja.length > MAX_BANDEJA) fresco.bandeja.splice(0, fresco.bandeja.length - MAX_BANDEJA);
   });
+  // Resultados a Google Drive (si está configurado). Best-effort: nunca frena al equipo.
+  if (res.corridos.length || res.alertas.length) {
+    try { const { exportarADrive } = await import('./resultados.js'); res.drive = await exportarADrive(res.alertas); }
+    catch (e) { res.drive = { error: e.message }; }
+  }
   return res;
 }
 
