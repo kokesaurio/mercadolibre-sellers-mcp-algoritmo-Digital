@@ -1,6 +1,6 @@
 ---
 name: trabajadores-ml
-description: El equipo de 6 trabajadores que vigilan MercadoLibre solos y constantemente — Vera (precios), Tomás (ventas de rivales y quiebres de stock), Martina (ranking en búsquedas), Bruno (rivales nuevos), Lucía (audita todas tus publicaciones cada 15 días) y Sofía (tendencias). Darles tareas, ver qué encontraron y despachar cada alerta a la skill que maneja ese trabajador. Usar cuando pidan "poné a vigilar", "resultados del equipo", "mandalo a Drive", "conectá la planilla", "historial de", "cómo evolucionó", "estado de la base", "backup", "dale una tarea a Vera", "¿qué encontraron los trabajadores?", "informe del equipo", "auditá mis publicaciones cada 15 días", "¿qué publicaciones están desactualizadas?", "vigilá 24/7" o nombren a cualquiera del equipo.
+description: El equipo de 7 trabajadores que vigilan MercadoLibre solos y constantemente — Vera (precios), Tomás (ventas de rivales y quiebres de stock), Martina (ranking en búsquedas), Bruno (rivales nuevos), Lucía (audita todas tus publicaciones cada 15 días), Clara (agenda comercial: cronograma de ML y fechas cruciales) y Sofía (tendencias). Darles tareas, ver qué encontraron y despachar cada alerta a la skill que maneja ese trabajador. Usar cuando pidan "poné a vigilar", "resultados del equipo", "mandalo a Drive", "conectá la planilla", "historial de", "cómo evolucionó", "estado de la base", "backup", "dale una tarea a Vera", "¿qué encontraron los trabajadores?", "informe del equipo", "auditá mis publicaciones cada 15 días", "¿qué fechas vienen?", "cronograma de MercadoLibre", "¿qué publicaciones están desactualizadas?", "vigilá 24/7" o nombren a cualquiera del equipo.
 ---
 
 # Equipo de trabajadores 24/7
@@ -18,6 +18,7 @@ Herramienta `ml_trabajadores` del conector de MercadoLibre de Algoritmo Digital
 | 🏆 **Martina** · Vigía de búsquedas | top 50 de tus keywords: líder, precio líder y TU puesto (`mi_item`) | 60 min | `imagenes-ml`, `publicidad-ml` |
 | 🎯 **Bruno** · Cazador de rivales nuevos | vendedores que aparecen por primera vez en tus búsquedas | 3 h | `competencia-ml`, `revisar-publicaciones-aldi` |
 | 🩺 **Lucía** · Auditora de publicaciones | TODAS tus publicaciones activas: preguntas que te repiten y no están en la descripción, desactualizadas (60+ días sin tocar), precio congelado (45+ días) o fuera de mercado, sin stock, fotos pocas o chicas, sin marca/modelo, sin garantía, sin video, catálogo perdido | 15 días | `mejorar-publicaciones-ml`, `visualizador-publicaciones-ml`, `copiar-publicaciones-ml`, `faq-descripcion-ml` |
+| 🗓️ **Clara** · Agenda comercial | cronograma de promociones de ML (invitaciones, cierre de inscripción, arranque y fin) y fechas cruciales del año; **siempre pregunta si participás** hasta que decidas | 1 día | `agenda-comercial-ml`, `mi-pagina-ml` |
 | 📈 **Sofía** · Radar de tendencias | keywords que entran, salen o suben en tendencias | 12 h | `descubrir-ganadores-ml`, `video-publicaciones-ml`, `clips-ml`, `ugc-ml` |
 
 Si un trabajador no tiene tareas propias, vigila solo tus seguidos de
@@ -48,6 +49,18 @@ Si un trabajador no tiene tareas propias, vigila solo tus seguidos de
 - Despacho: proponer arreglar las 🔴 de a 3-5 por quincena con
   `mejorar-publicaciones-ml` (o `visualizador-publicaciones-ml` para que elija),
   fotos con `imagenes-ml`, precios con `calculadora-ml` antes de tocar nada.
+
+## Clara — la agenda comercial (no hay que asignarle nada)
+- Todos los días, por cada tienda conectada: campañas que ML te ofrece y fechas
+  cruciales de los próximos 45 días.
+- **Pregunta SIEMPRE si querés participar**: al llegar cada invitación, a 3 y 1 día
+  del cierre de inscripción, y a 30/14/7/1 días de cada fecha — hasta que decidas.
+  Un NO se respeta: no vuelve a preguntar por esa.
+- Con SÍ: si no inscribiste publicaciones a 2 días del cierre, te avisa; cuando
+  arranca el evento, pide actualizar Mi página (`mi-pagina-ml`); cuando termina,
+  sacar el banner.
+- Despacho: ante cada ❓ preguntar al vendedor y guardar con `ml_agenda
+  accion=decidir`; seguir la skill `agenda-comercial-ml` (margen antes de inscribir).
 
 ## Armar el equipo (una vez, 5 minutos)
 1. `ml_trabajadores accion=equipo` → mostrar quién está y qué vigila.

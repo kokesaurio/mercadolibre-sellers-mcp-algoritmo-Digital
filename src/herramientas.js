@@ -5,8 +5,10 @@ import { VERSION, chequearActualizacion } from './version.js';
 import { leerCerebro, saberDe, aprender, olvidar } from './cerebro.js';
 import { armarResultados, resultadosEnMarkdown, conectarDrive, desconectarDrive, configDrive, claveDrive, exportarADrive, detectarCarpetaDrive, CARPETA_NOMBRE } from './resultados.js';
 import { auditarItem } from './auditoria.js';
+import { fechasComerciales, cronogramaML, estadoDecision, diasHasta, tipoLegible, ICONO_DECISION } from './agenda.js';
 import { faltantes, agrupar, preguntasRespondidas, armarDescripcion, INICIO as FAQ_INICIO } from './faq.js';
 import { estadoDB, leerMediciones, precioSinCambiosDesde, backupDB, RETENCION_DIAS, NODE_MINIMO } from './db.js';
+import { decidir, confirmarFecha, agregarFechaPropia } from './trabajadores.js';
 import { EQUIPO, IDS, etiqueta, resumenAlertas, resolverTrabajador, leerEquipo, asignarTarea, quitarTarea, tareasDe, actualizarEquipo, correrCiclo, leerBandeja, quienCorre, INTERVALO_MINIMO } from './trabajadores.js';
 import { leerVigilancia, agregarObjetivo, quitarObjetivo, claveDe, tomarSnapshot, compararSnapshots, guardarVigilancia, registrarHistorial, leerHistorial } from './vigilancia.js';
 
@@ -491,6 +493,97 @@ export const TOOLS = [
       return `# Preguntas frecuentes → descripción\n\n` + salida.join('\n\n') + pie;
     },
   },
+  {
+    name: 'ml_agenda', title: 'Agenda comercial y cronograma de MercadoLibre', readOnly: true,
+    description: 'La agenda de Clara (del equipo de trabajadores): las fechas cruciales del año (Hot Sale, CyberMonday, Black Friday, Día de la Madre/Padre/Infancias, Navidad…) y el cronograma de campañas y promociones que MercadoLibre te ofrece, con cierre de inscripción, candidatas y si ya participás. Por cada una pregunta SIEMPRE si querés participar y guarda tu decisión (no se inscribe sola: inscribir es con ml_aceptar_promocion y tu OK). Acciones: calendario (lo que viene), decidir (sí/no a una campaña o fecha), fecha (confirmar una fecha estimada o agregar una propia), pagina (el kit para actualizar Mi página: banner y productos a destacar del evento).',
+    schema: { ...cuentaParam,
+      accion: z.enum(['calendario', 'decidir', 'fecha', 'pagina']).describe('Qué hacer'),
+      ref: z.string().optional().describe('decidir: el id que muestra el calendario (ej: P-HOT, cybermonday:2026, propia:aniversario) · fecha: la clave de la fecha estimada a confirmar (ej: cybermonday:2026)'),
+      participar: z.boolean().optional().describe('decidir: true = sí participo, false = no participo'),
+      nota: z.string().optional().describe('decidir: por qué (ej: "solo con los termos")'),
+      nombre: z.string().optional().describe('fecha: nombre de una fecha propia (ej: "Aniversario de la tienda")'),
+      fecha: z.string().optional().describe('fecha: AAAA-MM-DD'),
+      dias: z.number().optional().describe('calendario: cuántos días hacia adelante (default 60, máx 365)'),
+    },
+    async run(args) {
+      const f = (ts) => new Date(ts).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const cuando = (d) => (d < 0 ? 'en curso' : d === 0 ? 'HOY' : d === 1 ? 'mañana' : `en ${d} días`);
+      const ag = () => leerEquipo().agenda || {};
+
+      if (args.accion === 'decidir') {
+        if (!args.ref || args.participar == null) return 'Decime ref (el id del calendario) y participar=true o false.';
+        let r = args.ref.trim();
+        if (!/^(promo|fecha):/.test(r)) r = /^[a-z_]+:\d{4}$/.test(r) || r.startsWith('propia:') ? 'fecha:' + r : 'promo:' + r;
+        decidir(r, args.participar, args.nota);
+        const que = r.replace(/^(promo|fecha):/, '');
+        if (!args.participar) return `🚫 Anotado: no participás en ${que}. Clara no te vuelve a preguntar por esta.`;
+        if (r.startsWith('promo:')) return `✅ Anotado: participás en ${que}. Próximo paso: te muestro tus publicaciones candidatas con su descuento (ml_promociones promocion_id=${que}), validamos el margen de cada una con la calculadora y las inscribo de a una con ml_aceptar_promocion **solo con tu OK**. Cuando arranque, Clara te avisa para actualizar Mi página.`;
+        return `✅ Anotado: participás en ${que}. Clara te recuerda a 7 días (stock, precio validado por margen y publicidad) y el día anterior (Mi página con el banner y los productos destacados). Si querés una promo propia para esa fecha, te armo la propuesta.`;
+      }
+
+      if (args.accion === 'fecha') {
+        if (!args.fecha) return 'Pasame la fecha en formato AAAA-MM-DD.';
+        if (args.ref) { const k = args.ref.trim().replace(/^fecha:/, ''); confirmarFecha(k, args.fecha); return `✅ ${k} confirmada para el ${args.fecha}: Clara usa esa fecha en lugar de la estimada.`; }
+        if (!args.nombre) return 'Para una fecha propia pasame nombre y fecha (o ref para confirmar una estimada).';
+        const id = agregarFechaPropia({ nombre: args.nombre, fecha: args.fecha });
+        return `✅ Fecha propia agregada: **${args.nombre}** (${args.fecha}). Clara te va a preguntar si querés participar a 30, 14, 7 y 1 día (ref=propia:${id}).`;
+      }
+
+      const c = cliente(args);
+      const me = await c.get('/users/me');
+      const sitio = me.site_id || 'MLA';
+      const a = ag();
+      const promos = Object.values(await cronogramaML(c, me.id));
+
+      if (args.accion === 'pagina') {
+        const ahora = Date.now();
+        const activas = promos.filter((p) => p.participando > 0 && (!p.fin || p.fin >= ahora) && (!p.inicio || p.inicio - ahora <= 7 * 86400000))
+          .sort((x, y) => (x.inicio || 0) - (y.inicio || 0));
+        const fechas = fechasComerciales(sitio, { dias: 7, confirmadas: a.confirmadas || {}, propias: a.propias || [] })
+          .filter((fe) => estadoDecision(a, 'fecha:' + fe.clave) === 'si');
+        let evento = null, destacados = [];
+        if (activas.length) {
+          const p = activas[0];
+          evento = { nombre: p.nombre, desde: p.inicio, hasta: p.fin, descuento: p.descuentoMax, origen: 'campaña de MercadoLibre' };
+          try {
+            const it = await c.get(`/seller-promotions/promotions/${p.id}/items`, { promotion_type: p.tipo, app_version: 'v2', limit: 50 });
+            destacados = (it.results || []).filter((i) => ['started', 'pending', 'active'].includes(i.status)).map((i) => ({ id: i.id ?? i.item_id, precio: i.price ?? i.deal_price, antes: i.original_price }));
+          } catch {}
+        } else if (fechas.length) {
+          const fe = fechas[0];
+          evento = { nombre: fe.nombre, desde: fe.inicio.getTime(), hasta: fe.fin.getTime(), origen: 'fecha comercial' };
+        }
+        if (!destacados.length) { // sin promo: los más vendidos de los últimos 30 días
+          try {
+            const r = await c.get('/orders/search', { seller: me.id, 'order.date_created.from': new Date(ahora - 30 * 86400000).toISOString(), 'order.status': 'paid', limit: 50, sort: 'date_desc' });
+            const conteo = new Map();
+            for (const o of r.results || []) for (const it of o.order_items || []) { const k = it.item?.id || it.item?.title; if (k) conteo.set(k, { id: it.item?.id, titulo: it.item?.title, u: (conteo.get(k)?.u || 0) + (it.quantity || 1) }); }
+            destacados = [...conteo.values()].sort((x, y) => y.u - x.u).slice(0, 6);
+          } catch {}
+        }
+        const lista = destacados.slice(0, 8).map((x, i) => `${i + 1}. ${x.titulo || x.id}${x.id && x.titulo ? ` (${x.id})` : ''}${x.precio && x.antes ? ` — ${money(x.antes)} → ${money(x.precio)}` : x.u ? ` — ${x.u} vendidas en 30 días` : ''}`).join('\n');
+        if (!evento) return `# Mi página — sin evento tuyo activo ni en los próximos 7 días\nDejala con tus más vendidos arriba:\n${lista || '(sin ventas en 30 días para ordenar)'}\n\nCuando participes en una campaña o fecha, Clara te avisa el día que arranca para cambiar el banner. Para aplicarlo en Mi página pedile a Claude "actualizá Mi página" (skill mi-pagina-ml: lo hace en tu Chrome, con tu OK).`;
+        const banner = `${evento.nombre.toUpperCase()}${evento.descuento ? ` · HASTA ${evento.descuento}% OFF` : ''}`;
+        return [`# Kit para actualizar Mi página — ${evento.nombre}`,
+          `_${evento.origen}${evento.desde ? ` · ${f(evento.desde)}` : ''}${evento.hasta && evento.hasta !== evento.desde ? ` al ${f(evento.hasta)}` : ''}_`,
+          ``, `**1. Banner principal:** "${banner}"`, `   Subtítulo sugerido: "Tus favoritos para ${evento.nombre}"${evento.descuento ? ' (el % sale de tus publicaciones inscriptas: no lo cambies sin cambiar los precios)' : ''}. Para celular, texto grande y corto.`,
+          ``, `**2. Productos destacados (en este orden):**`, lista || '(no encontré publicaciones para destacar: inscribí alguna en la campaña o vendé primero)',
+          ``, `**3. Arriba de todo:** la sección del evento; después tus categorías de siempre.`,
+          `**4. Cuando termine:** Clara te avisa para sacar el banner y volver a tus destacados.`,
+          ``, `Mi página se edita en el panel de MercadoLibre (no tiene API pública): pedile a Claude "actualizá Mi página con este kit" y lo hace en tu Chrome con la skill mi-pagina-ml, mostrándote cada cambio antes de guardar.`].join('\n');
+      }
+
+      // calendario
+      const dias = Math.min(Math.max(1, Math.round(args.dias ?? 60)), 365);
+      const fechas = fechasComerciales(sitio, { dias, confirmadas: a.confirmadas || {}, propias: a.propias || [] });
+      const filas = [
+        ...promos.map((p) => ({ t: p.inicio || p.cierre || Date.now(), linea: `- **${p.inicio ? f(p.inicio) : 'ya disponible'}** · 🗓️ «${p.nombre}» — ${tipoLegible(p.tipo)}${p.fin ? ` hasta el ${f(p.fin)}` : ''}${p.cierre ? ` · inscripción hasta el ${f(p.cierre)} (${cuando(diasHasta(p.cierre))})` : ''}${p.candidatas != null ? ` · ${p.candidatas} candidata(s)` : ''}${p.participando ? ` · ${p.participando} tuyas adentro` : ''} · ${ICONO_DECISION[estadoDecision(a, 'promo:' + p.id, p)]} → ref=${p.id}`, est: estadoDecision(a, 'promo:' + p.id, p) })),
+        ...fechas.map((fe) => ({ t: fe.inicio.getTime(), linea: `- **${f(fe.inicio)}** · 📅 ${fe.nombre}${fe.origen === 'propia' ? ' (fecha propia)' : ''}${fe.estimada ? ' (fecha estimada — confirmala con accion=fecha)' : ''} · ${cuando(diasHasta(fe.inicio))} · ${fe.consejo} · ${ICONO_DECISION[estadoDecision(a, 'fecha:' + fe.clave)]} → ref=${fe.clave}`, est: estadoDecision(a, 'fecha:' + fe.clave) })),
+      ].sort((x, y) => x.t - y.t);
+      const pend = filas.filter((x) => x.est === 'pendiente').length;
+      return `# Agenda comercial — próximos ${dias} días\n${pend ? `**${pend} ❓ esperan tu decisión: ¿participás?** Respondé por cada una (ml_agenda accion=decidir ref=… participar=true/false). Clara te va a seguir preguntando hasta que decidas.` : 'Todo decidido ✅'}\n\n` + (filas.map((x) => x.linea).join('\n') || 'Sin campañas de MercadoLibre ni fechas comerciales en este período.');
+    },
+  },
   // ─────────────────────────────── Cerebro ───────────────────────────────
   {
     name: 'ml_cerebro', title: 'El cerebro del conector (memoria del negocio)', readOnly: true,
@@ -863,10 +956,10 @@ export const TOOLS = [
   // ───────────────────── El equipo de trabajadores 24/7 ─────────────────────
   {
     name: 'ml_trabajadores', title: 'Equipo de trabajadores (vigilancia constante)', readOnly: true,
-    description: 'El equipo de 6 trabajadores que vigilan solos y constantemente: 🕵️ Vera (precios), 📦 Tomás (ventas de rivales y quiebres de stock), 🏆 Martina (ranking en búsquedas y tu puesto), 🎯 Bruno (rivales nuevos), 🩺 Lucía (audita TODAS tus publicaciones cada 15 días: desactualizadas, precio congelado o fuera de mercado, fotos, stock, ficha) y 📈 Sofía (tendencias). Cada uno tiene sus skills a cargo y cada alerta recomienda qué skill correr. Guardan todo en una base de datos SQLite local (equipo.db, viene con Node: cero instalación, ideal Windows) y envían sus resultados a Google Drive (planilla en vivo o carpeta de Drive). Acciones: equipo (estado de todos), asignar (darle una tarea), quitar, pausar, activar, frecuencia (minutos), correr (que trabajen ya), informe (alertas nuevas), resultados (tablas con todo lo que sabe cada uno), historial (evolución día por día de un rival/keyword), base (la base de datos: estado y backup), drive (conectar Google Drive). Se puede nombrar al trabajador por su nombre (Vera) o puesto (precios). Si un trabajador no tiene tareas propias vigila tus seguidos de ml_vigilar de su tipo.',
+    description: 'El equipo de 7 trabajadores que vigilan solos y constantemente: 🕵️ Vera (precios), 📦 Tomás (ventas de rivales y quiebres de stock), 🏆 Martina (ranking en búsquedas y tu puesto), 🎯 Bruno (rivales nuevos), 🩺 Lucía (audita TODAS tus publicaciones cada 15 días: desactualizadas, precio congelado o fuera de mercado, fotos, stock, ficha), 🗓️ Clara (agenda comercial: fechas cruciales y cronograma de promociones de ML — siempre pregunta si querés participar; Mi página al día) y 📈 Sofía (tendencias). Cada uno tiene sus skills a cargo y cada alerta recomienda qué skill correr. Guardan todo en una base de datos SQLite local (equipo.db, viene con Node: cero instalación, ideal Windows) y envían sus resultados a Google Drive (planilla en vivo o carpeta de Drive). Acciones: equipo (estado de todos), asignar (darle una tarea), quitar, pausar, activar, frecuencia (minutos), correr (que trabajen ya), informe (alertas nuevas), resultados (tablas con todo lo que sabe cada uno), historial (evolución día por día de un rival/keyword), base (la base de datos: estado y backup), drive (conectar Google Drive). Se puede nombrar al trabajador por su nombre (Vera) o puesto (precios). Si un trabajador no tiene tareas propias vigila tus seguidos de ml_vigilar de su tipo.',
     schema: { ...cuentaParam,
       accion: z.enum(['equipo', 'asignar', 'quitar', 'pausar', 'activar', 'frecuencia', 'correr', 'informe', 'resultados', 'historial', 'base', 'drive']).describe('Qué hacer. historial = evolución día por día de un objetivo (precio, ventas por día, puesto, líder) desde la base de datos. base = estado de la base de datos del equipo y backup. resultados = las tablas con lo que sabe cada trabajador (precio rival vs el tuyo, ritmo de ventas, tu puesto, rivales nuevos, top de tendencias). drive = conectar/ver/probar el envío a Google Drive'),
-      trabajador: z.string().optional().describe('Vera/precios, Tomás/ventas, Martina/ranking, Bruno/rivales, Lucía/auditor, Sofía/tendencias, o "todos"'),
+      trabajador: z.string().optional().describe('Vera/precios, Tomás/ventas, Martina/ranking, Bruno/rivales, Lucía/auditor, Clara/agenda, Sofía/tendencias, o "todos"'),
       tipo: z.enum(['vendedor', 'publicacion', 'busqueda', 'tendencias']).optional().describe('Se deduce solo según el trabajador; Vera acepta vendedor o publicacion'),
       ref: z.string().optional().describe('item_id rival, nickname/id del vendedor, palabra clave, o categoría (tendencias)'),
       mi_item: z.string().optional().describe('Tu item_id para comparar: Vera avisa si un rival queda más barato, Martina te dice tu puesto en la búsqueda'),
@@ -921,7 +1014,7 @@ export const TOOLS = [
       }
 
       if (args.accion === 'asignar') {
-        if (!quien) return 'Decime a quién: Vera (precios), Tomás (ventas), Martina (ranking), Bruno (rivales), Lucía (auditoría de tus publicaciones) o Sofía (tendencias).';
+        if (!quien) return 'Decime a quién: Vera (precios), Tomás (ventas), Martina (ranking), Bruno (rivales), Lucía (auditoría de tus publicaciones), Clara (agenda comercial) o Sofía (tendencias).';
         let sitio;
         if (EQUIPO[quien].tipos.includes('tendencias') && !args.ref) sitio = (await cliente(args).get('/users/me')).site_id || 'MLA';
         const r = asignarTarea(quien, { tipo: args.tipo, ref: args.ref, mi_item: args.mi_item, umbral: args.umbral, nota: args.nota, cuenta: args.cuenta, sitio });
@@ -1031,6 +1124,9 @@ export const TOOLS = [
             cab = ['Auditoría', 'Publicaciones', '🔴', '🟡', '🟢', 'Sin actualizar 60+ días'];
             fila = (m) => [dia(m.t), m.extra?.total ?? '—', m.extra?.rojas ?? '—', m.extra?.amarillas ?? '—', m.extra?.verdes ?? '—', m.extra?.sinActualizar ?? '—'];
             if (lista.length > 1) { const a = lista[0].extra || {}, z = ultimo.extra || {}; resumen = `De ${a.rojas ?? '?'} 🔴 a ${z.rojas ?? '?'} 🔴 y de ${a.verdes ?? '?'} 🟢 a ${z.verdes ?? '?'} 🟢 en el período`; }
+          } else if (id === 'agenda') {
+            cab = ['Día', 'Campañas de ML', 'Fechas próximas', 'Decisiones pendientes'];
+            fila = (m) => [dia(m.t), m.extra?.campanias ?? '—', m.extra?.fechas ?? '—', m.extra?.pendientes ?? '—'];
           } else if (id === 'rivales') {
             cab = ['Día', 'Vendedores distintos en el top'];
             fila = (m) => [dia(m.t), m.extra?.vendedores ?? '—'];

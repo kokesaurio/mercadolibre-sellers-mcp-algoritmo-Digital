@@ -154,7 +154,7 @@ En un chat nuevo decile a Claude: **"conectá mi cuenta de MercadoLibre"** — o
 
 ## 👷 El equipo de trabajadores 24/7
 
-Seis trabajadores con nombre que **vigilan solos y constantemente** a tus seguidos — no hace falta que se lo pidas cada vez. Cada uno tiene su oficio, su frecuencia y **sus skills a cargo**: cuando encuentra algo, la alerta trae la skill exacta para resolverlo.
+Siete trabajadores con nombre que **vigilan solos y constantemente** a tus seguidos — no hace falta que se lo pidas cada vez. Cada uno tiene su oficio, su frecuencia y **sus skills a cargo**: cuando encuentra algo, la alerta trae la skill exacta para resolverlo.
 
 | Trabajador | Vigila | Cada | Skills a cargo |
 | --- | --- | --- | --- |
@@ -163,9 +163,10 @@ Seis trabajadores con nombre que **vigilan solos y constantemente** a tus seguid
 | 🏆 **Martina** · Vigía de búsquedas | top 50 de tus keywords: líder, precio líder y **tu puesto** | 60 min | imagenes-ml · publicidad-ml |
 | 🎯 **Bruno** · Cazador de rivales nuevos | vendedores que aparecen por primera vez en tus búsquedas | 3 h | competencia-ml · revisar-publicaciones-aldi |
 | 🩺 **Lucía** · Auditora de publicaciones | **cada 15 días audita TODAS tus publicaciones** y te dice cuáles quedaron desactualizadas: **preguntas que te repiten y no están en la descripción**, días sin tocar, precio congelado o fuera de mercado, sin stock, fotos chicas, sin marca/modelo o garantía — y qué mejoró o empeoró desde la auditoría anterior | 15 días | mejorar-publicaciones-ml · visualizador-publicaciones-ml · copiar-publicaciones-ml · faq-descripcion-ml |
+| 🗓️ **Clara** · Agenda comercial | el **cronograma de promociones de MercadoLibre** y las **fechas cruciales** (Hot Sale, CyberMonday, Black Friday, Día de la Madre/Padre/Infancias, Navidad…). **Por cada una te pregunta si querés participar** y te recuerda antes del cierre hasta que decidas — nunca se inscribe sola. Cuando arranca tu evento, te arma la actualización de **Mi página** | 1 día | agenda-comercial-ml · mi-pagina-ml |
 | 📈 **Sofía** · Radar de tendencias | keywords que entran, salen o suben en tendencias | 12 h | descubrir-ganadores-ml · video-publicaciones-ml · clips-ml · ugc-ml |
 
-**Dales tareas hablando:** *"Vera, vigilá MLA123 contra mi MLA456 y avisame si baja más de 2%"* · *"Martina, decime en qué puesto estoy para 'termo 1 litro'"* · *"¿qué encontró el equipo?"* · *"Lucía, auditá la tienda ahora"*. Sin tareas propias, cada uno vigila tus seguidos de `ml_vigilar` de su tipo.
+**Dales tareas hablando:** *"Vera, vigilá MLA123 contra mi MLA456 y avisame si baja más de 2%"* · *"Martina, decime en qué puesto estoy para 'termo 1 litro'"* · *"¿qué encontró el equipo?"* · *"Lucía, auditá la tienda ahora"* · *"Clara, ¿qué fechas vienen?"*. Sin tareas propias, cada uno vigila tus seguidos de `ml_vigilar` de su tipo.
 
 **Cuándo trabajan:**
 - Mientras Claude está abierto: se despiertan solos (cero configuración).
@@ -189,9 +190,9 @@ Seis trabajadores con nombre que **vigilan solos y constantemente** a tus seguid
 - **Carpeta de Google Drive para escritorio**: se detecta sola y se crea *MercadoLibre - Equipo de trabajadores* con Alertas.csv, Historial.csv (90 días), un CSV por trabajador y un resumen.
 - Seguro: la planilla rechaza envíos sin tu clave, y ningún texto de un rival (ej. un título con `=IMPORTXML(...)`) se guarda como fórmula.
 
-## Las 20 skills — tu equipo de trabajo
+## Las 22 skills — tu equipo de trabajo
 
-El conector trae [**20 skills listas**](skills/) con [guía de uso de cada una](skills/README.md). Se suben una vez en Claude (**Configuración → Capacidades → Skills → Cargar skill**) y convierten las herramientas en flujos completos: vos pedís en una frase, la skill sabe el procedimiento.
+El conector trae [**22 skills listas**](skills/) con [guía de uso de cada una](skills/README.md). Se suben una vez en Claude (**Configuración → Capacidades → Skills → Cargar skill**) y convierten las herramientas en flujos completos: vos pedís en una frase, la skill sabe el procedimiento.
 
 > 🚀 **Empezá por acá:** subí [setup-ml](skills/setup-ml/) y decile a Claude **"setup"** — conecta tus cuentas, arma la vigilancia inicial y te entrega tu primera foto del negocio con las 3 acciones más urgentes.
 
@@ -209,6 +210,8 @@ El conector trae [**20 skills listas**](skills/) con [guía de uso de cada una](
 | --- | --- |
 | [mejorar-publicaciones-ml](skills/mejorar-publicaciones-ml/) | *"auditá mis publicaciones"* — semáforo 🔴🟡🟢 con la acción concreta por ítem, las peores primero |
 | [faq-descripcion-ml](skills/faq-descripcion-ml/) | *"me preguntan siempre lo mismo"* — las preguntas repetidas de tus compradores pasan a la descripción como preguntas frecuentes, con tus respuestas reales (Lucía te avisa cuáles faltan) |
+| [agenda-comercial-ml](skills/agenda-comercial-ml/) | *"¿qué fechas vienen?"* — el cronograma de ML y las fechas cruciales; te pregunta si participás en cada una y arma la participación validada por margen |
+| [mi-pagina-ml](skills/mi-pagina-ml/) | *"actualizá Mi página"* — banner del evento y tus productos destacados, aplicado en tu navegador con tu OK (y sacarlo cuando termina) |
 | [visualizador-publicaciones-ml](skills/visualizador-publicaciones-ml/) | *"armame el visualizador"* — [tablero interactivo](panel/visualizador.html) con foto y semáforo: tocás cuáles mejorar y te genera el pedido |
 | [copiar-publicaciones-ml](skills/copiar-publicaciones-ml/) | *"copiá esta publicación a la otra tienda"* — clona entre tus cuentas; lo ajeno se redacta, nunca se clona |
 | [revisar-publicaciones-aldi](skills/revisar-publicaciones-aldi/) | *"pasá esta publicación por Aldi"* — segunda opinión con [Aldi 2.0](https://chatgpt.com/g/g-698f16e0eebc819182455494732d40a0-aldi-2-0-mercado-libre-algoritmo-digital), el GPT revisor de Algoritmo Digital |
@@ -227,7 +230,7 @@ El conector trae [**20 skills listas**](skills/) con [guía de uso de cada una](
 | Skill | Pedila así |
 | --- | --- |
 | [descubrir-ganadores-ml](skills/descubrir-ganadores-ml/) | *"¿qué conviene vender?"* — más vendidos oficiales por categoría, tendencias y análisis de mercado por keyword, validado por margen |
-| [trabajadores-ml](skills/trabajadores-ml/) | *"¿qué encontró el equipo?"* — los 6 trabajadores 24/7 (Vera, Tomás, Martina, Bruno, Lucía, Sofía): darles tareas, leer sus alertas y despachar cada una a su skill |
+| [trabajadores-ml](skills/trabajadores-ml/) | *"¿qué encontró el equipo?"* — los 7 trabajadores 24/7 (Vera, Tomás, Martina, Bruno, Lucía, Clara, Sofía): darles tareas, leer sus alertas y despachar cada una a su skill |
 | [vigilancia-ml](skills/vigilancia-ml/) | *"¿qué cambió en la competencia?"* — solo novedades: precios movidos, publicaciones nuevas, ventas estimadas del rival, keywords en alza |
 | [competencia-ml](skills/competencia-ml/) | *"¿estoy ganando el catálogo?"* — semáforo de precios y buy box, con recomendaciones validadas por margen |
 | [publicidad-ml](skills/publicidad-ml/) | *"revisemos la publicidad"* — Product Ads con regla ACOS vs margen y promociones separando tu aporte del de ML |
@@ -247,7 +250,7 @@ La skill imagenes-ml genera el **set fijo de 4** — beneficio (foto 2), caracte
 
 Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando: `python3 plantillas/generar.py --plantilla medidas --datos datos.json --foto tu-foto.png --salida foto-5-medidas.png`. El método completo (orden de publicación foto 2→10, solo datos confirmados, revisión pieza por pieza) está grabado en la skill.
 
-## Herramientas (35)
+## Herramientas (36)
 
 | Herramienta | Qué hace |
 | --- | --- |
@@ -271,10 +274,11 @@ Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando
 | ml_buscar | Espiar competencia y precios de mercado |
 | ml_reputacion | Color, reclamos, demoras y cancelaciones |
 | ml_promociones / ml_aceptar_promocion ✏️ | Promociones ofrecidas y aceptación por ítem |
+| ml_agenda 🗓️ | **La agenda comercial**: fechas cruciales del año (calculadas solas cada año, por país) + el cronograma de campañas de MercadoLibre con cierre de inscripción y candidatas. Guarda tu decisión de participar o no (Clara te sigue preguntando hasta que decidas), fechas propias, y arma el **kit para actualizar Mi página** (banner y destacados del evento) |
 | ml_tendencias | Qué está buscando la gente en ML |
 | ml_descubrir_ganadores | Artículos ganadores con datos de la API: ranking oficial de más vendidos por categoría (highlights) + análisis de mercado por keyword (competencia, precios, dominancia, señal de oportunidad) |
 | ml_vigilar / ml_novedades_competencia | Lista de rivales 🥊, productos seguidos 📦, búsquedas y trends — y el control que reporta solo lo que cambió: precios, publicaciones nuevas, ventas estimadas del rival, cambios de líder y keywords en alza |
-| ml_trabajadores 👷 | El equipo 24/7: Vera (precios), Tomás (ventas/stock de rivales), Martina (ranking y tu puesto), Bruno (rivales nuevos), Lucía (auditoría de tus publicaciones cada 15 días) y Sofía (tendencias) — asignar tareas, frecuencia, pausar, correr ya, informe con la skill a usar en cada alerta, **resultados** (tablas con todo lo que sabe cada uno), **historial** día por día y **base** (SQLite incluida: estado y backup), y envío a **Google Drive** (planilla en vivo o carpeta) |
+| ml_trabajadores 👷 | El equipo 24/7: Vera (precios), Tomás (ventas/stock de rivales), Martina (ranking y tu puesto), Bruno (rivales nuevos), Lucía (auditoría de tus publicaciones cada 15 días), Clara (agenda comercial y cronograma de ML) y Sofía (tendencias) — asignar tareas, frecuencia, pausar, correr ya, informe con la skill a usar en cada alerta, **resultados** (tablas con todo lo que sabe cada uno), **historial** día por día y **base** (SQLite incluida: estado y backup), y envío a **Google Drive** (planilla en vivo o carpeta) |
 | ml_historial_competencia | La base de datos de competencia: evolución de precios, ventas y líderes de cada objetivo vigilado — se alimenta sola con cada control |
 | ml_clips | Los Clips (videos verticales) de tus publicaciones y cuáles sirven: mapa de la tienda + estado de moderación por clip (publicado/en revisión/rechazado con el motivo y cómo corregirlo) |
 | ml_subir_clip ✏️ / ml_borrar_clip ✏️ | Subir un clip por API (valida formato, duración y peso antes) y borrar los rechazados para resubir corregidos |

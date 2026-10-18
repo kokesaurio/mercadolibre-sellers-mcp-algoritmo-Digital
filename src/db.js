@@ -158,6 +158,8 @@ export function filaDeMedicion(trabajador, tarea, datos) {
     f.extra = JSON.stringify({ vendedores: Object.keys(datos.vendedores || {}).length });
   } else if (trabajador === 'auditor') {
     f.extra = JSON.stringify({ total: datos.total, rojas: datos.rojas, amarillas: datos.amarillas, verdes: datos.verdes, sinActualizar: datos.sinActualizar });
+  } else if (trabajador === 'agenda') {
+    f.extra = JSON.stringify({ campanias: Object.keys(datos.promos || {}).length, fechas: (datos.fechas || []).length, pendientes: datos.pendientes ?? null });
   } else if (trabajador === 'tendencias') {
     const ks = (datos.keywords || []).slice(0, 10);
     Object.assign(f, { lider: ks[0] ?? null, extra: JSON.stringify({ top: ks }) });

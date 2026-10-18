@@ -1,4 +1,4 @@
-# Guía de uso — las 20 skills del conector
+# Guía de uso — las 22 skills del conector
 
 Skills listas para Claude que convierten el [conector de MercadoLibre de
 Algoritmo Digital](../README.md) en flujos de trabajo completos. **Cómo
@@ -39,6 +39,16 @@ skill**. Claude las usa solo cuando corresponde.
 **Pedilo así:** "sumá las preguntas a la descripción" · "me preguntan siempre lo mismo" · "aplicá las preguntas frecuentes que marcó Lucía"
 **Qué hace:** junta las preguntas que te hacen en cada publicación, agrupa las repetidas aunque estén escritas distinto y las agrega al final de la descripción como "PREGUNTAS FRECUENTES" con TUS respuestas reales. Descarta stock, precio, cuotas, envíos y cualquier respuesta con datos de contacto; no repite lo que la descripción ya explica; y la próxima vez actualiza el bloque sin duplicar.
 **Ojo:** primero te muestra cómo queda; escribe en la publicación solo con tu OK. Lucía revisa esto sola cada 15 días.
+
+### 🗓️ [agenda-comercial-ml](agenda-comercial-ml/) — ¿participás?
+**Pedilo así:** "¿qué fechas vienen?" · "¿en qué promos de MercadoLibre puedo entrar?" · "¿me conviene el CyberMonday?"
+**Qué hace:** junta el cronograma de campañas que ML te ofrece (con cierre de inscripción y cuántas publicaciones tuyas pueden entrar) y las fechas cruciales del año. Por cada una te pregunta si querés participar; si decís que sí, arma la lista de publicaciones validando el margen de cada una y las inscribe de a una con tu OK.
+**Ojo:** Clara (del equipo) te lo pregunta sola todos los días hasta que decidas; un "no" se respeta. Hot Sale y CyberMonday figuran como estimadas hasta que las confirmes.
+
+### 🏬 [mi-pagina-ml](mi-pagina-ml/) — Mi página al día
+**Pedilo así:** "actualizá Mi página" · "poné el banner del Hot Sale" · "sacá el banner"
+**Qué hace:** arma el kit con datos reales (texto del banner con el % OFF de tus publicaciones inscriptas, destacados en orden) y lo aplica en tu navegador, mostrándote cada cambio antes de guardar. Cuando termina el evento, vuelve todo a la normalidad.
+**Ojo:** Mi página no tiene API pública: se edita en el panel de ML desde tu navegador, con tu sesión.
 ### 🔍 [mejorar-publicaciones-ml](mejorar-publicaciones-ml/) — auditoría y mejoras
 **Pedilo así:** "auditá mis publicaciones" · "¿qué publicaciones tengo que mejorar?"
 **Qué hace:** semáforo 🔴🟡🟢 de cada publicación (título, fotos, descripción, envío, stock, video, catálogo) con la acción concreta, las peores primero. Aplica precio/stock/estado con tu confirmación por ítem; fotos y descripción te marca que van por el panel.
@@ -78,7 +88,7 @@ skill**. Claude las usa solo cuando corresponde.
 
 ### 👷 [trabajadores-ml](trabajadores-ml/) — el equipo que vigila 24/7
 **Pedilo así:** "dale una tarea a Vera" · "Martina, ¿en qué puesto estoy para 'termo 1 litro'?" · "¿qué encontró el equipo?"
-**Qué hace:** 6 trabajadores con nombre que vigilan solos y constantemente — 🕵️ Vera (precios y quién queda más barato que vos), 📦 Tomás (ventas del rival y quiebres de stock), 🏆 Martina (líder y tu puesto en búsquedas), 🎯 Bruno (rivales nuevos), 🩺 Lucía (cada 15 días audita todas tus publicaciones: cuáles quedaron desactualizadas y qué empeoró) y 📈 Sofía (tendencias). Cada alerta viene con la skill del trabajador que la resuelve.
+**Qué hace:** 7 trabajadores con nombre que vigilan solos y constantemente — 🕵️ Vera (precios y quién queda más barato que vos), 📦 Tomás (ventas del rival y quiebres de stock), 🏆 Martina (líder y tu puesto en búsquedas), 🎯 Bruno (rivales nuevos), 🩺 Lucía (cada 15 días audita todas tus publicaciones: cuáles quedaron desactualizadas y qué empeoró), 🗓️ Clara (agenda comercial: cronograma de ML y fechas cruciales, siempre preguntando si participás) y 📈 Sofía (tendencias). Cada alerta viene con la skill del trabajador que la resuelve.
 **Historial y base:** "historial de MLA..." · "¿cómo evolucionó el precio de este rival?" · "estado de la base" — todo queda en SQLite que viene con Node (cero instalación, ideal Windows), 400 días.
 **Resultados y Drive:** "mostrame los resultados del equipo" (precio rival vs el tuyo, ritmo de ventas y $/mes del rival, tu puesto, rivales nuevos, tendencias) · "conectá el equipo a Drive" (planilla de Google en vivo con una pestaña por trabajador, o carpeta de Drive).
 **Ojo:** trabajan solos mientras Claude está abierto; para 24/7 corré una vez `npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital trabajadores instalar`.

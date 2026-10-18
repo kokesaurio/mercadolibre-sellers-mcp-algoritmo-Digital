@@ -1,4 +1,4 @@
-// src/trabajadores.js — el equipo de 6 trabajadores que vigilan solos, 24/7.
+// src/trabajadores.js — el equipo de 7 trabajadores que vigilan solos, 24/7.
 //
 // Cada trabajador tiene un oficio fijo, una frecuencia y una lista de tareas
 // (lo que le asignás con ml_trabajadores). Si no le asignás nada, vigila
@@ -16,6 +16,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { MeliClient, listarCuentas } from './meli.js';
 import { auditarItem, idsDeTienda } from './auditoria.js';
+import { fechasComerciales, cronogramaML, estadoDecision, diasHasta, tipoLegible } from './agenda.js';
 import { leerVigilancia, claveDe, tomarSnapshot, compararSnapshots } from './vigilancia.js';
 import * as base from './db.js';
 
@@ -71,6 +72,14 @@ export const EQUIPO = {
       { skill: 'visualizador-publicaciones-ml', para: 'elegir en un tablero cuáles mejorar esta quincena' },
       { skill: 'copiar-publicaciones-ml', para: 'rehacer una publicación vieja como nueva sin perder lo que funciona' },
       { skill: 'faq-descripcion-ml', para: 'sumar a la descripción las preguntas que te repiten, con tus respuestas reales' },
+    ],
+  },
+  agenda: {
+    alias: 'clara', emoji: '🗓️', nombre: 'Clara', puesto: 'Agenda comercial', intervalo: 24 * 60, tipos: ['agenda'],
+    oficio: 'Todos los días mira el cronograma de promociones de MercadoLibre y las fechas cruciales del año (Hot Sale, CyberMonday, Black Friday, Día de la Madre, Navidad…). Por cada campaña o fecha te pregunta SIEMPRE si querés participar y te recuerda antes de que cierre la inscripción, hasta que decidas. Nunca se inscribe sola. Cuando arranca un evento en el que participás, te arma la actualización de Mi página.',
+    skills: [
+      { skill: 'agenda-comercial-ml', para: 'decidir si participás en cada campaña o fecha y armar la participación validada por margen' },
+      { skill: 'mi-pagina-ml', para: 'mantener Mi página al día: banner del evento y productos destacados' },
     ],
   },
   tendencias: {
@@ -131,6 +140,7 @@ export function actualizarEquipo(fn) {
 // ───────────────────────────── Tareas ─────────────────────────────
 export function tipoPorDefecto(trabajador, ref) {
   if (trabajador === 'auditor') return 'propias';
+  if (trabajador === 'agenda') return 'agenda';
   if (trabajador === 'precios') return /^[A-Z]{3}\d+$/i.test(String(ref || '').trim()) ? 'publicacion' : 'vendedor';
   return EQUIPO[trabajador].tipos[0];
 }
@@ -142,11 +152,11 @@ export function asignarTarea(quien, { tipo, ref, mi_item, umbral, nota, cuenta, 
   tipo = tipo || tipoPorDefecto(trabajador, ref);
   if (!EQUIPO[trabajador].tipos.includes(tipo)) throw new Error(`${EQUIPO[trabajador].nombre} (${EQUIPO[trabajador].puesto}) no trabaja con "${tipo}": acepta ${EQUIPO[trabajador].tipos.join(' o ')}.`);
   const limpio = String(ref ?? '').trim();
-  if (!limpio && tipo !== 'tendencias' && tipo !== 'propias') throw new Error('Falta ref: el item_id, vendedor o palabra clave a vigilar.');
+  if (!limpio && !['tendencias', 'propias', 'agenda'].includes(tipo)) throw new Error('Falta ref: el item_id, vendedor o palabra clave a vigilar.');
   if (limpio.length > 120) throw new Error('ref demasiado largo (máx. 120 caracteres).');
   if (mi_item && !/^[A-Z]{3}\d+$/i.test(String(mi_item).trim())) throw new Error('mi_item tiene que ser un item_id de MercadoLibre (ej: MLA123456789).');
   const tarea = {
-    tipo, ref: limpio || (tipo === 'propias' ? (cuenta ? 'tienda ' + cuenta : 'mi tienda') : sitio || 'MLA'), sitio, nota,
+    tipo, ref: limpio || (tipo === 'propias' || tipo === 'agenda' ? (cuenta ? 'tienda ' + cuenta : 'mi tienda') : sitio || 'MLA'), sitio, nota,
     ...(mi_item ? { mi_item: String(mi_item).trim().toUpperCase() } : {}),
     ...(umbral != null ? { umbral: Math.max(0, Number(umbral) || 0) } : {}),
     ...(cuenta ? { cuenta: String(cuenta) } : {}),
@@ -177,17 +187,43 @@ export function quitarTarea(quien, ref) {
 // Tareas efectivas = las asignadas + tus seguidos de ml_vigilar del tipo que maneja
 export function tareasDe(d, trabajador) {
   const propias = d.trabajadores[trabajador].tareas;
-  if (trabajador === 'auditor') {
+  if (trabajador === 'auditor' || trabajador === 'agenda') {
     if (propias.length) return propias;
-    // Sin tareas propias: audita cada tienda conectada
+    // Sin tareas propias: trabaja sobre cada tienda conectada
     let cs = []; try { cs = listarCuentas(); } catch {}
-    return cs.map((c) => ({ tipo: 'propias', ref: 'tienda ' + c.nickname, cuenta: String(c.user_id), deLista: true }));
+    return cs.map((c) => ({ tipo: trabajador === 'auditor' ? 'propias' : 'agenda', ref: 'tienda ' + c.nickname, cuenta: String(c.user_id), deLista: true }));
   }
   const claves = new Set(propias.map(claveTarea));
   const deLista = (leerVigilancia().objetivos || [])
     .filter((o) => EQUIPO[trabajador].tipos.includes(o.tipo) && !claves.has(claveDe(o)))
     .map((o) => ({ ...o, deLista: true }));
   return [...propias, ...deLista];
+}
+
+// ───────────────────────────── Agenda: decisiones y fechas del vendedor ─────────────────────────────
+export function decidir(clave, participar, nota) {
+  const k = String(clave).trim();
+  if (!/^(promo:[\w-]{2,60}|fecha:[a-z_]{2,40}:\d{4}|fecha:propia:[\w-]{1,40})$/.test(k)) throw new Error(`No reconozco "${clave}". Usá el id que aparece en la agenda (ej: promo:P-HOT o fecha:cybermonday:2026).`);
+  return actualizarEquipo((d) => {
+    d.agenda = d.agenda || {}; d.agenda.decisiones = d.agenda.decisiones || {};
+    d.agenda.decisiones[k] = { participar: !!participar, t: Date.now(), ...(nota ? { nota: String(nota).slice(0, 200) } : {}) };
+    return d.agenda.decisiones[k];
+  });
+}
+export function confirmarFecha(clave, fecha) {
+  if (!/^[a-z_]{2,40}:\d{4}$/.test(clave)) throw new Error('Clave de fecha inválida (ej: cybermonday:2026).');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || Number.isNaN(Date.parse(fecha))) throw new Error('Fecha inválida: usá AAAA-MM-DD.');
+  return actualizarEquipo((d) => { d.agenda = d.agenda || {}; d.agenda.confirmadas = { ...(d.agenda.confirmadas || {}), [clave]: fecha }; return true; });
+}
+export function agregarFechaPropia({ nombre, fecha, consejo }) {
+  if (!nombre || String(nombre).length > 60) throw new Error('Poné un nombre corto para la fecha (máx. 60).');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || Number.isNaN(Date.parse(fecha))) throw new Error('Fecha inválida: usá AAAA-MM-DD.');
+  const id = String(nombre).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'fecha';
+  return actualizarEquipo((d) => {
+    d.agenda = d.agenda || {}; d.agenda.propias = (d.agenda.propias || []).filter((p) => p.id !== id);
+    d.agenda.propias.push({ id, nombre: String(nombre), fecha, ...(consejo ? { consejo: String(consejo).slice(0, 140) } : {}) });
+    return id;
+  });
 }
 
 // ───────────────────────────── Oficios ─────────────────────────────
@@ -328,6 +364,62 @@ const OFICIOS = {
       return out;
     },
   },
+  agenda: {
+    async foto(c, t, sitio) {
+      const me = await c.get('/users/me');
+      const ag = leerEquipo().agenda || {};
+      let promos = {};
+      try { promos = await cronogramaML(c, me.id); } catch (e) { if (e.status === 401) throw e; }
+      const fechas = fechasComerciales(sitio, { dias: 45, confirmadas: ag.confirmadas || {}, propias: ag.propias || [] })
+        .map((f) => ({ ...f, inicio: f.inicio.getTime(), fin: f.fin.getTime() }));
+      const pendientes = Object.values(promos).filter((p) => estadoDecision(ag, 'promo:' + p.id, p) === 'pendiente').length
+        + fechas.filter((f) => estadoDecision(ag, 'fecha:' + f.clave) === 'pendiente').length;
+      return { promos, fechas, sitio, pendientes, avisos: {} };
+    },
+    cambios(t, v, n) {
+      const ag = leerEquipo().agenda || {};
+      const ahora = Date.now(), out = [];
+      const avisos = { ...(v?.avisos || {}) };
+      const unaVez = (k) => (avisos[k] ? false : (avisos[k] = ahora, true));
+      const f = (ts) => new Date(ts).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+      const cuando = (d) => (d <= 0 ? 'HOY' : d === 1 ? 'mañana' : `en ${d} días`);
+      const pregunta = (ref) => `¿Querés participar? Decime sí o no (ml_agenda accion=decidir ref=${ref})`;
+      // ── el cronograma de MercadoLibre ──
+      for (const p of Object.values(n.promos || {})) {
+        const clave = 'promo:' + p.id, est = estadoDecision(ag, clave, p);
+        if (est === 'no') continue;
+        const dc = p.cierre ? diasHasta(p.cierre, ahora) : null;
+        const fechasP = `${p.inicio ? ' del ' + f(p.inicio) : ''}${p.fin ? ' al ' + f(p.fin) : ''}`;
+        const extra = `${p.cierre ? ` · inscripción hasta el ${f(p.cierre)} (${cuando(dc)})` : ''}${p.candidatas != null ? ` · ${p.candidatas} publicación(es) tuyas pueden entrar` : ''}`;
+        if (est === 'pendiente') {
+          if (unaVez(clave + ':nueva')) out.push({ nivel: dc != null && dc <= 3 ? 'alta' : 'media', skill: 'agenda-comercial-ml', texto: `🗓️ MercadoLibre te invitó a «${p.nombre}» (${tipoLegible(p.tipo)})${fechasP}${extra}. ${pregunta(p.id)} — si es sí, te armo cuáles conviene validadas por margen.` });
+          else if (dc != null && dc >= 0 && dc <= 3 && unaVez(clave + ':cierre' + (dc <= 1 ? 1 : 3))) out.push({ nivel: 'alta', skill: 'agenda-comercial-ml', texto: `⏰ Cierra la inscripción a «${p.nombre}» ${cuando(dc)} y todavía no decidiste. ${pregunta(p.id)}` });
+        } else {
+          if (!p.participando && dc != null && dc >= 0 && dc <= 2 && unaVez(clave + ':sinitems')) out.push({ nivel: 'alta', skill: 'agenda-comercial-ml', texto: `Dijiste que sí a «${p.nombre}» pero todavía no inscribiste publicaciones y cierra ${cuando(dc)}. ¿Te armo la lista validada por margen?` });
+          if (p.participando && p.inicio && p.inicio <= ahora && (!p.fin || p.fin >= ahora) && unaVez(clave + ':arranco')) out.push({ nivel: 'media', skill: 'mi-pagina-ml', texto: `🚀 Arrancó «${p.nombre}» con ${p.participando} publicación(es) tuyas${p.descuentoMax ? ` (hasta ${p.descuentoMax}% OFF)` : ''}: actualizá Mi página — banner del evento y esas publicaciones destacadas.` });
+          if (p.fin && p.fin < ahora && avisos[clave + ':arranco'] && unaVez(clave + ':termino')) out.push({ nivel: 'baja', skill: 'mi-pagina-ml', texto: `🏁 Terminó «${p.nombre}»: sacá el banner de Mi página y volvé a tus destacados de siempre.` });
+        }
+      }
+      for (const [id] of Object.entries(v?.promos || {})) {
+        const k = 'promo:' + id;
+        if (!n.promos?.[id] && avisos[k + ':arranco'] && unaVez(k + ':termino')) out.push({ nivel: 'baja', skill: 'mi-pagina-ml', texto: `🏁 Terminó «${v.promos[id].nombre}»: sacá el banner de Mi página y volvé a tus destacados de siempre.` });
+      }
+      // ── las fechas cruciales ──
+      for (const fe of n.fechas || []) {
+        const clave = 'fecha:' + fe.clave, est = estadoDecision(ag, clave);
+        if (est === 'no') continue;
+        const d = diasHasta(fe.inicio, ahora);
+        const umbral = d <= 0 ? 0 : d <= 1 ? 1 : d <= 7 ? 7 : d <= 14 ? 14 : d <= 30 ? 30 : null;
+        if (umbral == null || !unaVez(`${clave}:${umbral}`)) continue;
+        const cuandoF = d <= 0 ? `hoy es ${fe.nombre}${fe.fin > fe.inicio ? ` (sigue hasta el ${f(fe.fin)})` : ''}` : `faltan ${d} días para ${fe.nombre} (${f(fe.inicio)}${fe.estimada ? ', fecha estimada: confirmala' : ''})`;
+        if (est === 'pendiente') out.push({ nivel: umbral <= 7 ? 'alta' : 'media', skill: 'agenda-comercial-ml', texto: `📅 ${cuandoF.charAt(0).toUpperCase() + cuandoF.slice(1)} — ${fe.consejo}. ${pregunta(fe.clave)} — con promo propia, stock y Mi página.` });
+        else if (umbral <= 1) out.push({ nivel: 'alta', skill: 'mi-pagina-ml', texto: `📅 ${cuandoF.charAt(0).toUpperCase() + cuandoF.slice(1)} y participás: ¿Mi página ya tiene el banner y tus productos del evento destacados?` });
+        else out.push({ nivel: 'media', skill: 'agenda-comercial-ml', texto: `📅 ${cuandoF.charAt(0).toUpperCase() + cuandoF.slice(1)} y participás: revisá stock de lo que vas a empujar, precio validado por margen y publicidad.` });
+      }
+      n.avisos = avisos;
+      return out;
+    },
+  },
   tendencias: {
     async foto(c, t, sitio) { return tomarSnapshot(c, { ...t, tipo: 'tendencias' }, sitio); },
     cambios(t, v, n) { return compararSnapshots({ tipo: 'tendencias' }, v, n).map((texto) => ({ nivel: 'media', ...(texto.startsWith('entraron') || texto.includes('subió') ? { skill: 'descubrir-ganadores-ml' } : {}), texto: `${t.ref}: ${texto}` })); },
@@ -348,15 +440,15 @@ async function correrTarea(trabajador, t, d, c, sitio) {
       vistos.add(nick);
     }
     d.vistos[clave] = [...vistos].slice(-500);
-  } else if (trabajador === 'auditor') {
-    alertas = OFICIOS.auditor.cambios(t, viejo?.datos ?? null, nuevo.datos);
+  } else if (trabajador === 'auditor' || trabajador === 'agenda') {
+    alertas = OFICIOS[trabajador].cambios(t, viejo?.datos ?? null, nuevo.datos);
   } else if (viejo) {
     alertas = OFICIOS[trabajador].cambios(t, viejo.datos, nuevo.datos, (nuevo.t - viejo.t) / 3600000);
   }
   // Tomás guarda desde cuándo vigila cada publicación para calcular el ritmo real de ventas
   if (trabajador === 'ventas') nuevo.datos.base = viejo?.datos?.base || (viejo ? { t: viejo.t, vendidos: viejo.datos.vendidos } : { t: nuevo.t, vendidos: nuevo.datos.vendidos });
   d.snapshots[clave] = nuevo;
-  return { primera: !viejo && trabajador !== 'auditor', alertas, medicion: { t: nuevo.t, trabajador, tarea: t, datos: nuevo.datos } };
+  return { primera: !viejo && !['auditor', 'agenda'].includes(trabajador), alertas, medicion: { t: nuevo.t, trabajador, tarea: t, datos: nuevo.datos } };
 }
 
 const sitioCache = new Map();

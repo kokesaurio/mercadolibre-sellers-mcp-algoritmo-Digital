@@ -15,6 +15,9 @@ let refrescosHechos = 0;
 let demoraRefresh = 0;
 const planilla = { recibidos: [], respuestas: [], clave: null }; // Apps Script simulado
 const descripciones = {}; const descripcionesPut = [];
+const enDias = (d) => new Date(Date.now() + d * 86400000).toISOString();
+const promosML = [{ id: 'P-HOT', name: 'Hot Sale', type: 'DEAL', status: 'candidate', start_date: enDias(10), finish_date: enDias(13), deadline_date: enDias(8) }];
+const promoItems = { 'P-HOT': [{ id: 'MLA111', original_price: 42000, suggested_discounted_price: 37800, meli_percentage: 5, status: 'candidate' }] };
 const hace = (dias) => new Date(Date.now() - dias * 86400000).toISOString();
 const preguntasPorItem = {
   MLA111: [
@@ -132,8 +135,8 @@ export function crearMockMeli() {
     if (req.query.q === 'termo 1 litro') return res.json({ paging: { total: mercado.busqueda.length }, results: mercado.busqueda });
     return res.json({ paging: { total: 2 }, results: [{ title: 'Termo rival', price: 39999, currency_id: 'ARS', seller: { nickname: 'RIVAL' }, shipping: { free_shipping: true } }, { title: 'Termo caro', price: 52000, currency_id: 'ARS', seller: { nickname: 'OTRO' } }] });
   });
-  app.get('/seller-promotions/users/777', auth, (_q, res) => res.json({ results: [{ id: 'P-HOT', name: 'Hot Sale', type: 'DEAL', status: 'candidate' }] }));
-  app.get('/seller-promotions/promotions/P-HOT/items', auth, (_q, res) => res.json({ results: [{ id: 'MLA111', original_price: 42000, suggested_discounted_price: 37800, meli_percentage: 5 }] }));
+  app.get('/seller-promotions/users/777', auth, (_q, res) => res.json({ results: promosML }));
+  app.get('/seller-promotions/promotions/:id/items', auth, (req, res) => { const r = promoItems[req.params.id] || []; res.json({ results: r, paging: { total: r.length } }); });
   app.post('/seller-promotions/items/:id', auth, (req, res) => req.body?.promotion_id ? res.json({ ok: true }) : res.status(400).json({ message: 'falta promotion_id' }));
   app.get('/trends/MLA', auth, (_q, res) => res.json(mercado.tendencias));
   app.get('/advertising/advertisers', auth, (_q, res) => res.json({ advertisers: [{ advertiser_id: 'ADV1', site_id: 'MLA' }] }));
@@ -411,10 +414,10 @@ async function pruebas() {
   // ───────────── Equipo de trabajadores 24/7 ─────────────
   const tr = await import('../src/trabajadores.js');
   const T = tool('ml_trabajadores');
-  await caso('trabajadores: equipo con 6 nombres, puestos y skills a cargo', async () => {
+  await caso('trabajadores: equipo con 7 nombres, puestos y skills a cargo', async () => {
     const t = await T.run({ accion: 'equipo' });
-    contiene(t, 'Vera', 'Tomás', 'Martina', 'Bruno', 'Lucía', 'Sofía', 'Auditora de publicaciones', 'cada 15 días', 'Centinela de precios', 'Cazador de rivales', 'calculadora-ml', 'competencia-ml', 'descubrir-ganadores-ml', 'mejorar-publicaciones-ml', 'panel-ventas-ml');
-    if (tr.IDS.length !== 6) throw new Error('el equipo no tiene 6');
+    contiene(t, 'Vera', 'Tomás', 'Martina', 'Bruno', 'Lucía', 'Clara', 'Sofía', 'Auditora de publicaciones', 'Agenda comercial', 'cada 15 días', 'cada 1 día', 'Centinela de precios', 'Cazador de rivales', 'calculadora-ml', 'competencia-ml', 'descubrir-ganadores-ml', 'mejorar-publicaciones-ml', 'panel-ventas-ml');
+    if (tr.IDS.length !== 7) throw new Error('el equipo no tiene 7');
     const todas = tr.IDS.flatMap((id) => tr.EQUIPO[id].skills.map((x) => x.skill));
     if (new Set(todas).size !== todas.length) throw new Error('una skill está asignada a dos trabajadores');
     for (const sk of todas) if (!fs.existsSync(path.join('skills', sk, 'SKILL.md'))) throw new Error('skill inexistente: ' + sk);
@@ -437,9 +440,10 @@ async function pruebas() {
     try { await T.run({ accion: 'asignar', trabajador: 'Vera', ref: 'MLA1', mi_item: 'javascript:alert(1)' }); msg = ''; } catch (e) { msg = e.message; }
     contiene(msg, 'mi_item');
   });
-  await caso('trabajadores: primer control guarda la base y no inventa alertas', async () => {
+  await caso('trabajadores: primer control guarda la base y no inventa alertas (Clara sí pregunta de entrada)', async () => {
     const t = await T.run({ accion: 'correr' });
-    contiene(t, 'Sin novedades', 'foto de base');
+    contiene(t, 'foto de base');
+    for (const p of ['Centinela de precios', 'Contador de ventas', 'Vigía de búsquedas', 'Cazador de rivales', 'Radar de tendencias']) if (t.includes(p)) throw new Error('avisó en el primer control: ' + p);
   });
   await caso('trabajadores: detectan precio por debajo tuyo, quiebre de stock, líder, puesto, rival nuevo y tendencias (con skill sugerida)', async () => {
     mercado.items.MLA500 = { ...mercado.items.MLA500, price: 39000 };
@@ -727,6 +731,95 @@ async function pruebas() {
     contiene(await FAQ.run({ item_id: 'x;DROP' }), 'item_id inválido');
     let msg = ''; try { fq.armarDescripcion('x'.repeat(49990), [{ pregunta: '¿Medidas?', respuesta: 'Mide 27 cm.' }]); } catch (e) { msg = e.message; }
     contiene(msg, '50000');
+  });
+
+  // ───────────── Clara: agenda comercial y cronograma de MercadoLibre ─────────────
+  const ag = await import('../src/agenda.js');
+  const AG = tool('ml_agenda');
+  const alertasClara = () => tr.alertasRecientes({ trabajador: 'agenda' }).map((a) => a.texto + ' [' + (a.skill || '') + ']').join('\n');
+  await caso('Clara: el calendario comercial se calcula solo cada año y por país', async () => {
+    const enAnio = (sitio, y, id) => ag.fechasComerciales(sitio, { desde: new Date(y, 0, 1).getTime(), dias: 366 }).find((x) => x.id === id);
+    const es = (f, txt) => { if (f.inicio.toDateString() !== txt) throw new Error(`${f.clave}: ${f.inicio.toDateString()} ≠ ${txt}`); };
+    es(enAnio('MLA', 2026, 'dia_madre'), 'Sun Oct 18 2026'); es(enAnio('MLA', 2027, 'dia_padre'), 'Sun Jun 20 2027');
+    es(enAnio('MLA', 2026, 'black_friday'), 'Fri Nov 27 2026'); es(enAnio('MLA', 2027, 'pascuas'), 'Sun Mar 28 2027');
+    es(enAnio('MLM', 2027, 'dia_madres'), 'Mon May 10 2027'); es(enAnio('MLB', 2027, 'dia_maes'), 'Sun May 09 2027');
+    if (!enAnio('MLA', 2027, 'hot_sale').estimada || !enAnio('MLA', 2026, 'cybermonday').estimada) throw new Error('Hot Sale/CyberMonday tienen que figurar como estimadas');
+    if (enAnio('MLA', 2026, 'navidad').estimada) throw new Error('Navidad no es estimada');
+  });
+  await caso('Clara: en su primer control ya pregunta por la invitación de ML y por la fecha que viene', async () => {
+    const al = alertasClara();
+    contiene(al, 'MercadoLibre te invitó a «Hot Sale»', 'inscripción hasta el', '1 publicación(es) tuyas pueden entrar', '¿Querés participar?', 'ref=P-HOT', '[agenda-comercial-ml]');
+    const prox = ag.fechasComerciales('MLA', { dias: 30 })[0];
+    if (prox) contiene(al, prox.nombre);
+  });
+  await caso('Clara: no repite el aviso si nada cambió', async () => {
+    const r = await tr.correrCiclo({ solo: ['agenda'], forzar: true });
+    if (r.alertas.length) throw new Error('repitió: ' + r.alertas.map((a) => a.texto).join(' | '));
+  });
+  await caso('Clara: calendario con lo que viene, ❓ pendientes, estimadas y refs para decidir', async () => {
+    const t = await AG.run({ accion: 'calendario', dias: 120 });
+    contiene(t, 'Agenda comercial', 'esperan tu decisión', '«Hot Sale»', 'inscripción hasta el', '❓ falta que decidas', 'ref=P-HOT', 'Black Friday', 'ref=black_friday:');
+    if (ag.fechasComerciales('MLA', { dias: 120 }).some((f) => f.estimada)) contiene(t, 'fecha estimada');
+  });
+  await caso('Clara: recuerda el cierre de inscripción mientras no decidas, y calla con un NO', async () => {
+    promosML.push({ id: 'P-CYBER', name: 'CyberMonday MercadoLibre', type: 'MARKETPLACE_CAMPAIGN', status: 'candidate', start_date: enDias(12), finish_date: enDias(14), deadline_date: enDias(9) });
+    promoItems['P-CYBER'] = [{ id: 'MLA111', original_price: 42000, price: 37800, status: 'candidate' }, { id: 'MLA222', original_price: 30000, price: 27000, status: 'candidate' }];
+    let r = await tr.correrCiclo({ solo: ['agenda'], forzar: true });
+    if (!r.alertas.some((a) => a.texto.includes('te invitó a «CyberMonday MercadoLibre»') && a.texto.includes('2 publicación(es)'))) throw new Error('no avisó la invitación nueva');
+    promosML.at(-1).deadline_date = enDias(1); // pasan los días: cierra mañana
+    r = await tr.correrCiclo({ solo: ['agenda'], forzar: true });
+    if (!r.alertas.some((a) => a.nivel === 'alta' && a.texto.includes('⏰ Cierra la inscripción a «CyberMonday MercadoLibre» mañana') && a.texto.includes('¿Querés participar?'))) throw new Error('no recordó el cierre: ' + r.alertas.map((a) => a.texto));
+    // otra campaña: le decís que NO apenas llega → ningún recordatorio de cierre después
+    promosML.push({ id: 'P-NO', name: 'Liquidación de invierno', type: 'DEAL', status: 'candidate', start_date: enDias(12), finish_date: enDias(14), deadline_date: enDias(9) });
+    r = await tr.correrCiclo({ solo: ['agenda'], forzar: true });
+    if (!r.alertas.some((a) => a.texto.includes('«Liquidación de invierno»'))) throw new Error('no avisó la invitación P-NO');
+    contiene(await AG.run({ accion: 'decidir', ref: 'P-NO', participar: false, nota: 'no me da el margen' }), 'no participás', 'no te vuelve a preguntar');
+    for (const dias of [3, 1, 0.1]) { // pasan los días hasta el cierre
+      promosML.at(-1).deadline_date = enDias(dias);
+      r = await tr.correrCiclo({ solo: ['agenda'], forzar: true });
+      if (r.alertas.some((a) => a.texto.includes('Liquidación de invierno'))) throw new Error(`siguió preguntando después del NO (a ${dias} días del cierre)`);
+    }
+    contiene(await AG.run({ accion: 'calendario' }), '🚫 no participás → ref=P-NO');
+  });
+  await caso('Clara: con SÍ te guía a inscribir validando margen, y avisa si no inscribiste nada antes del cierre', async () => {
+    const t = await AG.run({ accion: 'decidir', ref: 'P-HOT', participar: true });
+    contiene(t, 'participás en P-HOT', 'ml_promociones promocion_id=P-HOT', 'calculadora', 'ml_aceptar_promocion', 'solo con tu OK');
+    promosML[0].deadline_date = enDias(2);
+    const r = await tr.correrCiclo({ solo: ['agenda'], forzar: true });
+    if (!r.alertas.some((a) => a.texto.includes('Dijiste que sí a «Hot Sale» pero todavía no inscribiste publicaciones'))) throw new Error('no avisó que faltan inscribir publicaciones');
+  });
+  await caso('Clara: cuando arranca un evento en el que participás, pide actualizar Mi página; cuando termina, sacar el banner', async () => {
+    promosML[0].start_date = enDias(-0.5); promosML[0].finish_date = enDias(2); promosML[0].status = 'started';
+    promoItems['P-HOT'] = [{ id: 'MLA111', original_price: 42000, price: 37800, status: 'started' }];
+    let r = await tr.correrCiclo({ solo: ['agenda'], forzar: true });
+    const arr = r.alertas.find((a) => a.texto.includes('🚀 Arrancó «Hot Sale»'));
+    if (!arr || arr.skill !== 'mi-pagina-ml' || !arr.texto.includes('hasta 10% OFF') || !arr.texto.includes('Mi página')) throw new Error('no avisó el arranque bien: ' + JSON.stringify(arr));
+    const kit = await AG.run({ accion: 'pagina' });
+    contiene(kit, 'Kit para actualizar Mi página — Hot Sale', '"HOT SALE · HASTA 10% OFF"', 'MLA111', '$ 42.000 → $ 37.800', 'no tiene API pública', 'mi-pagina-ml');
+    promosML.splice(0, 1); // la campaña terminó y ya no aparece
+    r = await tr.correrCiclo({ solo: ['agenda'], forzar: true });
+    if (!r.alertas.some((a) => a.texto.includes('🏁 Terminó «Hot Sale»') && a.skill === 'mi-pagina-ml')) throw new Error('no avisó que terminó');
+    contiene(await AG.run({ accion: 'pagina' }), 'sin evento tuyo activo', 'más vendidos');
+  });
+  await caso('Clara: fechas propias y fechas estimadas confirmadas', async () => {
+    const en10 = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10);
+    contiene(await AG.run({ accion: 'fecha', nombre: 'Aniversario de la tienda', fecha: en10 }), 'Fecha propia agregada', 'ref=propia:aniversario-de-la-tienda');
+    const r = await tr.correrCiclo({ solo: ['agenda'], forzar: true });
+    if (!r.alertas.some((a) => a.texto.includes('Aniversario de la tienda') && a.texto.includes('¿Querés participar?'))) throw new Error('no preguntó por la fecha propia');
+    const anio = new Date().getFullYear() + 1;
+    contiene(await AG.run({ accion: 'fecha', ref: `hot_sale:${anio}`, fecha: `${anio}-05-17` }), 'confirmada');
+    const hs = ag.fechasComerciales('MLA', { dias: 400, confirmadas: tr.leerEquipo().agenda.confirmadas }).find((f) => f.clave === `hot_sale:${anio}`);
+    if (!hs || hs.estimada || hs.inicio.getDate() !== 17) throw new Error('no usó la fecha confirmada');
+    contiene(await AG.run({ accion: 'decidir', ref: 'propia:aniversario-de-la-tienda', participar: true }), 'participás');
+  });
+  await caso('Clara: valida refs y fechas (nada raro entra al archivo)', async () => {
+    for (const ref of ["x'; DROP TABLE", '../../etc', 'promo:' + 'a'.repeat(100)]) { let m = ''; try { await AG.run({ accion: 'decidir', ref, participar: true }); } catch (e) { m = e.message; } contiene(m, 'No reconozco'); }
+    let m = ''; try { await AG.run({ accion: 'fecha', nombre: 'X', fecha: '18/10/2026' }); } catch (e) { m = e.message; } contiene(m, 'AAAA-MM-DD');
+  });
+  await caso('Clara: resultados, equipo e historial', async () => {
+    contiene(await T.run({ accion: 'resultados', trabajador: 'Clara' }), 'Agenda comercial', 'Campaña de MercadoLibre', 'Fecha comercial', 'Tu decisión', 'decisión(es) pendiente(s)');
+    contiene(await T.run({ accion: 'equipo', trabajador: 'Clara' }), 'cada 1 día', 'agenda-comercial-ml', 'mi-pagina-ml');
+    contiene(await T.run({ accion: 'historial', trabajador: 'Clara' }), 'Campañas de ML', 'Decisiones pendientes');
   });
 
   // ───────────── Base de datos del equipo (SQLite que viene con Node) ─────────────

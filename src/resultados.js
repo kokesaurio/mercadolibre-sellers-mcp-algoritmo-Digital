@@ -15,6 +15,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { EQUIPO, IDS, leerEquipo, tareasDe, claveTarea, actualizarEquipo, resumenAlertas, alertasRecientes } from './trabajadores.js';
 import { leerMediciones, primeraMedicion } from './db.js';
+import { estadoDecision, ICONO_DECISION } from './agenda.js';
 
 export const CARPETA_NOMBRE = 'MercadoLibre - Equipo de trabajadores';
 const dinero = (n) => (n == null ? '—' : '$ ' + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 }));
@@ -107,6 +108,21 @@ export function armarResultados(d = leerEquipo()) {
       const w = d.trabajadores[id];
       if (w.ultimo) prox = w.ultimo + w.intervalo * 60000;
       destacado = filas.length ? `${rojas} 🔴 para arreglar · ${sinAct} sin actualizar hace 60+ días${prox ? ` · próxima auditoría ≈ ${new Date(prox).toLocaleDateString('es-AR')}` : ''} → mejorar-publicaciones-ml` : '';
+    }
+
+    if (id === 'agenda') {
+      cabecera = ['Fecha', 'Qué', 'Tipo', 'Inscripción hasta', 'Candidatas', 'Tuyas adentro', 'Tu decisión', 'Ref'];
+      const ag = d.agenda || {};
+      const filasAg = [];
+      for (const t of tareas) {
+        const s = snap(t); if (!s) continue;
+        for (const p of Object.values(s.datos.promos || {})) filasAg.push([p.inicio || p.cierre || 0, [p.inicio ? fecha(p.inicio) : 'disponible', p.nombre, 'Campaña de MercadoLibre', p.cierre ? fecha(p.cierre) : '—', p.candidatas, p.participando, ICONO_DECISION[estadoDecision(ag, 'promo:' + p.id, p)], p.id]]);
+        for (const fe of s.datos.fechas || []) filasAg.push([fe.inicio, [fecha(fe.inicio), fe.nombre + (fe.estimada ? ' (estimada)' : ''), fe.origen === 'propia' ? 'Fecha propia' : 'Fecha comercial', '—', '—', '—', ICONO_DECISION[estadoDecision(ag, 'fecha:' + fe.clave)], fe.clave]]);
+      }
+      const unicas = new Map(); for (const [t0, f0] of filasAg.sort((x, y) => x[0] - y[0])) unicas.set(f0[7], f0);
+      filas = [...unicas.values()];
+      const pend = filas.filter((f0) => String(f0[6]).startsWith('❓')).length;
+      destacado = filas.length ? `${pend} decisión(es) pendiente(s): ¿participás? · próximo: ${filas[0][1]} (${filas[0][0]})` : '';
     }
 
     if (id === 'tendencias') {

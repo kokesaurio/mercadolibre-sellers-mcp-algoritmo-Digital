@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.19.0
+- **🗓️ Clara, la agenda comercial** (7ª trabajadora): todos los días mira el **cronograma de promociones de MercadoLibre** (invitaciones, cierre de inscripción, candidatas, si ya participás) y las **fechas cruciales** del año — y por cada una **te pregunta si querés participar**: al llegar, a 3 y 1 día del cierre, y a 30/14/7/1 días de cada fecha, hasta que decidas. Un NO se respeta. Nunca se inscribe sola.
+- **Calendario comercial que se calcula solo cada año**, por país: Argentina (Hot Sale y CyberMonday estimadas hasta que las confirmes, Día de la Madre/Padre/Infancias, Pascuas, Black Friday, Navidad, Reyes, San Valentín, vuelta a clases…), México (Buen Fin, Día de las Madres, Día del Niño), Brasil (Dia das Mães, dos Pais, das Crianças, Namorados) y el resto de LatAm. Fechas propias del negocio.
+- `ml_agenda`: calendario, decidir sí/no (con nota), confirmar fechas estimadas, fechas propias, y el **kit para actualizar Mi página** (banner con el % OFF real de tus publicaciones inscriptas + destacados en orden; sin evento, tus más vendidos).
+- Con SÍ: aviso si no inscribiste publicaciones antes del cierre, "🚀 arrancó: actualizá Mi página" y "🏁 terminó: sacá el banner".
+- Skills nuevas: **agenda-comercial-ml** (decidir y participar validando margen) y **mi-pagina-ml** (Mi página no tiene API pública: se aplica en el navegador del vendedor con su OK). 22 skills.
+- Suite: 111 pruebas (calendario verificado contra fechas reales, recordatorios simulando el paso de los días, y pruebas que detectan si Clara repite avisos o no respeta un NO).
+
 ## 1.18.0
 - **❓ Las preguntas de los compradores pasan a la descripción** (`ml_faq_descripcion`, de escritura): junta las preguntas respondidas de cada publicación, agrupa las repetidas aunque estén escritas distinto (por tema y por palabras), y las agrega al final de la descripción como **PREGUNTAS FRECUENTES** con las respuestas REALES del vendedor (la más reciente), limpias de saludos y firmas.
 - Nunca entra a la descripción: stock, precio, cuotas, descuentos, envíos/plazos, ni respuestas con teléfono, mail, links, WhatsApp o redes (ML penaliza los datos de contacto). No repite lo que la descripción ya explica. Bloque marcado: se actualiza sin duplicar y respeta lo que ya estaba; límite de 50.000 caracteres.
