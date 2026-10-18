@@ -381,10 +381,10 @@ async function pruebas() {
   // ───────────── Equipo de trabajadores 24/7 ─────────────
   const tr = await import('../src/trabajadores.js');
   const T = tool('ml_trabajadores');
-  await caso('trabajadores: equipo con 5 nombres, puestos y skills a cargo', async () => {
+  await caso('trabajadores: equipo con 6 nombres, puestos y skills a cargo', async () => {
     const t = await T.run({ accion: 'equipo' });
-    contiene(t, 'Vera', 'Tomás', 'Martina', 'Bruno', 'Sofía', 'Centinela de precios', 'Cazador de rivales', 'calculadora-ml', 'competencia-ml', 'descubrir-ganadores-ml', 'mejorar-publicaciones-ml', 'panel-ventas-ml');
-    if (tr.IDS.length !== 5) throw new Error('el equipo no tiene 5');
+    contiene(t, 'Vera', 'Tomás', 'Martina', 'Bruno', 'Lucía', 'Sofía', 'Auditora de publicaciones', 'cada 15 días', 'Centinela de precios', 'Cazador de rivales', 'calculadora-ml', 'competencia-ml', 'descubrir-ganadores-ml', 'mejorar-publicaciones-ml', 'panel-ventas-ml');
+    if (tr.IDS.length !== 6) throw new Error('el equipo no tiene 6');
     const todas = tr.IDS.flatMap((id) => tr.EQUIPO[id].skills.map((x) => x.skill));
     if (new Set(todas).size !== todas.length) throw new Error('una skill está asignada a dos trabajadores');
     for (const sk of todas) if (!fs.existsSync(path.join('skills', sk, 'SKILL.md'))) throw new Error('skill inexistente: ' + sk);
@@ -580,6 +580,57 @@ async function pruebas() {
     fs.rmSync(dirDrive, { recursive: true, force: true });
   });
 
+  // ───────────── Lucía: auditoría quincenal de TUS publicaciones ─────────────
+  const au = await import('../src/auditoria.js');
+  await caso('Lucía: chequeos de "¿está actualizada?" (sin tocar, precio congelado, mercado, fotos, ficha, garantía)', async () => {
+    const ahora = Date.now();
+    const vieja = { title: 'Termo acero inoxidable 1 litro Marca X modelo Pro', price: 50000, status: 'active', available_quantity: 10, listing_type_id: 'gold_special', video_id: 'v1', shipping: { free_shipping: true },
+      pictures: [{ max_size: '500x500' }, { max_size: '1200x1200' }, { max_size: '1200x1200' }], attributes: [{ id: 'BRAND', value_name: 'Genérica' }], last_updated: new Date(ahora - 90 * 86400000).toISOString() };
+    const r = au.evaluar({ b: vieja, desc: 'x'.repeat(300), mercado: { mediana: 40000, muestras: 12 }, precioSinCambiosDesde: ahora - 50 * 86400000, ahora });
+    const cod = r.problemas.map((p) => p.codigo);
+    for (const k of ['sin_actualizar', 'precio_congelado', 'precio_alto', 'fotos_baja_resolucion', 'faltan_atributos', 'sin_garantia']) if (!cod.includes(k)) throw new Error('faltó detectar ' + k + ': ' + cod);
+    contiene(r.problemas.map((p) => p.texto).join(' '), 'hace 90 días', 'hace 50 días', '25% arriba del mercado', 'marca y modelo');
+    const al = au.evaluar({ b: { ...vieja, last_updated: new Date(ahora).toISOString(), pictures: [{ max_size: '1200x1200' }, { max_size: '1200x1200' }, { max_size: '1200x1200' }], attributes: [{ id: 'BRAND', value_name: 'Marca X' }, { id: 'MODEL', value_name: 'Pro' }], sale_terms: [{ id: 'WARRANTY_TYPE', value_name: 'Garantía del vendedor' }] }, desc: 'x'.repeat(300), mercado: { mediana: 49000, muestras: 12 }, ahora });
+    if (al.semaforo !== '🟢' || al.problemas.length) throw new Error('una publicación al día no quedó 🟢: ' + al.problemas.map((p) => p.codigo));
+    if (!au.evaluar({ b: { ...vieja, price: 20000 }, desc: 'x'.repeat(300), mercado: { mediana: 40000, muestras: 12 }, ahora }).problemas.some((p) => p.codigo === 'precio_bajo')) throw new Error('no detectó precio muy bajo');
+    if (au.evaluar({ b: vieja, desc: 'x'.repeat(300), mercado: { mediana: 20000, muestras: 2 }, ahora }).problemas.some((p) => p.codigo === 'precio_alto')) throw new Error('comparó contra el mercado con solo 2 muestras');
+  });
+  await caso('Lucía: correr el equipo sin nombrarla NO dispara la auditoría completa', async () => {
+    contiene(await T.run({ accion: 'correr' }), 'Lucía audita sola cada 15 días');
+  });
+  await caso('Lucía: primera auditoría de cada tienda conectada, con las urgentes y la skill a usar', async () => {
+    mercado.items.MLA222 = { last_updated: new Date(Date.now() - 95 * 86400000).toISOString(), pictures: [{ max_size: '400x400' }], available_quantity: 0 };
+    tr.leerBandeja({ marcar: true });
+    const t = await T.run({ accion: 'correr', trabajador: 'Lucía' });
+    contiene(t, 'Lucía', 'Auditoría quincenal de tienda TIENDA_DEMO', 'Auditoría quincenal de tienda TIENDA_DOS', '2 publicaciones', 'primera auditoría', 'MLA222 «Producto MLA222» está en rojo: SIN STOCK', 'mejorar-publicaciones-ml', 'sin actualizar hace 60+ días');
+    if (t.includes('🔴 🔴')) throw new Error('emoji duplicado');
+    if (t.includes('avisan desde el próximo control')) throw new Error('dice que Lucía avisa recién la próxima');
+    const res = await T.run({ accion: 'resultados', trabajador: 'Lucía' });
+    contiene(res, 'Auditora de publicaciones', 'MLA222', 'MLA111', '🔴', 'próxima auditoría', 'SIN STOCK', 'Días sin tocar', '| 95 |');
+    if (res.indexOf('MLA222') > res.indexOf('MLA111')) throw new Error('la tabla no pone las peores primero');
+  });
+  await caso('Lucía: la segunda auditoría compara con la anterior (qué mejoró, qué empeoró, precio congelado)', async () => {
+    // MLA222 se pone al día; a MLA111 le fijamos 50 días con el mismo precio en la base
+    mercado.items.MLA222 = { last_updated: new Date().toISOString(), pictures: [{ max_size: '1200x1200' }, { max_size: '1200x1200' }, { max_size: '1200x1200' }], available_quantity: 30, video_id: 'v9', attributes: [{ id: 'BRAND', value_name: 'Marca X' }, { id: 'MODEL', value_name: 'Pro' }], sale_terms: [{ id: 'WARRANTY_TIME', value_name: '30 días' }], catalog_listing: false };
+    (await import('../src/db.js')).db().prepare("UPDATE auditorias SET t = t - ? WHERE item_id = 'MLA111'").run(50 * 86400000);
+    const t = await T.run({ accion: 'correr', trabajador: 'Lucía' });
+    contiene(t, 'desde la anterior', 'mejoraron');
+    if (/mejoraron 0 mejoraron|0 mejoraron/.test(t) && !/[1-9] mejoraron/.test(t)) throw new Error('no detectó que MLA222 mejoró: ' + t.slice(0, 300));
+    const aud = await tool('ml_auditar_publicaciones').run({});
+    contiene(aud, 'precio sin cambios hace 50 días');
+    const h = await T.run({ accion: 'historial', trabajador: 'Lucía' });
+    contiene(h, 'Auditoría', '🔴', 'Sin actualizar 60+ días');
+  });
+  await caso('Lucía: frecuencia en días y tarea para una sola tienda', async () => {
+    contiene(await T.run({ accion: 'frecuencia', trabajador: 'Lucía', dias: 7 }), 'cada 7 días');
+    contiene(await T.run({ accion: 'frecuencia', trabajador: 'Lucía', dias: 15 }), 'cada 15 días');
+    contiene(await T.run({ accion: 'asignar', trabajador: 'Lucía', cuenta: '888' }), 'Lucía', 'propias', 'tienda 888');
+    const d = tr.leerEquipo();
+    const ts = tr.tareasDe(d, 'auditor');
+    if (ts.length !== 1 || ts[0].cuenta !== '888') throw new Error('con tarea propia debería auditar solo esa tienda: ' + JSON.stringify(ts));
+    contiene(await T.run({ accion: 'quitar', trabajador: 'Lucía', ref: 'tienda 888' }), 'dejó la tarea');
+  });
+
   // ───────────── Base de datos del equipo (SQLite que viene con Node) ─────────────
   const bd = await import('../src/db.js');
   const correrHijo = (codigo, envExtra = {}) => new Promise((res, rej) => {
@@ -605,7 +656,8 @@ async function pruebas() {
     const db0 = bd.db(); const p0 = db0.prepare("SELECT MIN(id) AS id FROM mediciones WHERE ref = 'MLA650' AND trabajador = 'ventas'").get().id;
     db0.prepare('UPDATE mediciones SET t = t - ? WHERE id = ?').run(2 * 86400000, p0);
     const t = await T.run({ accion: 'historial', ref: 'MLA650', trabajador: 'Tomás' });
-    contiene(t, 'Tomás · MLA650', 'Vendió ~10 u. en 2.0 días', '≈ 5.0 u./día', '$ 1.500.000/mes', 'Vendió ese día');
+    contiene(t, 'Tomás · MLA650', 'Vendió ~10 u. en 2.0 días', '≈ 5.0 u./día', '/mes', 'Vendió ese día');
+    if (!/≈ \$ 1\.(49\d|50\d)\.\d{3}\/mes/.test(t)) throw new Error('facturación mensual fuera de rango: ' + t.slice(0, 200));
     contiene(await T.run({ accion: 'historial', trabajador: 'Martina' }), 'Tu mejor puesto', 'líder(es) distinto(s)');
     contiene(await T.run({ accion: 'historial', trabajador: 'Sofía' }), 'Top 3 de tendencias', 'termo de vidrio');
   });
@@ -625,8 +677,15 @@ async function pruebas() {
     let leidas = 0;
     while (terminados < 3) { leidas += tr.leerBandeja({ marcar: true }).filter((a) => a.ref === 'CONC').length; await esperar(1); }
     await todos;
-    leidas += tr.leerBandeja({ marcar: true }).filter((a) => a.ref === 'CONC').length;
+    for (let lote; (lote = tr.leerBandeja({ marcar: true }).filter((a) => a.ref === 'CONC').length); ) leidas += lote;
     if (leidas !== 2400) throw new Error(`se leyeron ${leidas} de 2400 alertas concurrentes (perdidas o duplicadas)`);
+  });
+  await caso('base: el informe trae TODAS las alertas sin leer aunque se junten miles', async () => {
+    const muchas = Array.from({ length: 1200 }, (_, i) => ({ t: Date.now(), trabajador: 'ventas', ref: 'MUCHAS', nivel: 'baja', texto: 'acumulada ' + i }));
+    bd.guardarAlertas(muchas);
+    const n = tr.leerBandeja({ marcar: true }).filter((a) => a.ref === 'MUCHAS').length;
+    if (n !== 1200) throw new Error(`trajo ${n} de 1200`);
+    if (tr.leerBandeja({ marcar: true }).some((a) => a.ref === 'MUCHAS')) throw new Error('quedaron sin marcar');
   });
   await caso('base: migra sola las alertas del JSON de la versión anterior (una sola vez)', async () => {
     const dirM = fs.mkdtempSync(path.join(os.tmpdir(), 'meli-mig-'));

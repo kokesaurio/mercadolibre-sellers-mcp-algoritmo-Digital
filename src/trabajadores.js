@@ -1,4 +1,4 @@
-// src/trabajadores.js — el equipo de 5 trabajadores que vigilan solos, 24/7.
+// src/trabajadores.js — el equipo de 6 trabajadores que vigilan solos, 24/7.
 //
 // Cada trabajador tiene un oficio fijo, una frecuencia y una lista de tareas
 // (lo que le asignás con ml_trabajadores). Si no le asignás nada, vigila
@@ -14,7 +14,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { MeliClient } from './meli.js';
+import { MeliClient, listarCuentas } from './meli.js';
+import { auditarItem, idsDeTienda } from './auditoria.js';
 import { leerVigilancia, claveDe, tomarSnapshot, compararSnapshots } from './vigilancia.js';
 import * as base from './db.js';
 
@@ -50,8 +51,6 @@ export const EQUIPO = {
     alias: 'martina', emoji: '🏆', nombre: 'Martina', puesto: 'Vigía de búsquedas', intervalo: 60, tipos: ['busqueda'],
     oficio: 'Mira el top 50 de tus palabras clave: avisa cambios de líder y de precio líder, y si le pasás tu publicación (mi_item) te dice en qué puesto estás y cuándo subís, bajás o salís del top.',
     skills: [
-      { skill: 'mejorar-publicaciones-ml', para: 'si tu publicación baja o sale del top: auditoría con semáforo y arreglos' },
-      { skill: 'visualizador-publicaciones-ml', para: 'ver tu publicación al lado de la líder' },
       { skill: 'imagenes-ml', para: 'rehacer las fotos 2-10 cuando el problema es la presentación' },
       { skill: 'publicidad-ml', para: 'empujar con Product Ads una keyword donde perdiste puestos' },
     ],
@@ -62,6 +61,15 @@ export const EQUIPO = {
     skills: [
       { skill: 'competencia-ml', para: 'radiografía del rival nuevo: precios, envío, reputación y cómo responder' },
       { skill: 'revisar-publicaciones-aldi', para: 'revisar la publicación del rival y la tuya con Aldi para ver quién está mejor armada' },
+    ],
+  },
+  auditor: {
+    alias: 'lucia', emoji: '🩺', nombre: 'Lucía', puesto: 'Auditora de publicaciones', intervalo: 15 * 24 * 60, tipos: ['propias'],
+    oficio: 'Cada 15 días audita TODAS tus publicaciones activas y te dice cuáles quedaron desactualizadas: días sin tocar, precio congelado o fuera de mercado, sin stock, fotos de baja resolución o pocas, sin video, sin marca/modelo o garantía, catálogo perdido. Compara contra la auditoría anterior: qué empeoró y qué quedó al día.',
+    skills: [
+      { skill: 'mejorar-publicaciones-ml', para: 'aplicar los arreglos de la auditoría, las peores primero' },
+      { skill: 'visualizador-publicaciones-ml', para: 'elegir en un tablero cuáles mejorar esta quincena' },
+      { skill: 'copiar-publicaciones-ml', para: 'rehacer una publicación vieja como nueva sin perder lo que funciona' },
     ],
   },
   tendencias: {
@@ -121,6 +129,7 @@ export function actualizarEquipo(fn) {
 
 // ───────────────────────────── Tareas ─────────────────────────────
 export function tipoPorDefecto(trabajador, ref) {
+  if (trabajador === 'auditor') return 'propias';
   if (trabajador === 'precios') return /^[A-Z]{3}\d+$/i.test(String(ref || '').trim()) ? 'publicacion' : 'vendedor';
   return EQUIPO[trabajador].tipos[0];
 }
@@ -132,11 +141,11 @@ export function asignarTarea(quien, { tipo, ref, mi_item, umbral, nota, cuenta, 
   tipo = tipo || tipoPorDefecto(trabajador, ref);
   if (!EQUIPO[trabajador].tipos.includes(tipo)) throw new Error(`${EQUIPO[trabajador].nombre} (${EQUIPO[trabajador].puesto}) no trabaja con "${tipo}": acepta ${EQUIPO[trabajador].tipos.join(' o ')}.`);
   const limpio = String(ref ?? '').trim();
-  if (!limpio && tipo !== 'tendencias') throw new Error('Falta ref: el item_id, vendedor o palabra clave a vigilar.');
+  if (!limpio && tipo !== 'tendencias' && tipo !== 'propias') throw new Error('Falta ref: el item_id, vendedor o palabra clave a vigilar.');
   if (limpio.length > 120) throw new Error('ref demasiado largo (máx. 120 caracteres).');
   if (mi_item && !/^[A-Z]{3}\d+$/i.test(String(mi_item).trim())) throw new Error('mi_item tiene que ser un item_id de MercadoLibre (ej: MLA123456789).');
   const tarea = {
-    tipo, ref: limpio || sitio || 'MLA', sitio, nota,
+    tipo, ref: limpio || (tipo === 'propias' ? (cuenta ? 'tienda ' + cuenta : 'mi tienda') : sitio || 'MLA'), sitio, nota,
     ...(mi_item ? { mi_item: String(mi_item).trim().toUpperCase() } : {}),
     ...(umbral != null ? { umbral: Math.max(0, Number(umbral) || 0) } : {}),
     ...(cuenta ? { cuenta: String(cuenta) } : {}),
@@ -167,6 +176,12 @@ export function quitarTarea(quien, ref) {
 // Tareas efectivas = las asignadas + tus seguidos de ml_vigilar del tipo que maneja
 export function tareasDe(d, trabajador) {
   const propias = d.trabajadores[trabajador].tareas;
+  if (trabajador === 'auditor') {
+    if (propias.length) return propias;
+    // Sin tareas propias: audita cada tienda conectada
+    let cs = []; try { cs = listarCuentas(); } catch {}
+    return cs.map((c) => ({ tipo: 'propias', ref: 'tienda ' + c.nickname, cuenta: String(c.user_id), deLista: true }));
+  }
   const claves = new Set(propias.map(claveTarea));
   const deLista = (leerVigilancia().objetivos || [])
     .filter((o) => EQUIPO[trabajador].tipos.includes(o.tipo) && !claves.has(claveDe(o)))
@@ -265,6 +280,50 @@ const OFICIOS = {
     },
     cambios() { return []; }, // el cazador trabaja con su memoria de "vistos" (ver correrTarea)
   },
+  auditor: {
+    async foto(c, t, sitio) {
+      const me = await c.get('/users/me');
+      const ids = await idsDeTienda(c, me.id, { maximo: Number(process.env.ML_AUDITOR_MAX || 300) });
+      const items = {}, lista = [];
+      for (const id of ids) {
+        let desde = null; try { desde = base.precioSinCambiosDesde(id); } catch {}
+        try {
+          const a = await auditarItem(c, id, { sitio, sellerId: me.id, precioSinCambiosDesde: desde });
+          const fila = { titulo: a.titulo, semaforo: a.semaforo, codigos: a.problemas.map((p) => p.codigo), textos: a.problemas.map((p) => p.texto), precio: a.precio, diasSinTocar: a.diasSinTocar };
+          items[id] = fila; lista.push({ id, ...fila });
+        } catch {}
+        await pausa(Number(process.env.ML_TRABAJADORES_PAUSA_MS ?? 400) / 4);
+      }
+      try { base.guardarAuditoria(Date.now(), t.cuenta, lista); } catch {}
+      const cuenta = (e) => lista.filter((x) => x.semaforo === e).length;
+      return { items, total: lista.length, rojas: cuenta('🔴'), amarillas: cuenta('🟡'), verdes: cuenta('🟢'), sinActualizar: lista.filter((x) => x.codigos.includes('sin_actualizar')).length };
+    },
+    cambios(t, v, n) {
+      const out = [], rango = { '🟢': 0, '🟡': 1, '🔴': 2 };
+      // la skill sale del problema principal (los códigos ya vienen ordenados por gravedad)
+      const skillDe = ([k]) => ['fotos_baja_resolucion', 'pocas_fotos'].includes(k) ? 'imagenes-ml'
+        : k === 'sin_video' ? 'video-publicaciones-ml'
+        : k?.startsWith('precio_') ? 'calculadora-ml'
+        : k === 'pierde_catalogo' ? 'competencia-ml' : 'mejorar-publicaciones-ml';
+      let mejoraron = 0, empeoraron = 0;
+      const urgentes = [], alDia = [], desactualizadas = [];
+      for (const [id, x] of Object.entries(n.items)) {
+        const a = v?.items?.[id];
+        if (a && rango[x.semaforo] < rango[a.semaforo]) { mejoraron++; if (x.semaforo === '🟢') alDia.push(`${id} «${x.titulo}»`); }
+        if (a && rango[x.semaforo] > rango[a.semaforo]) empeoraron++;
+        if (x.semaforo === '🔴' && (!a || a.semaforo !== '🔴')) urgentes.push([id, x]);
+        if (x.codigos.includes('sin_actualizar') && !(a?.codigos || []).includes('sin_actualizar')) desactualizadas.push(id);
+      }
+      out.push({ nivel: n.rojas ? 'alta' : 'baja', skill: 'mejorar-publicaciones-ml',
+        texto: `🩺 Auditoría quincenal de ${t.ref}: ${n.total} publicaciones — ${n.rojas} 🔴 · ${n.amarillas} 🟡 · ${n.verdes} 🟢${n.sinActualizar ? ` · ${n.sinActualizar} sin actualizar hace 60+ días` : ''}${v ? ` · desde la anterior: ${mejoraron} mejoraron, ${empeoraron} empeoraron` : ' (primera auditoría: queda como base para comparar en 15 días)'}` });
+      for (const [id, x] of urgentes.sort((a, b) => b[1].codigos.length - a[1].codigos.length).slice(0, 8)) {
+        out.push({ nivel: 'alta', skill: skillDe(x.codigos), texto: `${id} «${x.titulo}»${v?.items?.[id] ? ' pasó a urgente' : ' está en rojo'}: ${x.textos[0]}${x.textos.length > 1 ? ` (+${x.textos.length - 1} problema(s) más)` : ''}` });
+      }
+      if (v && desactualizadas.length) out.push({ nivel: 'media', skill: 'mejorar-publicaciones-ml', texto: `${desactualizadas.length} publicación(es) quedaron desactualizadas (60+ días sin tocar): ${desactualizadas.slice(0, 6).join(', ')}${desactualizadas.length > 6 ? '…' : ''}` });
+      if (alDia.length) out.push({ nivel: 'baja', texto: `✅ Quedaron al día: ${alDia.slice(0, 5).join(' · ')}${alDia.length > 5 ? '…' : ''}` });
+      return out;
+    },
+  },
   tendencias: {
     async foto(c, t, sitio) { return tomarSnapshot(c, { ...t, tipo: 'tendencias' }, sitio); },
     cambios(t, v, n) { return compararSnapshots({ tipo: 'tendencias' }, v, n).map((texto) => ({ nivel: 'media', ...(texto.startsWith('entraron') || texto.includes('subió') ? { skill: 'descubrir-ganadores-ml' } : {}), texto: `${t.ref}: ${texto}` })); },
@@ -285,13 +344,15 @@ async function correrTarea(trabajador, t, d, c, sitio) {
       vistos.add(nick);
     }
     d.vistos[clave] = [...vistos].slice(-500);
+  } else if (trabajador === 'auditor') {
+    alertas = OFICIOS.auditor.cambios(t, viejo?.datos ?? null, nuevo.datos);
   } else if (viejo) {
     alertas = OFICIOS[trabajador].cambios(t, viejo.datos, nuevo.datos, (nuevo.t - viejo.t) / 3600000);
   }
   // Tomás guarda desde cuándo vigila cada publicación para calcular el ritmo real de ventas
   if (trabajador === 'ventas') nuevo.datos.base = viejo?.datos?.base || (viejo ? { t: viejo.t, vendidos: viejo.datos.vendidos } : { t: nuevo.t, vendidos: nuevo.datos.vendidos });
   d.snapshots[clave] = nuevo;
-  return { primera: !viejo, alertas, medicion: { t: nuevo.t, trabajador, tarea: t, datos: nuevo.datos } };
+  return { primera: !viejo && trabajador !== 'auditor', alertas, medicion: { t: nuevo.t, trabajador, tarea: t, datos: nuevo.datos } };
 }
 
 const sitioCache = new Map();

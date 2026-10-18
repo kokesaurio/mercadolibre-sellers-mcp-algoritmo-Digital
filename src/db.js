@@ -58,6 +58,14 @@ CREATE TABLE IF NOT EXISTS controles (
 );
 CREATE INDEX IF NOT EXISTS controles_t ON controles(trabajador, t);
 
+CREATE TABLE IF NOT EXISTS auditorias (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  t INTEGER NOT NULL, item_id TEXT NOT NULL, cuenta TEXT, titulo TEXT, semaforo TEXT,
+  problemas INTEGER, codigos TEXT, precio REAL, dias_sin_tocar INTEGER
+);
+CREATE INDEX IF NOT EXISTS auditorias_item ON auditorias(item_id, t);
+CREATE INDEX IF NOT EXISTS auditorias_t ON auditorias(t);
+
 CREATE TABLE IF NOT EXISTS meta (clave TEXT PRIMARY KEY, valor TEXT);
 `;
 
@@ -98,7 +106,8 @@ export function guardarAlertas(alertas) {
 
 const aAlerta = (r) => ({ id: r.id, t: r.t, trabajador: r.trabajador, ref: r.ref, nivel: r.nivel, texto: r.texto, ...(r.skill ? { skill: r.skill } : {}), leida: !!r.leida });
 
-export function leerAlertas({ todas = false, marcar = true, trabajador, ref, dias, limite = 500 } = {}) {
+export function leerAlertas({ todas = false, marcar = true, trabajador, ref, dias, limite } = {}) {
+  limite = limite ?? (todas ? 500 : 5000); // las sin leer van TODAS (hasta 5000): ninguna queda pendiente
   const c = db(); if (!c) return null;
   const donde = [], args = [];
   if (!todas) donde.push('leida = 0');
@@ -147,6 +156,8 @@ export function filaDeMedicion(trabajador, tarea, datos) {
     Object.assign(f, { puesto: num(datos.mio), lider: l?.vendedor ?? null, precio_lider: num(l?.precio), extra: JSON.stringify({ mediana10: mediana((datos.top || []).slice(0, 10).map((x) => x.precio)) }) });
   } else if (trabajador === 'rivales') {
     f.extra = JSON.stringify({ vendedores: Object.keys(datos.vendedores || {}).length });
+  } else if (trabajador === 'auditor') {
+    f.extra = JSON.stringify({ total: datos.total, rojas: datos.rojas, amarillas: datos.amarillas, verdes: datos.verdes, sinActualizar: datos.sinActualizar });
   } else if (trabajador === 'tendencias') {
     const ks = (datos.keywords || []).slice(0, 10);
     Object.assign(f, { lider: ks[0] ?? null, extra: JSON.stringify({ top: ks }) });
@@ -190,6 +201,34 @@ export function primeraMedicion(trabajador, ref) {
   return c.prepare('SELECT t, vendidos FROM mediciones WHERE trabajador = ? AND ref = ? AND vendidos IS NOT NULL ORDER BY t ASC LIMIT 1').get(trabajador, ref) || null;
 }
 
+// ───────────────────────────── Auditorías de publicaciones propias ─────────────────────────────
+export function guardarAuditoria(t, cuenta, items) {
+  const c = db(); if (!c || !items.length) return false;
+  const ins = c.prepare('INSERT INTO auditorias (t, item_id, cuenta, titulo, semaforo, problemas, codigos, precio, dias_sin_tocar) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  enTransaccion(c, () => { for (const a of items) ins.run(t, a.id, cuenta ?? null, a.titulo ?? null, a.semaforo, a.codigos.length, a.codigos.join(','), a.precio ?? null, a.diasSinTocar ?? null); });
+  return true;
+}
+
+/** Desde cuándo el precio de una publicación propia está igual (según las auditorías guardadas). */
+export function precioSinCambiosDesde(itemId) {
+  const c = db(); if (!c) return null;
+  const ult = c.prepare('SELECT precio FROM auditorias WHERE item_id = ? AND precio IS NOT NULL ORDER BY t DESC, id DESC LIMIT 1').get(itemId);
+  if (!ult) return null;
+  const distinto = c.prepare('SELECT MAX(t) AS t FROM auditorias WHERE item_id = ? AND precio IS NOT NULL AND precio != ?').get(itemId, ult.precio).t;
+  return c.prepare('SELECT MIN(t) AS t FROM auditorias WHERE item_id = ? AND precio = ? AND t > ?').get(itemId, ult.precio, distinto ?? 0).t ?? null;
+}
+
+/** Resumen de cada auditoría (una fila por fecha) de los últimos N días. */
+export function resumenAuditorias(dias = 400) {
+  const c = db(); if (!c) return null;
+  return c.prepare(`SELECT t, COUNT(*) AS total,
+      SUM(CASE WHEN semaforo = '🔴' THEN 1 ELSE 0 END) AS rojas,
+      SUM(CASE WHEN semaforo = '🟡' THEN 1 ELSE 0 END) AS amarillas,
+      SUM(CASE WHEN semaforo = '🟢' THEN 1 ELSE 0 END) AS verdes,
+      SUM(CASE WHEN ',' || codigos || ',' LIKE '%,sin_actualizar,%' THEN 1 ELSE 0 END) AS sin_actualizar
+    FROM auditorias WHERE t >= ? GROUP BY t ORDER BY t ASC`).all(Date.now() - dias * 86400000);
+}
+
 // ───────────────────────────── Mantenimiento ─────────────────────────────
 function limpiarViejo() {
   const c = conexion; if (!c) return;
@@ -200,6 +239,7 @@ function limpiarViejo() {
     enTransaccion(c, () => {
       c.prepare('DELETE FROM mediciones WHERE t < ?').run(corte);
       c.prepare('DELETE FROM controles WHERE t < ?').run(corte);
+      c.prepare('DELETE FROM auditorias WHERE t < ?').run(corte);
       c.prepare('DELETE FROM alertas WHERE t < ? AND leida = 1').run(corte);
       c.prepare("INSERT INTO meta (clave, valor) VALUES ('limpieza', ?) ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor").run(String(Date.now()));
     });

@@ -97,3 +97,10 @@ Al trabajar cada publicación, ofrecer guardar con `ml_cerebro` los datos que
 aparezcan: costo (si el vendedor lo menciona al validar un precio), medidas,
 qué incluye, o una nota del producto. Antes de proponer precio, mirar si el
 cerebro ya tiene el costo para validar el margen.
+
+## Auditoría automática cada 15 días
+Lucía, la auditora del equipo (`ml_trabajadores`), corre esta misma auditoría
+sola cada 15 días sobre TODAS las publicaciones y suma los chequeos de
+"¿está actualizada?" (días sin tocar, precio congelado o fuera de mercado, fotos
+chicas, marca/modelo, garantía). Si el vendedor viene de una alerta de Lucía,
+arrancá por las 🔴 que ella marcó (`ml_trabajadores accion=resultados trabajador=Lucía`).

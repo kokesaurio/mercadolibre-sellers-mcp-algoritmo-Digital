@@ -1,6 +1,6 @@
 ---
 name: trabajadores-ml
-description: El equipo de 5 trabajadores que vigilan MercadoLibre solos y constantemente — Vera (precios), Tomás (ventas de rivales y quiebres de stock), Martina (ranking en búsquedas), Bruno (rivales nuevos) y Sofía (tendencias). Darles tareas, ver qué encontraron y despachar cada alerta a la skill que maneja ese trabajador. Usar cuando pidan "poné a vigilar", "resultados del equipo", "mandalo a Drive", "conectá la planilla", "historial de", "cómo evolucionó", "estado de la base", "backup", "dale una tarea a Vera", "¿qué encontraron los trabajadores?", "informe del equipo", "vigilá 24/7" o nombren a cualquiera del equipo.
+description: El equipo de 6 trabajadores que vigilan MercadoLibre solos y constantemente — Vera (precios), Tomás (ventas de rivales y quiebres de stock), Martina (ranking en búsquedas), Bruno (rivales nuevos), Lucía (audita todas tus publicaciones cada 15 días) y Sofía (tendencias). Darles tareas, ver qué encontraron y despachar cada alerta a la skill que maneja ese trabajador. Usar cuando pidan "poné a vigilar", "resultados del equipo", "mandalo a Drive", "conectá la planilla", "historial de", "cómo evolucionó", "estado de la base", "backup", "dale una tarea a Vera", "¿qué encontraron los trabajadores?", "informe del equipo", "auditá mis publicaciones cada 15 días", "¿qué publicaciones están desactualizadas?", "vigilá 24/7" o nombren a cualquiera del equipo.
 ---
 
 # Equipo de trabajadores 24/7
@@ -15,12 +15,34 @@ Herramienta `ml_trabajadores` del conector de MercadoLibre de Algoritmo Digital
 | --- | --- | --- | --- |
 | 🕵️ **Vera** · Centinela de precios | precio de publicaciones y vendedores rivales; si le das `mi_item`, avisa cuando un rival queda más barato que vos | 30 min | `vigilancia-ml`, `calculadora-ml`, `cerebro-ml` |
 | 📦 **Tomás** · Contador de ventas | ventas estimadas del rival (ritmo/día y $/mes), sin stock, pausas | 60 min | `panel-ventas-ml`, `reporte-ventas-ml`, `responder-preguntas-ml` |
-| 🏆 **Martina** · Vigía de búsquedas | top 50 de tus keywords: líder, precio líder y TU puesto (`mi_item`) | 60 min | `mejorar-publicaciones-ml`, `visualizador-publicaciones-ml`, `imagenes-ml`, `publicidad-ml` |
+| 🏆 **Martina** · Vigía de búsquedas | top 50 de tus keywords: líder, precio líder y TU puesto (`mi_item`) | 60 min | `imagenes-ml`, `publicidad-ml` |
 | 🎯 **Bruno** · Cazador de rivales nuevos | vendedores que aparecen por primera vez en tus búsquedas | 3 h | `competencia-ml`, `revisar-publicaciones-aldi` |
+| 🩺 **Lucía** · Auditora de publicaciones | TODAS tus publicaciones activas: desactualizadas (60+ días sin tocar), precio congelado (45+ días) o fuera de mercado, sin stock, fotos pocas o chicas, sin marca/modelo, sin garantía, sin video, catálogo perdido | 15 días | `mejorar-publicaciones-ml`, `visualizador-publicaciones-ml`, `copiar-publicaciones-ml` |
 | 📈 **Sofía** · Radar de tendencias | keywords que entran, salen o suben en tendencias | 12 h | `descubrir-ganadores-ml`, `video-publicaciones-ml`, `clips-ml`, `ugc-ml` |
 
 Si un trabajador no tiene tareas propias, vigila solo tus seguidos de
 `ml_vigilar` de su tipo (rivales 🥊, productos 📦, búsquedas, tendencias).
+
+## Lucía — la auditoría quincenal (no hay que asignarle nada)
+- Sin tareas propias audita **cada tienda conectada**, sola, cada 15 días. Si la PC
+  estuvo apagada el día 15, audita apenas el equipo vuelve a correr.
+- Cada auditoría deja: un resumen (🔴/🟡/🟢, cuántas sin actualizar y, desde la
+  segunda, cuántas mejoraron/empeoraron), una alerta por cada publicación que pasó a
+  🔴 con su problema principal y la skill para arreglarlo, y la lista de las que
+  quedaron desactualizadas.
+- Chequea si está **actualizada**: 60+ días sin ningún cambio, precio igual hace 45+
+  días (con la base de datos), precio >15% arriba o >25% abajo de la mediana del
+  mercado, fotos de menos de 800 px, falta marca/modelo, sin garantía; y la calidad
+  de siempre (título, fotos, descripción, envío, stock, video, catálogo).
+- `accion=correr trabajador=Lucía` audita YA (puede tardar unos minutos si tenés
+  cientos de publicaciones). `accion=correr` sin nombre no la dispara.
+- `accion=resultados trabajador=Lucía` → tabla de todas, las peores primero.
+  `accion=historial trabajador=Lucía` → la evolución quincena a quincena.
+- Otra frecuencia: `accion=frecuencia trabajador=Lucía dias=7`. Una sola tienda:
+  `accion=asignar trabajador=Lucía cuenta=USER_ID`.
+- Despacho: proponer arreglar las 🔴 de a 3-5 por quincena con
+  `mejorar-publicaciones-ml` (o `visualizador-publicaciones-ml` para que elija),
+  fotos con `imagenes-ml`, precios con `calculadora-ml` antes de tocar nada.
 
 ## Armar el equipo (una vez, 5 minutos)
 1. `ml_trabajadores accion=equipo` → mostrar quién está y qué vigila.
@@ -47,6 +69,7 @@ Si un trabajador no tiene tareas propias, vigila solo tus seguidos de
      solo sugerir igualar si el margen sigue positivo.
    - 🔴 Tomás "SIN STOCK" → ventana de 24-72 h: `publicidad-ml` para empujar la
      tuya y tener `responder-preguntas-ml` al día.
+   - 🔴 Lucía "está en rojo / pasó a urgente" → la skill que trae la alerta (arreglos con `mejorar-publicaciones-ml`).
    - 🔴 Martina "bajaste / saliste del top" → `mejorar-publicaciones-ml`
      (y `visualizador-publicaciones-ml` para compararte con el líder).
    - 🔴 Bruno "rival nuevo" → `competencia-ml`; si conviene seguirlo, `ml_vigilar`

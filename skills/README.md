@@ -73,7 +73,7 @@ skill**. Claude las usa solo cuando corresponde.
 
 ### 👷 [trabajadores-ml](trabajadores-ml/) — el equipo que vigila 24/7
 **Pedilo así:** "dale una tarea a Vera" · "Martina, ¿en qué puesto estoy para 'termo 1 litro'?" · "¿qué encontró el equipo?"
-**Qué hace:** 5 trabajadores con nombre que vigilan solos y constantemente — 🕵️ Vera (precios y quién queda más barato que vos), 📦 Tomás (ventas del rival y quiebres de stock), 🏆 Martina (líder y tu puesto en búsquedas), 🎯 Bruno (rivales nuevos) y 📈 Sofía (tendencias). Cada alerta viene con la skill del trabajador que la resuelve.
+**Qué hace:** 6 trabajadores con nombre que vigilan solos y constantemente — 🕵️ Vera (precios y quién queda más barato que vos), 📦 Tomás (ventas del rival y quiebres de stock), 🏆 Martina (líder y tu puesto en búsquedas), 🎯 Bruno (rivales nuevos), 🩺 Lucía (cada 15 días audita todas tus publicaciones: cuáles quedaron desactualizadas y qué empeoró) y 📈 Sofía (tendencias). Cada alerta viene con la skill del trabajador que la resuelve.
 **Historial y base:** "historial de MLA..." · "¿cómo evolucionó el precio de este rival?" · "estado de la base" — todo queda en SQLite que viene con Node (cero instalación, ideal Windows), 400 días.
 **Resultados y Drive:** "mostrame los resultados del equipo" (precio rival vs el tuyo, ritmo de ventas y $/mes del rival, tu puesto, rivales nuevos, tendencias) · "conectá el equipo a Drive" (planilla de Google en vivo con una pestaña por trabajador, o carpeta de Drive).
 **Ojo:** trabajan solos mientras Claude está abierto; para 24/7 corré una vez `npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital trabajadores instalar`.

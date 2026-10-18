@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.17.0
+- **🩺 Lucía, la auditora de publicaciones** (6ª trabajadora): cada 15 días audita sola TODAS las publicaciones activas de cada tienda conectada y avisa cuáles quedaron desactualizadas — sin tener que pedírselo.
+- Nuevos chequeos de **"¿está actualizada?"** (también en `ml_auditar_publicaciones`): 60+ días sin tocar, precio congelado 45+ días (con la base de datos), precio >15% arriba o >25% abajo de la mediana del mercado, fotos de menos de 800 px, falta marca/modelo, sin garantía. Problemas ordenados por gravedad.
+- Compara cada auditoría con la anterior: qué publicaciones mejoraron, empeoraron, pasaron a 🔴 o quedaron al día; cada alerta trae la skill para arreglarla. Tabla `auditorias` en la base, `accion=historial trabajador=Lucía` quincena a quincena, y pestaña propia en Drive.
+- `accion=frecuencia` acepta `dias`; las frecuencias se muestran como "cada 15 días". `correr` sin nombre no dispara la auditoría completa.
+- Lucía se lleva las skills `mejorar-publicaciones-ml`, `visualizador-publicaciones-ml` y `copiar-publicaciones-ml`.
+- 🐛 El informe trae TODAS las alertas sin leer (antes, con más de 500 acumuladas, las más viejas quedaban para la próxima). Suite: 93 pruebas.
+
 ## 1.16.0
 - **🗄️ Base de datos del equipo, cero instalación (ideal Windows)**: SQLite que ya viene con Node.js (`node:sqlite`) — sin servidor, sin Docker, sin compilar paquetes nativos. Un solo archivo `equipo.db` en la carpeta del conector, con tablas `alertas`, `mediciones` y `controles`.
 - Cada control guarda la medición completa de cada objetivo (precio, tu precio, vendidos, stock, estado, tu puesto, líder, precio líder, top de tendencias): **400 días de historial** con limpieza automática.

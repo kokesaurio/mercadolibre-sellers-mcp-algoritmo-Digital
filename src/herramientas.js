@@ -4,11 +4,13 @@ import { MeliClient, MeliError, listarCuentas, urlDeAutorizacion, canjearCode, b
 import { VERSION, chequearActualizacion } from './version.js';
 import { leerCerebro, saberDe, aprender, olvidar } from './cerebro.js';
 import { armarResultados, resultadosEnMarkdown, conectarDrive, desconectarDrive, configDrive, claveDrive, exportarADrive, detectarCarpetaDrive, CARPETA_NOMBRE } from './resultados.js';
-import { estadoDB, leerMediciones, backupDB, RETENCION_DIAS, NODE_MINIMO } from './db.js';
+import { auditarItem } from './auditoria.js';
+import { estadoDB, leerMediciones, precioSinCambiosDesde, backupDB, RETENCION_DIAS, NODE_MINIMO } from './db.js';
 import { EQUIPO, IDS, etiqueta, resumenAlertas, resolverTrabajador, leerEquipo, asignarTarea, quitarTarea, tareasDe, actualizarEquipo, correrCiclo, leerBandeja, quienCorre, INTERVALO_MINIMO } from './trabajadores.js';
 import { leerVigilancia, agregarObjetivo, quitarObjetivo, claveDe, tomarSnapshot, compararSnapshots, guardarVigilancia, registrarHistorial, leerHistorial } from './vigilancia.js';
 
 const money = (n, moneda = '$') => n == null ? '—' : `${moneda} ${Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
+const cadaCuanto = (min) => min >= 1440 && min % 1440 === 0 ? `cada ${min / 1440} día${min === 1440 ? '' : 's'}` : min >= 60 && min % 60 === 0 ? `cada ${min / 60} h` : `cada ${min} min`;
 const sinAcento = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 const cliente = (args) => new MeliClient({ userId: args?.cuenta });
 const cuentaParam = { cuenta: z.string().optional().describe('user_id de la cuenta de ML si hay varias conectadas (ver ml_cuentas)') };
@@ -411,37 +413,19 @@ export const TOOLS = [
 
   {
     name: 'ml_auditar_publicaciones', title: 'Auditar mis publicaciones', readOnly: true,
-    description: 'Lista las publicaciones del vendedor con un semáforo de calidad y cómo mejorar cada una: título corto o con relleno, pocas fotos, sin descripción, sin envío gratis, stock crítico, catálogo perdido, publicación pausada. Devuelve las peores primero con la acción concreta. Ideal para "¿qué publicaciones tengo que mejorar?".',
+    description: 'Lista las publicaciones del vendedor con un semáforo de calidad y cómo mejorar cada una: título corto o con relleno, pocas fotos, sin descripción, sin envío gratis, stock crítico, catálogo perdido, publicación pausada — y si está ACTUALIZADA: días sin tocar, precio congelado, precio fuera de mercado, fotos de baja resolución, marca/modelo y garantía. (Lucía, la auditora del equipo de trabajadores, lo hace sola cada 15 días.) Devuelve las peores primero con la acción concreta. Ideal para "¿qué publicaciones tengo que mejorar?".',
     schema: { ...cuentaParam, limite: z.number().optional().describe('Cuántas auditar (default 10)'), estado: z.string().optional().describe('default active') },
     async run(args) {
       const c = cliente(args); const id = await sellerId(c);
       const busqueda = await c.get(`/users/${id}/items/search`, { status: args.estado ?? 'active', limit: args.limite ?? 10 });
       const ids = busqueda.results || [];
       if (!ids.length) return 'No hay publicaciones para auditar con ese filtro.';
+      const sitio = (await c.get('/users/me')).site_id || 'MLA';
       const auditorias = [];
       for (const itemId of ids) {
-        const b = await c.get(`/items/${itemId}`);
-        let desc = null; try { desc = (await c.get(`/items/${itemId}/description`)).plain_text; } catch {}
-        const problemas = [];
-        const titulo = b.title || '';
-        if (titulo.length < 40) problemas.push(`título corto (${titulo.length}/60): sumale marca, modelo y atributo clave`);
-        if (/env[ií]o gratis|oferta|promo|!!|aprovech/i.test(titulo)) problemas.push('título con relleno prohibido (oferta/envío gratis): ML lo ignora y penaliza — dejá solo producto+marca+modelo+atributos');
-        if ((b.pictures?.length ?? 0) < 3) problemas.push(`solo ${b.pictures?.length ?? 0} foto(s): subí a 6+ (fondo blanco la primera, uso real después)`);
-        if (!desc || desc.trim().length < 200) problemas.push('descripción vacía o muy corta: agregá qué incluye, medidas, compatibilidades y preguntas frecuentes');
-        if (!b.shipping?.free_shipping) problemas.push('sin envío gratis: las publicaciones con envío gratis posicionan y convierten mejor (evaluá absorberlo en el precio)');
-        if ((b.available_quantity ?? 0) === 0) problemas.push('SIN STOCK: repone o pausá — sin stock pierde posicionamiento');
-        else if ((b.available_quantity ?? 0) < 3) problemas.push(`stock crítico (${b.available_quantity}): si se corta, la publicación pierde posicionamiento histórico`);
-        if (b.status !== 'active') problemas.push(`está ${b.status}: no vende hasta reactivarla`);
-        if (b.listing_type_id === 'free' || b.listing_type_id === 'bronze') problemas.push(`tipo ${b.listing_type_id}: casi sin exposición — pasala a Clásica o Premium`);
-        if (!b.video_id) problemas.push('sin video: las publicaciones con video convierten más — generá uno con la skill video-publicaciones-ml o ugc-ml');
-        if (b.catalog_listing) {
-          try {
-            const ptw = await c.get(`/items/${itemId}/price_to_win`, { version: 'v2' });
-            if (ptw.status && ptw.status !== 'winning') problemas.push(`perdiendo el catálogo: ganás con ${ptw.price_to_win != null ? '$ ' + Number(ptw.price_to_win).toLocaleString('es-AR') : 'mejor precio/envío'} (validar margen antes)`);
-          } catch {}
-        }
-        const semaforo = problemas.length === 0 ? '🟢' : problemas.length <= 2 ? '🟡' : '🔴';
-        auditorias.push({ id: itemId, titulo, semaforo, problemas });
+        let desde = null; try { desde = precioSinCambiosDesde(itemId); } catch {}
+        const a = await auditarItem(c, itemId, { sitio, sellerId: id, precioSinCambiosDesde: desde });
+        auditorias.push({ ...a, problemas: a.problemas.map((p) => p.texto) });
       }
       auditorias.sort((a, b) => b.problemas.length - a.problemas.length);
       const filas = auditorias.map((a) => `### ${a.semaforo} ${a.id} — ${a.titulo}\n` + (a.problemas.length ? a.problemas.map((p) => '- ' + p).join('\n') : '- Sin problemas detectados en el checklist básico'));
@@ -821,10 +805,10 @@ export const TOOLS = [
   // ───────────────────── El equipo de trabajadores 24/7 ─────────────────────
   {
     name: 'ml_trabajadores', title: 'Equipo de trabajadores (vigilancia constante)', readOnly: true,
-    description: 'El equipo de 5 trabajadores que vigilan solos y constantemente a tus seguidos (rivales, productos, búsquedas y tendencias): 🕵️ Vera (precios), 📦 Tomás (ventas de rivales y quiebres de stock), 🏆 Martina (ranking en búsquedas y tu puesto), 🎯 Bruno (rivales nuevos) y 📈 Sofía (tendencias). Cada uno tiene sus skills a cargo y cada alerta recomienda qué skill correr. Guardan todo en una base de datos SQLite local (equipo.db, viene con Node: cero instalación, ideal Windows) y envían sus resultados a Google Drive (planilla en vivo o carpeta de Drive). Acciones: equipo (estado de todos), asignar (darle una tarea), quitar, pausar, activar, frecuencia (minutos), correr (que trabajen ya), informe (alertas nuevas), resultados (tablas con todo lo que sabe cada uno), historial (evolución día por día de un rival/keyword), base (la base de datos: estado y backup), drive (conectar Google Drive). Se puede nombrar al trabajador por su nombre (Vera) o puesto (precios). Si un trabajador no tiene tareas propias vigila tus seguidos de ml_vigilar de su tipo.',
+    description: 'El equipo de 6 trabajadores que vigilan solos y constantemente: 🕵️ Vera (precios), 📦 Tomás (ventas de rivales y quiebres de stock), 🏆 Martina (ranking en búsquedas y tu puesto), 🎯 Bruno (rivales nuevos), 🩺 Lucía (audita TODAS tus publicaciones cada 15 días: desactualizadas, precio congelado o fuera de mercado, fotos, stock, ficha) y 📈 Sofía (tendencias). Cada uno tiene sus skills a cargo y cada alerta recomienda qué skill correr. Guardan todo en una base de datos SQLite local (equipo.db, viene con Node: cero instalación, ideal Windows) y envían sus resultados a Google Drive (planilla en vivo o carpeta de Drive). Acciones: equipo (estado de todos), asignar (darle una tarea), quitar, pausar, activar, frecuencia (minutos), correr (que trabajen ya), informe (alertas nuevas), resultados (tablas con todo lo que sabe cada uno), historial (evolución día por día de un rival/keyword), base (la base de datos: estado y backup), drive (conectar Google Drive). Se puede nombrar al trabajador por su nombre (Vera) o puesto (precios). Si un trabajador no tiene tareas propias vigila tus seguidos de ml_vigilar de su tipo.',
     schema: { ...cuentaParam,
       accion: z.enum(['equipo', 'asignar', 'quitar', 'pausar', 'activar', 'frecuencia', 'correr', 'informe', 'resultados', 'historial', 'base', 'drive']).describe('Qué hacer. historial = evolución día por día de un objetivo (precio, ventas por día, puesto, líder) desde la base de datos. base = estado de la base de datos del equipo y backup. resultados = las tablas con lo que sabe cada trabajador (precio rival vs el tuyo, ritmo de ventas, tu puesto, rivales nuevos, top de tendencias). drive = conectar/ver/probar el envío a Google Drive'),
-      trabajador: z.string().optional().describe('Vera/precios, Tomás/ventas, Martina/ranking, Bruno/rivales, Sofía/tendencias, o "todos"'),
+      trabajador: z.string().optional().describe('Vera/precios, Tomás/ventas, Martina/ranking, Bruno/rivales, Lucía/auditor, Sofía/tendencias, o "todos"'),
       tipo: z.enum(['vendedor', 'publicacion', 'busqueda', 'tendencias']).optional().describe('Se deduce solo según el trabajador; Vera acepta vendedor o publicacion'),
       ref: z.string().optional().describe('item_id rival, nickname/id del vendedor, palabra clave, o categoría (tendencias)'),
       mi_item: z.string().optional().describe('Tu item_id para comparar: Vera avisa si un rival queda más barato, Martina te dice tu puesto en la búsqueda'),
@@ -834,7 +818,7 @@ export const TOOLS = [
       todas: z.boolean().optional().describe('informe: incluir también las alertas ya leídas'),
       url: z.string().optional().describe('drive: URL de la app web de Apps Script de tu planilla (https://script.google.com/macros/s/.../exec)'),
       carpeta: z.string().optional().describe('drive: carpeta de Google Drive para escritorio en esta PC (ej: G:\\Mi unidad) o "auto" para detectarla'),
-      dias: z.number().optional().describe('historial: cuántos días hacia atrás (default 30, máx 400)'),
+      dias: z.number().optional().describe('historial: cuántos días hacia atrás (default 30, máx 400) · frecuencia: cada cuántos días (ej: Lucía dias=15)'),
       backup: z.boolean().optional().describe('base: hacer una copia de seguridad de la base ahora'),
       probar: z.boolean().optional().describe('drive: enviar ahora los resultados para probar'),
       quitar: z.enum(['todo', 'script', 'carpeta']).optional().describe('drive: desconectar el envío'),
@@ -862,7 +846,7 @@ export const TOOLS = [
           const tareas = tareasDe(d, id), propias = tareas.filter((t) => !t.deLista), heredadas = tareas.length - propias.length;
           const sinLeer = resumenAlertas(id, d).sinLeer;
           const prox = w.activo && w.ultimo ? w.ultimo + w.intervalo * 60000 : null;
-          return [`### ${etiqueta(id)} — ${w.activo ? '🟢 activo' : '⏸️ en pausa'} · cada ${w.intervalo} min`,
+          return [`### ${etiqueta(id)} — ${w.activo ? '🟢 activo' : '⏸️ en pausa'} · ${cadaCuanto(w.intervalo)}`,
             `_${e.oficio}_`,
             `- **Tareas:** ${propias.length ? propias.map((t) => `${t.ref}${t.mi_item ? ` (vs tu ${t.mi_item})` : ''}${t.umbral != null ? ` [umbral ${t.umbral}]` : ''}`).join(' · ') : 'ninguna propia'}${heredadas ? ` + ${heredadas} de tus seguidos` : ''}${!tareas.length ? ' — 💤 sin nada que vigilar: asignale algo' : ''}`,
             `- **Último control:** ${hora(w.ultimo)}${prox ? ` · próximo ≈ ${hora(Math.max(prox, Date.now()))}` : ''}${w.ultimoError ? ` · ⚠️ ${w.ultimoError}` : ''}`,
@@ -879,13 +863,13 @@ export const TOOLS = [
       }
 
       if (args.accion === 'asignar') {
-        if (!quien) return 'Decime a quién: Vera (precios), Tomás (ventas), Martina (ranking), Bruno (rivales) o Sofía (tendencias).';
+        if (!quien) return 'Decime a quién: Vera (precios), Tomás (ventas), Martina (ranking), Bruno (rivales), Lucía (auditoría de tus publicaciones) o Sofía (tendencias).';
         let sitio;
         if (EQUIPO[quien].tipos.includes('tendencias') && !args.ref) sitio = (await cliente(args).get('/users/me')).site_id || 'MLA';
         const r = asignarTarea(quien, { tipo: args.tipo, ref: args.ref, mi_item: args.mi_item, umbral: args.umbral, nota: args.nota, cuenta: args.cuenta, sitio });
         const w = leerEquipo().trabajadores[quien];
         const skills = EQUIPO[quien].skills.map((x) => '`' + x.skill + '`').join(', ');
-        return `✅ ${etiqueta(quien)} ${r.actualizada ? 'actualizó' : 'tomó'} la tarea: ${r.tarea.tipo} **${r.tarea.ref}**${r.tarea.mi_item ? ` comparando con tu ${r.tarea.mi_item}` : ''}${r.tarea.umbral != null ? ` (umbral ${r.tarea.umbral})` : ''}.\nControla cada ${w.intervalo} min${w.activo ? '' : ' (⚠️ está en pausa: activalo)'}; el primer control guarda la foto de base y desde ahí avisa solo lo que cambia. Cuando encuentre algo te va a recomendar una de sus skills: ${skills}.`;
+        return `✅ ${etiqueta(quien)} ${r.actualizada ? 'actualizó' : 'tomó'} la tarea: ${r.tarea.tipo} **${r.tarea.ref}**${r.tarea.mi_item ? ` comparando con tu ${r.tarea.mi_item}` : ''}${r.tarea.umbral != null ? ` (umbral ${r.tarea.umbral})` : ''}.\nControla ${cadaCuanto(w.intervalo)}${w.activo ? '' : ' (⚠️ está en pausa: activalo)'}; el primer control guarda la foto de base y desde ahí avisa solo lo que cambia. Cuando encuentre algo te va a recomendar una de sus skills: ${skills}.`;
       }
 
       if (args.accion === 'quitar') {
@@ -900,18 +884,22 @@ export const TOOLS = [
       }
 
       if (args.accion === 'frecuencia') {
-        if (!args.minutos) return 'Indicá minutos.';
-        const m = Math.max(INTERVALO_MINIMO, Math.round(args.minutos));
+        if (!args.minutos && !args.dias) return 'Indicá minutos o dias (ej: Lucía dias=15).';
+        const pedido = args.dias ? args.dias * 1440 : args.minutos;
+        const m = Math.max(INTERVALO_MINIMO, Math.round(pedido));
         actualizarEquipo((d) => { for (const id of objetivo) d.trabajadores[id].intervalo = m; });
-        return `⏱️ ${objetivo.map(etiqueta).join(', ')} ahora controla(n) cada ${m} min${m !== Math.round(args.minutos) ? ` (mínimo ${INTERVALO_MINIMO} para cuidar el límite de la API de MercadoLibre)` : ''}.`;
+        return `⏱️ ${objetivo.map(etiqueta).join(', ')} ahora controla(n) ${cadaCuanto(m)}${m !== Math.round(pedido) ? ` (mínimo ${INTERVALO_MINIMO} para cuidar el límite de la API de MercadoLibre)` : ''}.`;
       }
 
       if (args.accion === 'correr') {
-        const r = await correrCiclo({ solo: objetivo, forzar: true });
+        // Lucía audita TODA la tienda (puede tardar minutos): corre a pedido solo si la nombrás
+        const solo = quien ? objetivo : objetivo.filter((id) => id !== 'auditor');
+        const r = await correrCiclo({ solo, forzar: true });
         const pie = [`Trabajaron: ${r.corridos.length ? r.corridos.map((id) => EQUIPO[id].nombre).join(', ') : 'nadie (sin tareas)'}`];
         if (r.primeros) pie.push(`${r.primeros} tarea(s) con foto de base recién guardada (avisan desde el próximo control)`);
         if (r.errores.length) pie.push('⚠️ ' + r.errores.join(' · '));
         if (r.drive) pie.push(r.drive.errores?.length ? '📁 Drive ⚠️ ' + r.drive.errores.join(' · ') : r.drive.error ? '📁 Drive ⚠️ ' + r.drive.error : '📁 resultados enviados a Google Drive');
+        if (!quien) pie.push('Lucía audita sola cada 15 días (para auditar ya: trabajador=Lucía)');
         if (r.alertas.length) leerBandeja({ marcar: true }); // ya las viste acá
         return (r.alertas.length ? '# Lo que encontraron recién\n\n' + agrupar(r.alertas) : '# Sin novedades en este control') + `\n\n_${pie.join(' · ')}._`;
       }
@@ -981,6 +969,10 @@ export const TOOLS = [
             const ps = lista.map((m) => m.puesto).filter((n) => n != null);
             const lideres = new Set(lista.map((m) => m.lider).filter(Boolean));
             resumen = `${ps.length ? `Tu mejor puesto: ${Math.min(...ps)}º · peor: ${Math.max(...ps)}º · hoy: ${ultimo.puesto ?? 'fuera del top'}` : 'Sin puesto propio (pasale mi_item a Martina)'} · ${lideres.size} líder(es) distinto(s) en el período`;
+          } else if (id === 'auditor') {
+            cab = ['Auditoría', 'Publicaciones', '🔴', '🟡', '🟢', 'Sin actualizar 60+ días'];
+            fila = (m) => [dia(m.t), m.extra?.total ?? '—', m.extra?.rojas ?? '—', m.extra?.amarillas ?? '—', m.extra?.verdes ?? '—', m.extra?.sinActualizar ?? '—'];
+            if (lista.length > 1) { const a = lista[0].extra || {}, z = ultimo.extra || {}; resumen = `De ${a.rojas ?? '?'} 🔴 a ${z.rojas ?? '?'} 🔴 y de ${a.verdes ?? '?'} 🟢 a ${z.verdes ?? '?'} 🟢 en el período`; }
           } else if (id === 'rivales') {
             cab = ['Día', 'Vendedores distintos en el top'];
             fila = (m) => [dia(m.t), m.extra?.vendedores ?? '—'];

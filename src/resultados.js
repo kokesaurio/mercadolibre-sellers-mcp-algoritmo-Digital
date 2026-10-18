@@ -93,6 +93,22 @@ export function armarResultados(d = leerEquipo()) {
       destacado = total ? `${total} rival(es) nuevo(s) esta semana → competencia-ml` : filas.length ? 'Sin rivales nuevos esta semana' : '';
     }
 
+    if (id === 'auditor') {
+      cabecera = ['Publicación', 'Título', 'Semáforo', 'Problemas', 'Principal problema', 'Días sin tocar', 'Precio', 'Tienda', 'Auditada'];
+      let rojas = 0, sinAct = 0, prox = null;
+      for (const t of tareas) {
+        const s = snap(t); if (!s) { filas.push(['—', `(${t.ref}: primera auditoría pendiente)`, '', '', '', '', '', t.ref, '']); continue; }
+        rojas += s.datos.rojas || 0; sinAct += s.datos.sinActualizar || 0;
+        const orden = { '🔴': 0, '🟡': 1, '🟢': 2 };
+        for (const [itemId, x] of Object.entries(s.datos.items || {}).sort((a, b) => (orden[a[1].semaforo] - orden[b[1].semaforo]) || (b[1].codigos.length - a[1].codigos.length))) {
+          filas.push([itemId, x.titulo, x.semaforo, x.codigos.length, x.textos[0] || 'al día ✅', x.diasSinTocar, x.precio, t.ref, fecha(s.t)]);
+        }
+      }
+      const w = d.trabajadores[id];
+      if (w.ultimo) prox = w.ultimo + w.intervalo * 60000;
+      destacado = filas.length ? `${rojas} 🔴 para arreglar · ${sinAct} sin actualizar hace 60+ días${prox ? ` · próxima auditoría ≈ ${new Date(prox).toLocaleDateString('es-AR')}` : ''} → mejorar-publicaciones-ml` : '';
+    }
+
     if (id === 'tendencias') {
       cabecera = ['Sitio / categoría', 'Puesto', 'Keyword', 'Último control'];
       for (const t of tareas) {
