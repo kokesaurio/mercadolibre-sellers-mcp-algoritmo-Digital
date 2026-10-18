@@ -6,6 +6,8 @@
 //   · ¿está ACTUALIZADA?: días sin tocar, precio congelado (con la base de datos),
 //     precio fuera de mercado, fotos de baja resolución, marca/modelo y garantía cargados
 
+import { faltantes, preguntasRespondidas } from './faq.js';
+
 const DIAS = 86400000;
 export const SIN_TOCAR_DIAS = 60;       // publicación sin ningún cambio hace más de esto → desactualizada
 export const PRECIO_CONGELADO_DIAS = 45; // precio idéntico en todas las auditorías de este período
@@ -38,7 +40,7 @@ export async function precioMercado(c, sitio, titulo, miSellerId) {
  * @param {number|null} o.precioSinCambiosDesde  timestamp desde el que el precio está igual (base de datos)
  * @returns {{ semaforo, problemas: {codigo, texto, grupo}[], precio, ultimaEdicion, diasSinTocar }}
  */
-export function evaluar({ b, desc, ptw = null, mercado = null, precioSinCambiosDesde = null, ahora = Date.now() }) {
+export function evaluar({ b, desc, ptw = null, mercado = null, precioSinCambiosDesde = null, faq = null, ahora = Date.now() }) {
   const P = [];
   const add = (codigo, grupo, texto) => P.push({ codigo, grupo, texto });
   const titulo = b.title || '';
@@ -65,6 +67,10 @@ export function evaluar({ b, desc, ptw = null, mercado = null, precioSinCambiosD
     if (dif > 15) add('precio_alto', 'actualizada', `precio ${dif.toFixed(0)}% arriba del mercado (mediana ${dinero(mercado.mediana)} en ${mercado.muestras} publicaciones): revisá si tu diferencial lo justifica`);
     else if (dif < -25) add('precio_bajo', 'actualizada', `precio ${Math.abs(dif).toFixed(0)}% abajo del mercado (mediana ${dinero(mercado.mediana)}): ¿estás dejando plata en la mesa? validalo con la calculadora-ml`);
   }
+  if (faq?.length) {
+    const ej = faq.slice(0, 2).map((g) => `«${g.pregunta}» (${g.veces} veces)`).join(', ');
+    add('faq_faltante', 'actualizada', `${faq.length} pregunta(s) que te hacen seguido no están en la descripción: ${ej}${faq.length > 2 ? '…' : ''} — sumalas como preguntas frecuentes con TUS respuestas (ml_faq_descripcion) y vas a recibir menos preguntas repetidas`);
+  }
   const res = (b.pictures || []).map(resolucion).filter((n) => n != null);
   const chicas = res.filter((n) => n < 800).length;
   if (chicas) add('fotos_baja_resolucion', 'actualizada', `${chicas} foto(s) de baja resolución (menos de 800 px): ML no les activa el zoom — rehacelas en 1200×1200 (skill imagenes-ml)`);
@@ -74,7 +80,7 @@ export function evaluar({ b, desc, ptw = null, mercado = null, precioSinCambiosD
   if (!(b.sale_terms || []).some((t) => t.id === 'WARRANTY_TYPE' || t.id === 'WARRANTY_TIME')) add('sin_garantia', 'actualizada', 'sin garantía declarada: cargala (aunque sea "garantía del vendedor 30 días") — da confianza y la pide la ficha');
 
   // Lo más grave primero: es lo que se muestra como "principal problema"
-  const PRIORIDAD = ['sin_stock', 'no_activa', 'pierde_catalogo', 'titulo_relleno', 'sin_actualizar', 'precio_alto', 'precio_bajo', 'precio_congelado', 'stock_critico', 'pocas_fotos', 'fotos_baja_resolucion', 'faltan_atributos', 'sin_descripcion', 'titulo_corto', 'tipo_bajo', 'sin_envio_gratis', 'sin_garantia', 'sin_video'];
+  const PRIORIDAD = ['sin_stock', 'no_activa', 'pierde_catalogo', 'titulo_relleno', 'sin_actualizar', 'precio_alto', 'precio_bajo', 'precio_congelado', 'stock_critico', 'pocas_fotos', 'fotos_baja_resolucion', 'faltan_atributos', 'sin_descripcion', 'faq_faltante', 'titulo_corto', 'tipo_bajo', 'sin_envio_gratis', 'sin_garantia', 'sin_video'];
   P.sort((x, y) => PRIORIDAD.indexOf(x.codigo) - PRIORIDAD.indexOf(y.codigo));
   const graves = P.filter((p) => ['sin_stock', 'no_activa', 'pierde_catalogo', 'titulo_relleno'].includes(p.codigo)).length;
   const semaforo = P.length === 0 ? '🟢' : graves || P.length >= 4 ? '🔴' : '🟡';
@@ -82,14 +88,16 @@ export function evaluar({ b, desc, ptw = null, mercado = null, precioSinCambiosD
 }
 
 /** Trae lo necesario de ML y audita una publicación. */
-export async function auditarItem(c, itemId, { sitio = 'MLA', sellerId, precioSinCambiosDesde = null, conMercado = true, b: yaTraido } = {}) {
+export async function auditarItem(c, itemId, { sitio = 'MLA', sellerId, precioSinCambiosDesde = null, conMercado = true, conPreguntas = true, b: yaTraido } = {}) {
   const b = yaTraido || (await c.get(`/items/${itemId}`));
   let desc = null; try { desc = (await c.get(`/items/${itemId}/description`)).plain_text; } catch {}
   let ptw = null;
   if (b.catalog_listing) { try { ptw = await c.get(`/items/${itemId}/price_to_win`, { version: 'v2' }); } catch {} }
   let mercado = null;
   if (conMercado) { try { mercado = await precioMercado(c, sitio, b.title, sellerId); } catch {} }
-  return { id: itemId, titulo: b.title || itemId, ...evaluar({ b, desc, ptw, mercado, precioSinCambiosDesde }) };
+  let faq = null;
+  if (conPreguntas) { try { faq = faltantes(await preguntasRespondidas(c, itemId, { maximo: 100 }), desc || ''); } catch {} }
+  return { id: itemId, titulo: b.title || itemId, faq, ...evaluar({ b, desc, ptw, mercado, precioSinCambiosDesde, faq }) };
 }
 
 /** Todos los item_id de un estado (paginado, hasta `maximo`). */

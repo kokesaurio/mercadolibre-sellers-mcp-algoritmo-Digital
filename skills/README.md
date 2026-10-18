@@ -1,4 +1,4 @@
-# Guía de uso — las 19 skills del conector
+# Guía de uso — las 20 skills del conector
 
 Skills listas para Claude que convierten el [conector de MercadoLibre de
 Algoritmo Digital](../README.md) en flujos de trabajo completos. **Cómo
@@ -34,6 +34,11 @@ skill**. Claude las usa solo cuando corresponde.
 **Pedilo así:** "respondamos las preguntas" · "¿qué preguntas tengo?"
 **Qué hace:** junta las pendientes, propone TODAS las respuestas juntas para que apruebes de una, y publica solo lo confirmado. Nunca incluye datos de contacto (ML lo penaliza).
 
+
+### ❓ [faq-descripcion-ml](faq-descripcion-ml/) — las preguntas van a la descripción
+**Pedilo así:** "sumá las preguntas a la descripción" · "me preguntan siempre lo mismo" · "aplicá las preguntas frecuentes que marcó Lucía"
+**Qué hace:** junta las preguntas que te hacen en cada publicación, agrupa las repetidas aunque estén escritas distinto y las agrega al final de la descripción como "PREGUNTAS FRECUENTES" con TUS respuestas reales. Descarta stock, precio, cuotas, envíos y cualquier respuesta con datos de contacto; no repite lo que la descripción ya explica; y la próxima vez actualiza el bloque sin duplicar.
+**Ojo:** primero te muestra cómo queda; escribe en la publicación solo con tu OK. Lucía revisa esto sola cada 15 días.
 ### 🔍 [mejorar-publicaciones-ml](mejorar-publicaciones-ml/) — auditoría y mejoras
 **Pedilo así:** "auditá mis publicaciones" · "¿qué publicaciones tengo que mejorar?"
 **Qué hace:** semáforo 🔴🟡🟢 de cada publicación (título, fotos, descripción, envío, stock, video, catálogo) con la acción concreta, las peores primero. Aplica precio/stock/estado con tu confirmación por ítem; fotos y descripción te marca que van por el panel.

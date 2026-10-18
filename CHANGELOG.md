@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.18.0
+- **❓ Las preguntas de los compradores pasan a la descripción** (`ml_faq_descripcion`, de escritura): junta las preguntas respondidas de cada publicación, agrupa las repetidas aunque estén escritas distinto (por tema y por palabras), y las agrega al final de la descripción como **PREGUNTAS FRECUENTES** con las respuestas REALES del vendedor (la más reciente), limpias de saludos y firmas.
+- Nunca entra a la descripción: stock, precio, cuotas, descuentos, envíos/plazos, ni respuestas con teléfono, mail, links, WhatsApp o redes (ML penaliza los datos de contacto). No repite lo que la descripción ya explica. Bloque marcado: se actualiza sin duplicar y respeta lo que ya estaba; límite de 50.000 caracteres.
+- Primero muestra la propuesta; escribe solo con `aplicar=true` (con confirmación). `todas=true` toma las que marcó Lucía.
+- **🩺 Lucía las detecta en su auditoría quincenal** (nuevo chequeo `faq_faltante`, también en `ml_auditar_publicaciones`) y avisa con ❓ y la skill nueva **faq-descripcion-ml** (20ª). `responder-preguntas-ml` propone sumar a la descripción las preguntas que se repiten.
+- Suite: 101 pruebas (con preguntas reales simuladas: repetidas, con saludos, de stock, de envío y con teléfono).
+
 ## 1.17.0
 - **🩺 Lucía, la auditora de publicaciones** (6ª trabajadora): cada 15 días audita sola TODAS las publicaciones activas de cada tienda conectada y avisa cuáles quedaron desactualizadas — sin tener que pedírselo.
 - Nuevos chequeos de **"¿está actualizada?"** (también en `ml_auditar_publicaciones`): 60+ días sin tocar, precio congelado 45+ días (con la base de datos), precio >15% arriba o >25% abajo de la mediana del mercado, fotos de menos de 800 px, falta marca/modelo, sin garantía. Problemas ordenados por gravedad.

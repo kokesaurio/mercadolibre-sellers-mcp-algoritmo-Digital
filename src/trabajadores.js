@@ -65,11 +65,12 @@ export const EQUIPO = {
   },
   auditor: {
     alias: 'lucia', emoji: '🩺', nombre: 'Lucía', puesto: 'Auditora de publicaciones', intervalo: 15 * 24 * 60, tipos: ['propias'],
-    oficio: 'Cada 15 días audita TODAS tus publicaciones activas y te dice cuáles quedaron desactualizadas: días sin tocar, precio congelado o fuera de mercado, sin stock, fotos de baja resolución o pocas, sin video, sin marca/modelo o garantía, catálogo perdido. Compara contra la auditoría anterior: qué empeoró y qué quedó al día.',
+    oficio: 'Cada 15 días audita TODAS tus publicaciones activas y te dice cuáles quedaron desactualizadas: preguntas repetidas que no están en la descripción, días sin tocar, precio congelado o fuera de mercado, sin stock, fotos de baja resolución o pocas, sin video, sin marca/modelo o garantía, catálogo perdido. Compara contra la auditoría anterior: qué empeoró y qué quedó al día.',
     skills: [
       { skill: 'mejorar-publicaciones-ml', para: 'aplicar los arreglos de la auditoría, las peores primero' },
       { skill: 'visualizador-publicaciones-ml', para: 'elegir en un tablero cuáles mejorar esta quincena' },
       { skill: 'copiar-publicaciones-ml', para: 'rehacer una publicación vieja como nueva sin perder lo que funciona' },
+      { skill: 'faq-descripcion-ml', para: 'sumar a la descripción las preguntas que te repiten, con tus respuestas reales' },
     ],
   },
   tendencias: {
@@ -296,7 +297,7 @@ const OFICIOS = {
       }
       try { base.guardarAuditoria(Date.now(), t.cuenta, lista); } catch {}
       const cuenta = (e) => lista.filter((x) => x.semaforo === e).length;
-      return { items, total: lista.length, rojas: cuenta('🔴'), amarillas: cuenta('🟡'), verdes: cuenta('🟢'), sinActualizar: lista.filter((x) => x.codigos.includes('sin_actualizar')).length };
+      return { items, total: lista.length, rojas: cuenta('🔴'), amarillas: cuenta('🟡'), verdes: cuenta('🟢'), sinActualizar: lista.filter((x) => x.codigos.includes('sin_actualizar')).length, conFaq: lista.filter((x) => x.codigos.includes('faq_faltante')).length };
     },
     cambios(t, v, n) {
       const out = [], rango = { '🟢': 0, '🟡': 1, '🔴': 2 };
@@ -304,7 +305,8 @@ const OFICIOS = {
       const skillDe = ([k]) => ['fotos_baja_resolucion', 'pocas_fotos'].includes(k) ? 'imagenes-ml'
         : k === 'sin_video' ? 'video-publicaciones-ml'
         : k?.startsWith('precio_') ? 'calculadora-ml'
-        : k === 'pierde_catalogo' ? 'competencia-ml' : 'mejorar-publicaciones-ml';
+        : k === 'pierde_catalogo' ? 'competencia-ml'
+        : k === 'faq_faltante' ? 'faq-descripcion-ml' : 'mejorar-publicaciones-ml';
       let mejoraron = 0, empeoraron = 0;
       const urgentes = [], alDia = [], desactualizadas = [];
       for (const [id, x] of Object.entries(n.items)) {
@@ -315,11 +317,13 @@ const OFICIOS = {
         if (x.codigos.includes('sin_actualizar') && !(a?.codigos || []).includes('sin_actualizar')) desactualizadas.push(id);
       }
       out.push({ nivel: n.rojas ? 'alta' : 'baja', skill: 'mejorar-publicaciones-ml',
-        texto: `🩺 Auditoría quincenal de ${t.ref}: ${n.total} publicaciones — ${n.rojas} 🔴 · ${n.amarillas} 🟡 · ${n.verdes} 🟢${n.sinActualizar ? ` · ${n.sinActualizar} sin actualizar hace 60+ días` : ''}${v ? ` · desde la anterior: ${mejoraron} mejoraron, ${empeoraron} empeoraron` : ' (primera auditoría: queda como base para comparar en 15 días)'}` });
+        texto: `🩺 Auditoría quincenal de ${t.ref}: ${n.total} publicaciones — ${n.rojas} 🔴 · ${n.amarillas} 🟡 · ${n.verdes} 🟢${n.sinActualizar ? ` · ${n.sinActualizar} sin actualizar hace 60+ días` : ''}${n.conFaq ? ` · ${n.conFaq} con preguntas repetidas que faltan en la descripción` : ''}${v ? ` · desde la anterior: ${mejoraron} mejoraron, ${empeoraron} empeoraron` : ' (primera auditoría: queda como base para comparar en 15 días)'}` });
       for (const [id, x] of urgentes.sort((a, b) => b[1].codigos.length - a[1].codigos.length).slice(0, 8)) {
         out.push({ nivel: 'alta', skill: skillDe(x.codigos), texto: `${id} «${x.titulo}»${v?.items?.[id] ? ' pasó a urgente' : ' está en rojo'}: ${x.textos[0]}${x.textos.length > 1 ? ` (+${x.textos.length - 1} problema(s) más)` : ''}` });
       }
       if (v && desactualizadas.length) out.push({ nivel: 'media', skill: 'mejorar-publicaciones-ml', texto: `${desactualizadas.length} publicación(es) quedaron desactualizadas (60+ días sin tocar): ${desactualizadas.slice(0, 6).join(', ')}${desactualizadas.length > 6 ? '…' : ''}` });
+      const conFaq = Object.entries(n.items).filter(([id, x]) => x.codigos.includes('faq_faltante') && !(v?.items?.[id]?.codigos || []).includes('faq_faltante'));
+      if (conFaq.length) out.push({ nivel: 'media', skill: 'faq-descripcion-ml', texto: `❓ ${conFaq.length} publicación(es) reciben preguntas repetidas que no están en su descripción: ${conFaq.slice(0, 6).map(([id]) => id).join(', ')}${conFaq.length > 6 ? '…' : ''} — te armo las preguntas frecuentes con tus respuestas (ml_faq_descripcion)` });
       if (alDia.length) out.push({ nivel: 'baja', texto: `✅ Quedaron al día: ${alDia.slice(0, 5).join(' · ')}${alDia.length > 5 ? '…' : ''}` });
       return out;
     },

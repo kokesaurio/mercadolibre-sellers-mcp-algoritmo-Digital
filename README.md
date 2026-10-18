@@ -162,7 +162,7 @@ Seis trabajadores con nombre que **vigilan solos y constantemente** a tus seguid
 | 📦 **Tomás** · Contador de ventas | ventas estimadas del rival (ritmo/día y $/mes), quiebres de stock y pausas = tus oportunidades | 60 min | panel-ventas-ml · reporte-ventas-ml · responder-preguntas-ml |
 | 🏆 **Martina** · Vigía de búsquedas | top 50 de tus keywords: líder, precio líder y **tu puesto** | 60 min | imagenes-ml · publicidad-ml |
 | 🎯 **Bruno** · Cazador de rivales nuevos | vendedores que aparecen por primera vez en tus búsquedas | 3 h | competencia-ml · revisar-publicaciones-aldi |
-| 🩺 **Lucía** · Auditora de publicaciones | **cada 15 días audita TODAS tus publicaciones** y te dice cuáles quedaron desactualizadas: días sin tocar, precio congelado o fuera de mercado, sin stock, fotos chicas, sin marca/modelo o garantía — y qué mejoró o empeoró desde la auditoría anterior | 15 días | mejorar-publicaciones-ml · visualizador-publicaciones-ml · copiar-publicaciones-ml |
+| 🩺 **Lucía** · Auditora de publicaciones | **cada 15 días audita TODAS tus publicaciones** y te dice cuáles quedaron desactualizadas: **preguntas que te repiten y no están en la descripción**, días sin tocar, precio congelado o fuera de mercado, sin stock, fotos chicas, sin marca/modelo o garantía — y qué mejoró o empeoró desde la auditoría anterior | 15 días | mejorar-publicaciones-ml · visualizador-publicaciones-ml · copiar-publicaciones-ml · faq-descripcion-ml |
 | 📈 **Sofía** · Radar de tendencias | keywords que entran, salen o suben en tendencias | 12 h | descubrir-ganadores-ml · video-publicaciones-ml · clips-ml · ugc-ml |
 
 **Dales tareas hablando:** *"Vera, vigilá MLA123 contra mi MLA456 y avisame si baja más de 2%"* · *"Martina, decime en qué puesto estoy para 'termo 1 litro'"* · *"¿qué encontró el equipo?"* · *"Lucía, auditá la tienda ahora"*. Sin tareas propias, cada uno vigila tus seguidos de `ml_vigilar` de su tipo.
@@ -189,9 +189,9 @@ Seis trabajadores con nombre que **vigilan solos y constantemente** a tus seguid
 - **Carpeta de Google Drive para escritorio**: se detecta sola y se crea *MercadoLibre - Equipo de trabajadores* con Alertas.csv, Historial.csv (90 días), un CSV por trabajador y un resumen.
 - Seguro: la planilla rechaza envíos sin tu clave, y ningún texto de un rival (ej. un título con `=IMPORTXML(...)`) se guarda como fórmula.
 
-## Las 19 skills — tu equipo de trabajo
+## Las 20 skills — tu equipo de trabajo
 
-El conector trae [**19 skills listas**](skills/) con [guía de uso de cada una](skills/README.md). Se suben una vez en Claude (**Configuración → Capacidades → Skills → Cargar skill**) y convierten las herramientas en flujos completos: vos pedís en una frase, la skill sabe el procedimiento.
+El conector trae [**20 skills listas**](skills/) con [guía de uso de cada una](skills/README.md). Se suben una vez en Claude (**Configuración → Capacidades → Skills → Cargar skill**) y convierten las herramientas en flujos completos: vos pedís en una frase, la skill sabe el procedimiento.
 
 > 🚀 **Empezá por acá:** subí [setup-ml](skills/setup-ml/) y decile a Claude **"setup"** — conecta tus cuentas, arma la vigilancia inicial y te entrega tu primera foto del negocio con las 3 acciones más urgentes.
 
@@ -208,6 +208,7 @@ El conector trae [**19 skills listas**](skills/) con [guía de uso de cada una](
 | Skill | Pedila así |
 | --- | --- |
 | [mejorar-publicaciones-ml](skills/mejorar-publicaciones-ml/) | *"auditá mis publicaciones"* — semáforo 🔴🟡🟢 con la acción concreta por ítem, las peores primero |
+| [faq-descripcion-ml](skills/faq-descripcion-ml/) | *"me preguntan siempre lo mismo"* — las preguntas repetidas de tus compradores pasan a la descripción como preguntas frecuentes, con tus respuestas reales (Lucía te avisa cuáles faltan) |
 | [visualizador-publicaciones-ml](skills/visualizador-publicaciones-ml/) | *"armame el visualizador"* — [tablero interactivo](panel/visualizador.html) con foto y semáforo: tocás cuáles mejorar y te genera el pedido |
 | [copiar-publicaciones-ml](skills/copiar-publicaciones-ml/) | *"copiá esta publicación a la otra tienda"* — clona entre tus cuentas; lo ajeno se redacta, nunca se clona |
 | [revisar-publicaciones-aldi](skills/revisar-publicaciones-aldi/) | *"pasá esta publicación por Aldi"* — segunda opinión con [Aldi 2.0](https://chatgpt.com/g/g-698f16e0eebc819182455494732d40a0-aldi-2-0-mercado-libre-algoritmo-digital), el GPT revisor de Algoritmo Digital |
@@ -246,7 +247,7 @@ La skill imagenes-ml genera el **set fijo de 4** — beneficio (foto 2), caracte
 
 Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando: `python3 plantillas/generar.py --plantilla medidas --datos datos.json --foto tu-foto.png --salida foto-5-medidas.png`. El método completo (orden de publicación foto 2→10, solo datos confirmados, revisión pieza por pieza) está grabado en la skill.
 
-## Herramientas (34)
+## Herramientas (35)
 
 | Herramienta | Qué hace |
 | --- | --- |
@@ -257,6 +258,7 @@ Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando
 | ml_envios | Estado y tracking del envío de una orden |
 | ml_publicaciones / ml_publicacion | Tus publicaciones y su detalle (incluye fotos y si tiene video) |
 | ml_auditar_publicaciones | Semáforo 🔴🟡🟢 de TUS publicaciones con cómo mejorar cada una: título, fotos, descripción, envío, stock, **video faltante**, tipo y catálogo — las peores primero |
+| ml_faq_descripcion ✏️ | **Las preguntas de tus compradores → preguntas frecuentes en la descripción**, con TUS respuestas reales: agrupa las repetidas, descarta stock/precio/envíos y cualquier dato de contacto, no repite lo que ya está y actualiza el bloque sin duplicar. Primero muestra la propuesta; aplica con tu OK (una o todas las que marcó Lucía) |
 | ml_visitas | Tráfico de una publicación |
 | ml_actualizar_publicacion ✏️ | Cambiar precio, stock o pausar/activar |
 | ml_crear_publicacion ✏️ | Crear una publicación nueva, o clonar una existente (`copiar_de`) — ideal para duplicar entre tus tiendas |
@@ -278,7 +280,7 @@ Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando
 | ml_subir_clip ✏️ / ml_borrar_clip ✏️ | Subir un clip por API (valida formato, duración y peso antes) y borrar los rechazados para resubir corregidos |
 | ml_version | Versión instalada, chequeo de actualizaciones y cómo actualizar |
 
-✏️ = escribe en tu tienda real. Claude siempre pide confirmación antes, y con `ML_SOLO_LECTURA=1` esas 7 herramientas directamente no existen.
+✏️ = escribe en tu tienda real. Claude siempre pide confirmación antes, y con `ML_SOLO_LECTURA=1` esas 8 herramientas directamente no existen.
 
 ## Varias tiendas
 

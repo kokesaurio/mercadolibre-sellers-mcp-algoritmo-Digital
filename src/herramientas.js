@@ -5,6 +5,7 @@ import { VERSION, chequearActualizacion } from './version.js';
 import { leerCerebro, saberDe, aprender, olvidar } from './cerebro.js';
 import { armarResultados, resultadosEnMarkdown, conectarDrive, desconectarDrive, configDrive, claveDrive, exportarADrive, detectarCarpetaDrive, CARPETA_NOMBRE } from './resultados.js';
 import { auditarItem } from './auditoria.js';
+import { faltantes, agrupar, preguntasRespondidas, armarDescripcion, INICIO as FAQ_INICIO } from './faq.js';
 import { estadoDB, leerMediciones, precioSinCambiosDesde, backupDB, RETENCION_DIAS, NODE_MINIMO } from './db.js';
 import { EQUIPO, IDS, etiqueta, resumenAlertas, resolverTrabajador, leerEquipo, asignarTarea, quitarTarea, tareasDe, actualizarEquipo, correrCiclo, leerBandeja, quienCorre, INTERVALO_MINIMO } from './trabajadores.js';
 import { leerVigilancia, agregarObjetivo, quitarObjetivo, claveDe, tomarSnapshot, compararSnapshots, guardarVigilancia, registrarHistorial, leerHistorial } from './vigilancia.js';
@@ -431,6 +432,63 @@ export const TOOLS = [
       const filas = auditorias.map((a) => `### ${a.semaforo} ${a.id} — ${a.titulo}\n` + (a.problemas.length ? a.problemas.map((p) => '- ' + p).join('\n') : '- Sin problemas detectados en el checklist básico'));
       const rojas = auditorias.filter((a) => a.semaforo === '🔴').length, amarillas = auditorias.filter((a) => a.semaforo === '🟡').length;
       return `# Auditoría de publicaciones (${auditorias.length})\n**${rojas} 🔴 urgentes · ${amarillas} 🟡 mejorables · ${auditorias.length - rojas - amarillas} 🟢 OK**\n\n` + filas.join('\n\n') + '\n\n¿Aplico alguna mejora? Decime cuál y la hago con tu confirmación (precio/stock/estado por acá; títulos solo si la publicación no tiene ventas; fotos y descripción van por tu panel).';
+    },
+  },
+  {
+    name: 'ml_faq_descripcion', title: 'Preguntas frecuentes en la descripción', readOnly: false,
+    description: 'Contempla las preguntas que te hacen los compradores en una publicación y las agrega a su descripción como "PREGUNTAS FRECUENTES", con TUS respuestas reales (nunca inventa). Agrupa las parecidas, prioriza las que más se repiten, descarta lo que cambia con el tiempo (stock, precio, cuotas, envíos) y toda respuesta con datos de contacto, y no repite lo que la descripción ya cubre. El bloque queda marcado: se puede actualizar cada quincena sin duplicar. Sin aplicar=true solo MUESTRA la propuesta; con aplicar=true modifica la descripción real (pedir confirmación antes). Con todas=true toma las publicaciones que Lucía marcó en su última auditoría.',
+    schema: { ...cuentaParam,
+      item_id: z.string().optional().describe('La publicación (MLA...)'),
+      todas: z.boolean().optional().describe('Todas las publicaciones que Lucía marcó con preguntas repetidas faltantes en su última auditoría'),
+      aplicar: z.boolean().optional().describe('true = escribir la descripción nueva en MercadoLibre (solo con confirmación explícita del vendedor)'),
+      min_veces: z.number().optional().describe('Mínimo de veces que se repitió una pregunta para entrar (default 2; 1 = todas las respondidas)'),
+      maximo: z.number().optional().describe('Máximo de preguntas en el bloque (default 8)'),
+    },
+    async run(args) {
+      const minVeces = Math.max(1, Math.round(args.min_veces ?? 2)), maximo = Math.min(Math.max(1, Math.round(args.maximo ?? 8)), 15);
+      let objetivos = [];
+      if (args.item_id) {
+        if (!/^[A-Z]{3}\d+$/i.test(args.item_id.trim())) return 'item_id inválido: tiene que ser como MLA123456789.';
+        objetivos = [{ id: args.item_id.trim().toUpperCase(), cuenta: args.cuenta }];
+      } else if (args.todas) {
+        const d = leerEquipo();
+        for (const [k, sn] of Object.entries(d.snapshots)) {
+          if (!k.startsWith('auditor|')) continue;
+          const cuentaTarea = (k.match(/@(\d+)$/) || [])[1];
+          if (args.cuenta && cuentaTarea && cuentaTarea !== String(args.cuenta)) continue;
+          for (const [id, x] of Object.entries(sn.datos.items || {})) if (x.codigos.includes('faq_faltante')) objetivos.push({ id, cuenta: cuentaTarea || args.cuenta });
+        }
+        objetivos = objetivos.filter((o, i, a) => a.findIndex((z) => z.id === o.id) === i).slice(0, 20);
+        if (!objetivos.length) return 'Lucía no marcó publicaciones con preguntas repetidas faltantes en su última auditoría (o todavía no auditó: ml_trabajadores accion=correr trabajador=Lucía).';
+      } else return 'Indicá item_id, o todas=true para las que marcó Lucía.';
+
+      const salida = [];
+      let aplicadas = 0;
+      for (const o of objetivos) {
+        const c = cliente({ cuenta: o.cuenta });
+        let actual = '';
+        try { actual = (await c.get(`/items/${o.id}/description`)).plain_text || ''; } catch {}
+        const preguntas = await preguntasRespondidas(c, o.id, { maximo: 200 });
+        const nuevas = faltantes(preguntas, actual, { minVeces, maximo });
+        if (!nuevas.length) {
+          salida.push(`### ${o.id}\n- ${preguntas.length ? `Revisé ${preguntas.length} pregunta(s) respondidas: ninguna se repite ${minVeces}+ veces sin estar ya cubierta en la descripción ✅` : 'Todavía no tiene preguntas respondidas.'}`);
+          continue;
+        }
+        const nueva = armarDescripcion(actual, nuevas, { todas: agrupar(preguntas) });
+        const total = (nueva.slice(nueva.indexOf(FAQ_INICIO)).match(/^¿/gm) || []).length;
+        const lista = nuevas.map((g) => `- **${g.pregunta}** (${g.veces} ${g.veces === 1 ? 'vez' : 'veces'}) → ${g.respuesta}`).join('\n');
+        if (!args.aplicar) {
+          salida.push(`### ${o.id} — ${nuevas.length} pregunta(s) para sumar\n${lista}\n\n<details><summary>Así quedaría el bloque al final de la descripción</summary>\n\n\`\`\`\n${nueva.slice(nueva.indexOf(FAQ_INICIO))}\n\`\`\`\n</details>`);
+          continue;
+        }
+        await c.put(`/items/${o.id}/description?api_version=2`, { plain_text: nueva });
+        aplicadas++;
+        salida.push(`### ✅ ${o.id} — descripción actualizada: ${nuevas.length} pregunta(s) nueva(s), ${total} en total en el bloque\n${lista}`);
+      }
+      const pie = args.aplicar
+        ? `\n\n${aplicadas} descripción(es) actualizada(s). La próxima auditoría de Lucía ya no las marca, y si aparecen preguntas nuevas el bloque se actualiza sin duplicar.`
+        : `\n\nEs una propuesta: no toqué nada. Las respuestas son las tuyas (limpias de saludos y firmas); descarté stock, precio, cuotas, envíos y cualquier dato de contacto. ¿Las aplico? (ml_faq_descripcion ${args.todas ? 'todas=true' : 'item_id=' + objetivos[0].id} aplicar=true)`;
+      return `# Preguntas frecuentes → descripción\n\n` + salida.join('\n\n') + pie;
     },
   },
   // ─────────────────────────────── Cerebro ───────────────────────────────

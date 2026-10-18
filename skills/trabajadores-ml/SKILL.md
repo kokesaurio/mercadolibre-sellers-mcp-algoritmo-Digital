@@ -17,7 +17,7 @@ Herramienta `ml_trabajadores` del conector de MercadoLibre de Algoritmo Digital
 | 📦 **Tomás** · Contador de ventas | ventas estimadas del rival (ritmo/día y $/mes), sin stock, pausas | 60 min | `panel-ventas-ml`, `reporte-ventas-ml`, `responder-preguntas-ml` |
 | 🏆 **Martina** · Vigía de búsquedas | top 50 de tus keywords: líder, precio líder y TU puesto (`mi_item`) | 60 min | `imagenes-ml`, `publicidad-ml` |
 | 🎯 **Bruno** · Cazador de rivales nuevos | vendedores que aparecen por primera vez en tus búsquedas | 3 h | `competencia-ml`, `revisar-publicaciones-aldi` |
-| 🩺 **Lucía** · Auditora de publicaciones | TODAS tus publicaciones activas: desactualizadas (60+ días sin tocar), precio congelado (45+ días) o fuera de mercado, sin stock, fotos pocas o chicas, sin marca/modelo, sin garantía, sin video, catálogo perdido | 15 días | `mejorar-publicaciones-ml`, `visualizador-publicaciones-ml`, `copiar-publicaciones-ml` |
+| 🩺 **Lucía** · Auditora de publicaciones | TODAS tus publicaciones activas: preguntas que te repiten y no están en la descripción, desactualizadas (60+ días sin tocar), precio congelado (45+ días) o fuera de mercado, sin stock, fotos pocas o chicas, sin marca/modelo, sin garantía, sin video, catálogo perdido | 15 días | `mejorar-publicaciones-ml`, `visualizador-publicaciones-ml`, `copiar-publicaciones-ml`, `faq-descripcion-ml` |
 | 📈 **Sofía** · Radar de tendencias | keywords que entran, salen o suben en tendencias | 12 h | `descubrir-ganadores-ml`, `video-publicaciones-ml`, `clips-ml`, `ugc-ml` |
 
 Si un trabajador no tiene tareas propias, vigila solo tus seguidos de
@@ -34,6 +34,11 @@ Si un trabajador no tiene tareas propias, vigila solo tus seguidos de
   días (con la base de datos), precio >15% arriba o >25% abajo de la mediana del
   mercado, fotos de menos de 800 px, falta marca/modelo, sin garantía; y la calidad
   de siempre (título, fotos, descripción, envío, stock, video, catálogo).
+- **Preguntas → descripción:** en cada publicación junta las preguntas respondidas,
+  agrupa las que se repiten (2+ veces) y marca las que la descripción no responde.
+  Avisa con ❓ y la skill `faq-descripcion-ml`: `ml_faq_descripcion todas=true`
+  muestra la propuesta de TODAS las marcadas y con `aplicar=true` (después del OK)
+  las agrega como "PREGUNTAS FRECUENTES" con las respuestas reales del vendedor.
 - `accion=correr trabajador=Lucía` audita YA (puede tardar unos minutos si tenés
   cientos de publicaciones). `accion=correr` sin nombre no la dispara.
 - `accion=resultados trabajador=Lucía` → tabla de todas, las peores primero.

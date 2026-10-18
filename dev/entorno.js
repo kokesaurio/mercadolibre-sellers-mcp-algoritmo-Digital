@@ -13,7 +13,23 @@ import path from 'node:path';
 const PUERTO = Number(process.env.MOCK_PORT || 9990);
 let refrescosHechos = 0;
 let demoraRefresh = 0;
-const planilla = { recibidos: [], respuestas: [], clave: null }; // Apps Script simulado // ms: simula un refresh lento para forzar carreras entre procesos
+const planilla = { recibidos: [], respuestas: [], clave: null }; // Apps Script simulado
+const descripciones = {}; const descripcionesPut = [];
+const hace = (dias) => new Date(Date.now() - dias * 86400000).toISOString();
+const preguntasPorItem = {
+  MLA111: [
+    { id: 1, text: 'Hola! ¿Qué medidas tiene?', status: 'ANSWERED', date_created: hace(40), answer: { text: 'Hola! Mide 27 cm de alto y 8,5 cm de diámetro. Saludos!', date_created: hace(40) } },
+    { id: 2, text: 'cuanto mide de alto??', status: 'ANSWERED', date_created: hace(10), answer: { text: 'Hola, buen día! Mide 27 cm de alto y 8,5 cm de diámetro. Gracias por tu consulta, quedamos a disposición', date_created: hace(10) } },
+    { id: 3, text: '¿Es apto lavavajillas?', status: 'ANSWERED', date_created: hace(30), answer: { text: 'Sí, es apto lavavajillas.', date_created: hace(30) } },
+    { id: 4, text: 'Se puede lavar en lavavajillas?', status: 'ANSWERED', date_created: hace(5), answer: { text: 'buenas! sí, se puede lavar en lavavajillas sin problema', date_created: hace(5) } },
+    { id: 5, text: '¿Tenés stock?', status: 'ANSWERED', date_created: hace(3), answer: { text: 'Sí, hay stock disponible.', date_created: hace(3) } },
+    { id: 6, text: '¿Hacen envíos a Córdoba?', status: 'ANSWERED', date_created: hace(4), answer: { text: 'Sí, enviamos a todo el país.', date_created: hace(4) } },
+    { id: 7, text: '¿Viene con caja?', status: 'ANSWERED', date_created: hace(6), answer: { text: 'Escribime al 11 5555-5555 y te cuento', date_created: hace(6) } },
+    { id: 8, text: '¿Viene en caja original?', status: 'ANSWERED', date_created: hace(7), answer: { text: 'Pasame tu whatsapp y te mando fotos', date_created: hace(7) } },
+    { id: 9, text: '¿Tiene garantía?', status: 'ANSWERED', date_created: hace(8), answer: { text: 'Sí, 6 meses de garantía del vendedor.', date_created: hace(8) } },
+    { id: 10, text: '¿Cuánto mide?', status: 'UNANSWERED', date_created: hace(1) },
+  ],
+}; // ms: simula un refresh lento para forzar carreras entre procesos
 let ultimoItemCreado = null;
 let versionRemota = '9.9.9';
 let itemMLA111 = { catalog_listing: true, category_id: 'MLA1055', price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', condition: 'new', listing_type_id: 'gold_special', permalink: 'https://articulo.mercadolibre.com.ar/x', pictures: [{ secure_url: 'https://http2.mlstatic.com/f1.jpg' }], attributes: [{ id: 'BRAND', value_name: 'Genérica' }], shipping: { logistic_type: 'fulfillment', free_shipping: true } };
@@ -85,7 +101,13 @@ export function crearMockMeli() {
   app.get('/users/:uid/items/search', auth, (_q, res) => res.json({ paging: { total: 2 }, results: ['MLA111', 'MLA222'] }));
   app.get('/items', auth, (req, res) => res.json(String(req.query.ids).split(',').map((id) => ({ code: 200, body: { id, title: 'Producto ' + id, price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', permalink: 'https://articulo.mercadolibre.com.ar/' + id, catalog_listing: id === 'MLA111' } }))));
   app.get('/items/:id', auth, (req, res) => res.json({ ...itemMLA111, id: req.params.id, title: 'Producto ' + req.params.id, ...(mercado.items?.[req.params.id] || {}) }));
-  app.get('/items/:id/description', auth, (_q, res) => res.json({ plain_text: 'Descripción original del producto.' }));
+  app.get('/items/:id/description', auth, (req, res) => res.json({ plain_text: descripciones[req.params.id] ?? 'Descripción original del producto.' }));
+  app.put('/items/:id/description', auth, (req, res) => {
+    if (typeof req.body?.plain_text !== 'string') return res.status(400).json({ message: 'falta plain_text' });
+    if (req.body.plain_text.length > 50000) return res.status(400).json({ message: 'descripción demasiado larga' });
+    descripciones[req.params.id] = req.body.plain_text; descripcionesPut.push({ id: req.params.id, query: req.query, texto: req.body.plain_text });
+    res.json({ plain_text: req.body.plain_text });
+  });
   app.post('/items', auth, (req, res) => {
     ultimoItemCreado = req.body;
     if (!req.body?.title || !req.body?.category_id) return res.status(400).json({ message: 'faltan campos' });
@@ -95,7 +117,14 @@ export function crearMockMeli() {
   app.put('/items/:id', auth, (req, res) => res.json({ id: req.params.id, price: req.body.price ?? 42000, currency_id: 'ARS', available_quantity: req.body.available_quantity ?? 10, status: req.body.status ?? 'active' }));
   app.get('/items/:id/visits/time_window', auth, (_q, res) => res.json({ total_visits: 340 }));
   app.get('/items/:id/price_to_win', auth, (_q, res) => res.json({ status: 'losing', current_price: 42000, price_to_win: 39900, boosts: [{ id: 'fulfillment' }] }));
-  app.get('/questions/search', auth, (_q, res) => res.json({ total: 1, questions: [{ id: 555, item_id: 'MLA111', text: '¿Tenés stock?' }] }));
+  app.get('/questions/search', auth, (req, res) => {
+    if (req.query.item) {
+      const todas = (preguntasPorItem[req.query.item] || []).filter((q) => !req.query.status || q.status === req.query.status);
+      const off = Number(req.query.offset || 0), lim = Number(req.query.limit || 50);
+      return res.json({ total: todas.length, questions: todas.slice(off, off + lim) });
+    }
+    res.json({ total: 1, questions: [{ id: 555, item_id: 'MLA111', text: '¿Tenés stock?' }] });
+  });
   app.post('/answers', auth, (req, res) => req.body?.question_id ? res.json({ ok: true }) : res.status(400).json({ message: 'falta question_id' }));
   app.get('/sites/MLA/listing_prices', auth, (_q, res) => res.json([{ listing_type_id: 'gold_special', listing_type_name: 'Clásica', sale_fee_amount: 5900, sale_fee_details: { percentage_fee: 14, fixed_fee: 0 } }]));
   app.get('/sites/MLA/search', auth, (req, res) => {
@@ -234,7 +263,8 @@ async function pruebas() {
     const { crearServidor } = await import('../src/servidor.js');
     crearServidor({ allowWrite: false }); // si registrara mal, tiraría; el conteo real se valida por stdio abajo
     const escrituras = TOOLS.filter((t) => !t.readOnly).map((t) => t.name);
-    if (escrituras.length !== 7) throw new Error('esperaba 7 herramientas de escritura, hay ' + escrituras.length);
+    if (escrituras.length !== 8) throw new Error('esperaba 8 herramientas de escritura, hay ' + escrituras.length);
+    if (!escrituras.includes('ml_faq_descripcion')) throw new Error('ml_faq_descripcion tiene que ser de escritura');
   });
   await caso('ml_vigilar agrega competidores y tendencias con primer registro', async () => {
     contiene(await tool('ml_vigilar').run({ accion: 'agregar', tipo: 'vendedor', ref: 'RIVAL', nota: 'mi competidor directo' }), 'Agregado', 'RIVAL');
@@ -629,6 +659,74 @@ async function pruebas() {
     const ts = tr.tareasDe(d, 'auditor');
     if (ts.length !== 1 || ts[0].cuenta !== '888') throw new Error('con tarea propia debería auditar solo esa tienda: ' + JSON.stringify(ts));
     contiene(await T.run({ accion: 'quitar', trabajador: 'Lucía', ref: 'tienda 888' }), 'dejó la tarea');
+  });
+
+  // ───────────── Preguntas de compradores → preguntas frecuentes en la descripción ─────────────
+  const fq = await import('../src/faq.js');
+  const FAQ = tool('ml_faq_descripcion');
+  await caso('faq: limpia saludos y firmas, descarta datos de contacto, stock, precio y envíos', async () => {
+    if (fq.limpiarRespuesta('Hola, buen día! Mide 27 cm. Gracias por tu consulta, quedamos a disposición') !== 'Mide 27 cm.') throw new Error('no limpió: ' + fq.limpiarRespuesta('Hola, buen día! Mide 27 cm. Gracias por tu consulta, quedamos a disposición'));
+    for (const r of ['Escribime al 11 5555-5555', 'mandame un mail a x@y.com', 'mirá www.mitienda.com', 'pasame tu whatsapp', 'seguinos en instagram']) if (fq.limpiarRespuesta(r) !== null) throw new Error('dejó pasar contacto: ' + r);
+    const g = fq.agrupar(preguntasPorItem.MLA111);
+    const temas = g.map((x) => x.tema);
+    if (!temas.includes('medidas') || !temas.includes('uso')) throw new Error('no agrupó por tema: ' + temas);
+    if (g.find((x) => x.tema === 'medidas').veces !== 2 || g.find((x) => x.tema === 'uso').veces !== 2) throw new Error('no contó las repetidas escritas distinto');
+    if (g.some((x) => /stock|env[ií]o|caja/i.test(x.pregunta))) throw new Error('incluyó stock/envío/contacto: ' + g.map((x) => x.pregunta));
+    if (g.some((x) => /Hola|Saludos|consulta/i.test(x.respuesta))) throw new Error('dejó saludos en la respuesta');
+  });
+  await caso('faq: lo que la descripción ya cubre no se repite', async () => {
+    const pre = preguntasPorItem.MLA111;
+    if (fq.faltantes(pre, 'Termo de acero. Medidas: 27 cm de alto.').some((g) => g.tema === 'medidas')) throw new Error('repitió medidas ya cubiertas');
+    if (!fq.faltantes(pre, 'Termo de acero.').some((g) => g.tema === 'medidas')) throw new Error('no detectó medidas faltantes');
+  });
+  await caso('faq: la propuesta usa TUS respuestas y no toca nada sin aplicar', async () => {
+    descripcionesPut.length = 0;
+    const t = await FAQ.run({ item_id: 'MLA111' });
+    contiene(t, '2 pregunta(s) para sumar', 'medidas', '27 cm de alto', 'lavavajillas', '2 veces', 'PREGUNTAS FRECUENTES', 'no toqué nada', 'aplicar=true');
+    if (t.includes('5555') || /stock disponible|todo el país/.test(t)) throw new Error('la propuesta trae contacto/stock/envío');
+    if (descripcionesPut.length) throw new Error('escribió sin aplicar=true');
+  });
+  await caso('faq: Lucía las detecta en la auditoría y lo avisa con su skill', async () => {
+    const t = await T.run({ accion: 'correr', trabajador: 'Lucía' });
+    contiene(t, 'con preguntas repetidas que faltan en la descripción');
+    const al = tr.alertasRecientes({ trabajador: 'auditor' });
+    if (!al.some((a) => a.skill === 'faq-descripcion-ml' && a.texto.includes('MLA111') && a.texto.includes('no están en su descripción'))) throw new Error('Lucía no avisó con la skill de preguntas frecuentes');
+    const sn = Object.entries(tr.leerEquipo().snapshots).find(([k]) => k.startsWith('auditor|'))[1];
+    if (!sn.datos.items.MLA111.codigos.includes('faq_faltante')) throw new Error('la auditoría no marcó faq_faltante en MLA111');
+    contiene(await tool('ml_auditar_publicaciones').run({}), 'no están en la descripción', 'ml_faq_descripcion');
+    contiene(await T.run({ accion: 'equipo', trabajador: 'Lucía' }), 'faq-descripcion-ml');
+  });
+  await caso('faq: aplicar todas las que marcó Lucía escribe el bloque en la descripción real', async () => {
+    descripcionesPut.length = 0;
+    const t = await FAQ.run({ todas: true, aplicar: true });
+    contiene(t, '✅ MLA111', 'descripción actualizada', '2 pregunta(s) nueva(s)');
+    const put = descripcionesPut.find((x) => x.id === 'MLA111');
+    if (!put) throw new Error('no escribió en ML');
+    if (put.query.api_version !== '2') throw new Error('no usó api_version=2');
+    contiene(put.texto, 'Descripción original del producto.', 'PREGUNTAS FRECUENTES', '27 cm de alto', 'lavavajillas', '(Fin de preguntas frecuentes)');
+    if (/Hola|Saludos|5555|whatsapp|stock/i.test(put.texto)) throw new Error('el bloque tiene saludos/contacto/stock');
+  });
+  await caso('faq: después de aplicar, Lucía ya no la marca y re-aplicar no duplica', async () => {
+    await T.run({ accion: 'correr', trabajador: 'Lucía' });
+    const r = await T.run({ accion: 'resultados', trabajador: 'Lucía' });
+    const filaMLA111 = r.split('\n').find((l) => l.startsWith('| MLA111'));
+    if (/no están en la descripción/.test(filaMLA111 || '')) throw new Error('Lucía la sigue marcando');
+    descripcionesPut.length = 0;
+    contiene(await FAQ.run({ item_id: 'MLA111', aplicar: true }), 'ya cubierta');
+    if (descripcionesPut.length) throw new Error('reescribió sin nada nuevo');
+  });
+  await caso('faq: una pregunta nueva se suma al bloque existente, sin perder las anteriores ni duplicarlo', async () => {
+    preguntasPorItem.MLA111.push({ id: 11, text: '¿Cuánto tiempo de garantía tiene?', status: 'ANSWERED', date_created: hace(1), answer: { text: 'Hola! 6 meses de garantía del vendedor. Saludos', date_created: hace(1) } });
+    contiene(await FAQ.run({ item_id: 'MLA111', aplicar: true }), '1 pregunta(s) nueva(s), 3 en total');
+    const d = descripcionesPut.at(-1).texto;
+    if (d.split('PREGUNTAS FRECUENTES').length !== 2) throw new Error('duplicó el bloque');
+    contiene(d, '27 cm de alto', 'lavavajillas', '6 meses de garantía');
+    if (fq.armarDescripcion(d, fq.faltantes(preguntasPorItem.MLA111, d)) !== d) throw new Error('armar de nuevo cambió la descripción (no es idempotente)');
+  });
+  await caso('faq: valida item_id y respeta el límite de 50.000 caracteres de ML', async () => {
+    contiene(await FAQ.run({ item_id: 'x;DROP' }), 'item_id inválido');
+    let msg = ''; try { fq.armarDescripcion('x'.repeat(49990), [{ pregunta: '¿Medidas?', respuesta: 'Mide 27 cm.' }]); } catch (e) { msg = e.message; }
+    contiene(msg, '50000');
   });
 
   // ───────────── Base de datos del equipo (SQLite que viene con Node) ─────────────

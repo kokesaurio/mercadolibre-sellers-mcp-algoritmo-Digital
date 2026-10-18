@@ -27,6 +27,13 @@ Con varias tiendas, resolvé la cuenta con `ml_cuentas`.
    confirmación explícita de ese texto exacto en esta conversación.
 5. Cerrar con el resumen: respondidas, pendientes que quedaron y por qué.
 
+## ❓ Que no te lo vuelvan a preguntar
+Si al despachar ves que una pregunta ya se respondió otras veces (medidas, material,
+qué incluye, compatibilidad, garantía…), proponé al final: "esta pregunta se
+repite, ¿la sumo a la descripción como pregunta frecuente?" → `ml_faq_descripcion
+item_id=…` (muestra la propuesta; aplica con su OK). Detalle en la skill
+faq-descripcion-ml.
+
 ## 🧠 Guardar lo aprendido
 Las preguntas repetidas son conocimiento: si la respuesta aprobada contiene un
 dato durable del producto (medidas, qué incluye, compatibilidad), ofrecer
