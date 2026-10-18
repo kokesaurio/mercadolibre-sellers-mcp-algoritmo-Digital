@@ -1,6 +1,6 @@
 ---
 name: trabajadores-ml
-description: El equipo de 5 trabajadores que vigilan MercadoLibre solos y constantemente — Vera (precios), Tomás (ventas de rivales y quiebres de stock), Martina (ranking en búsquedas), Bruno (rivales nuevos) y Sofía (tendencias). Darles tareas, ver qué encontraron y despachar cada alerta a la skill que maneja ese trabajador. Usar cuando pidan "poné a vigilar", "resultados del equipo", "mandalo a Drive", "conectá la planilla", "dale una tarea a Vera", "¿qué encontraron los trabajadores?", "informe del equipo", "vigilá 24/7" o nombren a cualquiera del equipo.
+description: El equipo de 5 trabajadores que vigilan MercadoLibre solos y constantemente — Vera (precios), Tomás (ventas de rivales y quiebres de stock), Martina (ranking en búsquedas), Bruno (rivales nuevos) y Sofía (tendencias). Darles tareas, ver qué encontraron y despachar cada alerta a la skill que maneja ese trabajador. Usar cuando pidan "poné a vigilar", "resultados del equipo", "mandalo a Drive", "conectá la planilla", "historial de", "cómo evolucionó", "estado de la base", "backup", "dale una tarea a Vera", "¿qué encontraron los trabajadores?", "informe del equipo", "vigilá 24/7" o nombren a cualquiera del equipo.
 ---
 
 # Equipo de trabajadores 24/7
@@ -66,17 +66,32 @@ tabla por trabajador con los datos de su último control:
 Arrancar siempre por "Lo importante" (una línea por trabajador) y cerrar con
 máximo 3 acciones, cada una con la skill del trabajador que la resuelve.
 
+## La base de datos del equipo (historial)
+Todo lo que miden y avisan queda en **SQLite que viene con Node** (archivo
+`equipo.db`, cero instalación — ideal Windows). 400 días de historial.
+- `ml_trabajadores accion=historial ref=MLA123` (o `trabajador=Martina`, `dias=90`)
+  → día por día: precio rival vs el tuyo (Vera), vendió ese día y ritmo/$ por mes
+  (Tomás), tu puesto y líderes (Martina), vendedores en el top (Bruno), top 3 de
+  tendencias (Sofía), con mínimo, máximo y variación del período.
+- Usalo para decisiones con datos: "¿este rival baja siempre los viernes?",
+  "¿desde cuándo perdí puestos?", "¿cuánto vende de verdad por mes?".
+- `accion=base` → dónde está, cuánto ocupa, cuántas mediciones; `backup=true` hace
+  una copia consistente aunque el equipo esté trabajando.
+- Si dice "no activa": el Node es viejo. En Windows: `winget install
+  OpenJS.NodeJS.LTS` y reabrir Claude. No hay que instalar ninguna base aparte.
+  Mientras tanto el equipo funciona igual, sin historial.
+
 ## Google Drive (resultados afuera de Claude, solos)
 `ml_trabajadores accion=drive` muestra el estado y los pasos. Dos caminos
 (se pueden usar juntos):
 - **Planilla de Google en vivo (recomendada, 24/7):** el vendedor crea una
   planilla, pega `docs/drive/planilla-equipo.gs` en Extensiones → Apps Script con
   la CLAVE que le da la herramienta, implementa como App web y te pasa la URL
-  `/exec` → `accion=drive url=...`. Resultado: pestaña "Alertas" con el
-  historial + una pestaña por trabajador que se reescribe en cada control.
+  `/exec` → `accion=drive url=...`. Resultado: pestaña "Alertas", pestaña
+  "Historial" (60 días de la base) + una pestaña por trabajador que se reescribe en cada control.
 - **Carpeta de Drive para escritorio:** `accion=drive carpeta=auto` (o la ruta,
   ej. `G:\Mi unidad`) → carpeta "MercadoLibre - Equipo de trabajadores" con
-  Alertas.csv, un CSV por trabajador y "Resumen del equipo.md".
+  Alertas.csv, Historial.csv, un CSV por trabajador y "Resumen del equipo.md".
 - Probar: `accion=drive probar=true` · Desconectar: `accion=drive quitar=todo`.
 - Si en esta conversación de Claude está el conector de Google Drive, también
   podés guardar ahí el informe o los resultados como documento cuando el

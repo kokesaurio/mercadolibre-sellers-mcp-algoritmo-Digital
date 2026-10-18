@@ -8,13 +8,15 @@
 //   1. Mientras Claude está abierto: el propio conector los despierta cada minuto.
 //   2. 24/7 con la PC prendida: `npx -y github:... trabajadores` (o `trabajadores
 //      instalar` para que arranquen solos al iniciar sesión).
-// Lo que encuentran va a una bandeja local que se lee con ml_trabajadores informe.
+// Lo que encuentran (alertas + cada medición) va a la base SQLite equipo.db (ver db.js),
+// que se consulta con ml_trabajadores informe / resultados / historial / base.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { MeliClient } from './meli.js';
 import { leerVigilancia, claveDe, tomarSnapshot, compararSnapshots } from './vigilancia.js';
+import * as base from './db.js';
 
 const DIR = () => process.env.MELI_CONFIG_DIR || path.join(os.homedir(), '.meli-sellers-mcp');
 const ARCHIVO = () => path.join(DIR(), 'trabajadores.json');
@@ -289,7 +291,7 @@ async function correrTarea(trabajador, t, d, c, sitio) {
   // Tomás guarda desde cuándo vigila cada publicación para calcular el ritmo real de ventas
   if (trabajador === 'ventas') nuevo.datos.base = viejo?.datos?.base || (viejo ? { t: viejo.t, vendidos: viejo.datos.vendidos } : { t: nuevo.t, vendidos: nuevo.datos.vendidos });
   d.snapshots[clave] = nuevo;
-  return { primera: !viejo, alertas };
+  return { primera: !viejo, alertas, medicion: { t: nuevo.t, trabajador, tarea: t, datos: nuevo.datos } };
 }
 
 const sitioCache = new Map();
@@ -307,12 +309,12 @@ async function sitioDe(c, cuenta) {
  * @param {(a:object)=>void} [o.alAvisar] callback por cada alerta (consola, webhook)
  * @returns {Promise<{corridos:string[], alertas:object[], errores:string[], primeros:number}>}
  */
-export async function correrCiclo({ solo, forzar = false, alAvisar } = {}) {
+export async function correrCiclo({ solo, forzar = false, alAvisar, modo = 'manual' } = {}) {
   const ahora = Date.now();
   const d = leerEquipo(); // copia de trabajo: snapshots y vistos se escriben al final
   const ids = (solo?.length ? solo : IDS).filter((id) => EQUIPO[id]);
   const res = { corridos: [], alertas: [], errores: [], primeros: 0 };
-  const hechos = {};
+  const hechos = {}, mediciones = [], controles = [];
   for (const id of ids) {
     const w = d.trabajadores[id];
     if (!forzar && (!w.activo || (w.ultimo && ahora - w.ultimo < w.intervalo * 60000))) continue;
@@ -324,6 +326,7 @@ export async function correrCiclo({ solo, forzar = false, alAvisar } = {}) {
         const c = new MeliClient({ userId: t.cuenta });
         const r = await correrTarea(id, t, d, c, await sitioDe(c, t.cuenta));
         if (r.primera) res.primeros++;
+        mediciones.push(r.medicion);
         for (const a of r.alertas) {
           const alerta = { t: Date.now(), trabajador: id, ref: t.ref, nivel: a.nivel, texto: a.texto, ...(a.skill ? { skill: a.skill } : {}), leida: false };
           res.alertas.push(alerta);
@@ -336,14 +339,24 @@ export async function correrCiclo({ solo, forzar = false, alAvisar } = {}) {
       await pausa(Number(process.env.ML_TRABAJADORES_PAUSA_MS ?? 400)); // amable con la API
     }
     hechos[id] = { ultimo: ahora, ultimoError: error };
+    controles.push({ t: ahora, trabajador: id, tareas: tareas.length, alertas: res.alertas.filter((a) => a.trabajador === id).length, error, modo });
     res.corridos.push(id);
   }
-  // Guardar fusionando sobre el estado ACTUAL (la config pudo cambiar mientras corríamos)
+  // 1) La base de datos: alertas + historial de mediciones + registro de controles
+  let enBase = false;
+  try {
+    if (base.db()) {
+      migrarSiHaceFalta();
+      base.guardarAlertas(res.alertas); base.registrarMediciones(mediciones); base.registrarControles(controles);
+      enBase = true;
+    }
+  } catch (e) { res.errores.push('Base de datos: ' + e.message + ' (las alertas quedaron en el archivo de respaldo)'); }
+  // 2) Guardar fusionando sobre el estado ACTUAL (la config pudo cambiar mientras corríamos)
   actualizarEquipo((fresco) => {
     for (const [k, v] of Object.entries(d.snapshots)) fresco.snapshots[k] = v;
     for (const [k, v] of Object.entries(d.vistos)) fresco.vistos[k] = v;
     for (const [id, h] of Object.entries(hechos)) Object.assign(fresco.trabajadores[id], h);
-    fresco.bandeja.push(...res.alertas);
+    if (!enBase) fresco.bandeja.push(...res.alertas); // respaldo si este Node no trae SQLite
     if (fresco.bandeja.length > MAX_BANDEJA) fresco.bandeja.splice(0, fresco.bandeja.length - MAX_BANDEJA);
   });
   // Resultados a Google Drive (si está configurado). Best-effort: nunca frena al equipo.
@@ -354,7 +367,32 @@ export async function correrCiclo({ solo, forzar = false, alAvisar } = {}) {
   return res;
 }
 
+// Las alertas que estaban en el JSON (versiones ≤ 1.15) pasan a la base una sola vez
+export function migrarSiHaceFalta() {
+  if (!base.db()) return 0;
+  const d = leerEquipo();
+  if (!d.bandeja.length) return 0;
+  const n = base.migrarBandeja(d.bandeja);
+  actualizarEquipo((f) => { f.bandeja = []; });
+  return n;
+}
+
+/** Conteo de alertas de un trabajador (desde la base o, sin SQLite, desde el JSON). */
+export function resumenAlertas(id, d = leerEquipo()) {
+  try { if (base.db()) { migrarSiHaceFalta(); return base.contarAlertas(id); } } catch {}
+  const ahora = Date.now(), al = d.bandeja.filter((a) => a.trabajador === id);
+  return { sinLeer: al.filter((a) => !a.leida).length, h24: al.filter((a) => ahora - a.t < 86400000).length, d7: al.filter((a) => ahora - a.t < 7 * 86400000).length, urgentes7: al.filter((a) => a.nivel === 'alta' && ahora - a.t < 7 * 86400000).length };
+}
+
+/** Alertas de los últimos días (sin marcarlas leídas), para resultados e informes. */
+export function alertasRecientes({ trabajador, ref, dias = 7 } = {}) {
+  try { if (base.db()) { migrarSiHaceFalta(); return base.leerAlertas({ todas: true, marcar: false, trabajador, ref, dias }); } } catch {}
+  const corte = Date.now() - dias * 86400000;
+  return leerEquipo().bandeja.filter((a) => a.t >= corte && (!trabajador || a.trabajador === trabajador) && (!ref || a.ref === ref));
+}
+
 export function leerBandeja({ todas = false, marcar = true, trabajador } = {}) {
+  try { if (base.db()) { migrarSiHaceFalta(); return base.leerAlertas({ todas, marcar, trabajador }); } } catch {}
   return actualizarEquipo((d) => {
     const sel = d.bandeja.filter((a) => (todas || !a.leida) && (!trabajador || a.trabajador === trabajador));
     if (marcar) for (const a of sel) a.leida = true;
@@ -409,7 +447,7 @@ export function arrancarBucle({ modo = 'conector', alAvisar, cadaMs = 60000, alE
     if (corriendo || detenido) return;
     if (!tomarCandado(modo)) return;
     corriendo = true;
-    try { await correrCiclo({ alAvisar }); } catch {} finally { corriendo = false; if (!detenido) tomarCandado(modo); }
+    try { await correrCiclo({ alAvisar, modo }); } catch {} finally { corriendo = false; if (!detenido) tomarCandado(modo); }
   };
   const latido = setInterval(() => { if (!detenido && quienCorre()?.pid === process.pid) tomarCandado(modo); }, 60000);
   const timer = setInterval(tic, cadaMs);

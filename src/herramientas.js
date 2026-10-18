@@ -4,7 +4,8 @@ import { MeliClient, MeliError, listarCuentas, urlDeAutorizacion, canjearCode, b
 import { VERSION, chequearActualizacion } from './version.js';
 import { leerCerebro, saberDe, aprender, olvidar } from './cerebro.js';
 import { armarResultados, resultadosEnMarkdown, conectarDrive, desconectarDrive, configDrive, claveDrive, exportarADrive, detectarCarpetaDrive, CARPETA_NOMBRE } from './resultados.js';
-import { EQUIPO, IDS, etiqueta, resolverTrabajador, leerEquipo, asignarTarea, quitarTarea, tareasDe, actualizarEquipo, correrCiclo, leerBandeja, quienCorre, INTERVALO_MINIMO } from './trabajadores.js';
+import { estadoDB, leerMediciones, backupDB, RETENCION_DIAS, NODE_MINIMO } from './db.js';
+import { EQUIPO, IDS, etiqueta, resumenAlertas, resolverTrabajador, leerEquipo, asignarTarea, quitarTarea, tareasDe, actualizarEquipo, correrCiclo, leerBandeja, quienCorre, INTERVALO_MINIMO } from './trabajadores.js';
 import { leerVigilancia, agregarObjetivo, quitarObjetivo, claveDe, tomarSnapshot, compararSnapshots, guardarVigilancia, registrarHistorial, leerHistorial } from './vigilancia.js';
 
 const money = (n, moneda = '$') => n == null ? '—' : `${moneda} ${Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
@@ -820,9 +821,9 @@ export const TOOLS = [
   // ───────────────────── El equipo de trabajadores 24/7 ─────────────────────
   {
     name: 'ml_trabajadores', title: 'Equipo de trabajadores (vigilancia constante)', readOnly: true,
-    description: 'El equipo de 5 trabajadores que vigilan solos y constantemente a tus seguidos (rivales, productos, búsquedas y tendencias): 🕵️ Vera (precios), 📦 Tomás (ventas de rivales y quiebres de stock), 🏆 Martina (ranking en búsquedas y tu puesto), 🎯 Bruno (rivales nuevos) y 📈 Sofía (tendencias). Cada uno tiene sus skills a cargo y cada alerta recomienda qué skill correr. Envían sus resultados a Google Drive (planilla en vivo o carpeta de Drive). Acciones: equipo (estado de todos), asignar (darle una tarea), quitar, pausar, activar, frecuencia (minutos), correr (que trabajen ya), informe (alertas nuevas), resultados (tablas con todo lo que sabe cada uno), drive (conectar Google Drive). Se puede nombrar al trabajador por su nombre (Vera) o puesto (precios). Si un trabajador no tiene tareas propias vigila tus seguidos de ml_vigilar de su tipo.',
+    description: 'El equipo de 5 trabajadores que vigilan solos y constantemente a tus seguidos (rivales, productos, búsquedas y tendencias): 🕵️ Vera (precios), 📦 Tomás (ventas de rivales y quiebres de stock), 🏆 Martina (ranking en búsquedas y tu puesto), 🎯 Bruno (rivales nuevos) y 📈 Sofía (tendencias). Cada uno tiene sus skills a cargo y cada alerta recomienda qué skill correr. Guardan todo en una base de datos SQLite local (equipo.db, viene con Node: cero instalación, ideal Windows) y envían sus resultados a Google Drive (planilla en vivo o carpeta de Drive). Acciones: equipo (estado de todos), asignar (darle una tarea), quitar, pausar, activar, frecuencia (minutos), correr (que trabajen ya), informe (alertas nuevas), resultados (tablas con todo lo que sabe cada uno), historial (evolución día por día de un rival/keyword), base (la base de datos: estado y backup), drive (conectar Google Drive). Se puede nombrar al trabajador por su nombre (Vera) o puesto (precios). Si un trabajador no tiene tareas propias vigila tus seguidos de ml_vigilar de su tipo.',
     schema: { ...cuentaParam,
-      accion: z.enum(['equipo', 'asignar', 'quitar', 'pausar', 'activar', 'frecuencia', 'correr', 'informe', 'resultados', 'drive']).describe('Qué hacer. resultados = las tablas con lo que sabe cada trabajador (precio rival vs el tuyo, ritmo de ventas, tu puesto, rivales nuevos, top de tendencias). drive = conectar/ver/probar el envío a Google Drive'),
+      accion: z.enum(['equipo', 'asignar', 'quitar', 'pausar', 'activar', 'frecuencia', 'correr', 'informe', 'resultados', 'historial', 'base', 'drive']).describe('Qué hacer. historial = evolución día por día de un objetivo (precio, ventas por día, puesto, líder) desde la base de datos. base = estado de la base de datos del equipo y backup. resultados = las tablas con lo que sabe cada trabajador (precio rival vs el tuyo, ritmo de ventas, tu puesto, rivales nuevos, top de tendencias). drive = conectar/ver/probar el envío a Google Drive'),
       trabajador: z.string().optional().describe('Vera/precios, Tomás/ventas, Martina/ranking, Bruno/rivales, Sofía/tendencias, o "todos"'),
       tipo: z.enum(['vendedor', 'publicacion', 'busqueda', 'tendencias']).optional().describe('Se deduce solo según el trabajador; Vera acepta vendedor o publicacion'),
       ref: z.string().optional().describe('item_id rival, nickname/id del vendedor, palabra clave, o categoría (tendencias)'),
@@ -833,6 +834,8 @@ export const TOOLS = [
       todas: z.boolean().optional().describe('informe: incluir también las alertas ya leídas'),
       url: z.string().optional().describe('drive: URL de la app web de Apps Script de tu planilla (https://script.google.com/macros/s/.../exec)'),
       carpeta: z.string().optional().describe('drive: carpeta de Google Drive para escritorio en esta PC (ej: G:\\Mi unidad) o "auto" para detectarla'),
+      dias: z.number().optional().describe('historial: cuántos días hacia atrás (default 30, máx 400)'),
+      backup: z.boolean().optional().describe('base: hacer una copia de seguridad de la base ahora'),
       probar: z.boolean().optional().describe('drive: enviar ahora los resultados para probar'),
       quitar: z.enum(['todo', 'script', 'carpeta']).optional().describe('drive: desconectar el envío'),
     },
@@ -857,7 +860,7 @@ export const TOOLS = [
         const bloques = objetivo.map((id) => {
           const w = d.trabajadores[id], e = EQUIPO[id];
           const tareas = tareasDe(d, id), propias = tareas.filter((t) => !t.deLista), heredadas = tareas.length - propias.length;
-          const sinLeer = d.bandeja.filter((a) => a.trabajador === id && !a.leida).length;
+          const sinLeer = resumenAlertas(id, d).sinLeer;
           const prox = w.activo && w.ultimo ? w.ultimo + w.intervalo * 60000 : null;
           return [`### ${etiqueta(id)} — ${w.activo ? '🟢 activo' : '⏸️ en pausa'} · cada ${w.intervalo} min`,
             `_${e.oficio}_`,
@@ -870,7 +873,9 @@ export const TOOLS = [
         const lineaDrive = dv.script || dv.carpeta
           ? `📁 Google Drive: ${[dv.script ? 'planilla en vivo' : '', dv.carpeta ? 'carpeta ' + dv.carpeta : ''].filter(Boolean).join(' + ')} · último envío ${hora(dv.ultimo)}${dv.ultimoError ? ' · ⚠️ ' + dv.ultimoError : ''}`
           : '📁 Google Drive: sin conectar (ml_trabajadores accion=drive)';
-        return `# Equipo de trabajadores\n${modo}\n${lineaDrive}\n\n` + bloques.join('\n\n') + '\n\nDales tareas con ml_trabajadores accion=asignar (ej: trabajador=Vera ref=MLA123 mi_item=TU_ITEM umbral=3) y leé lo que encontraron con accion=informe.';
+        const eb = estadoDB();
+        const lineaBase = eb.activa ? `🗄️ Base de datos: ${eb.mediciones.n.toLocaleString('es-AR')} mediciones y ${eb.alertas.n.toLocaleString('es-AR')} alertas guardadas (accion=base)` : `🗄️ Base de datos: no activa — ${eb.motivo} (accion=base)`;
+        return `# Equipo de trabajadores\n${modo}\n${lineaBase}\n${lineaDrive}\n\n` + bloques.join('\n\n') + '\n\nDales tareas con ml_trabajadores accion=asignar (ej: trabajador=Vera ref=MLA123 mi_item=TU_ITEM umbral=3) y leé lo que encontraron con accion=informe.';
       }
 
       if (args.accion === 'asignar') {
@@ -919,6 +924,76 @@ export const TOOLS = [
           `\n\n${dv.script || dv.carpeta ? '📁 Estas mismas tablas están en tu Google Drive (se actualizan en cada control).' : '📁 ¿Las querés en Google Drive, actualizadas solas? ml_trabajadores accion=drive.'}`;
       }
 
+      if (args.accion === 'base') {
+        const e = estadoDB();
+        if (!e.activa) return [`# Base de datos del equipo — ⚪ no activa`,
+          `Motivo: ${e.motivo}.`,
+          `El equipo sigue funcionando igual (con el archivo de siempre), pero sin historial.`,
+          `**Cómo activarla en Windows (1 comando, 2 minutos):** abrí PowerShell y corré \`winget install OpenJS.NodeJS.LTS\`, cerrá y volvé a abrir Claude. No hay que instalar ninguna base de datos aparte: SQLite viene adentro de Node ${NODE_MINIMO}+.`].join('\n');
+        let extra = '';
+        if (args.backup) extra = `\n\n✅ Backup hecho: \`${backupDB()}\` (copia completa y consistente, aunque el equipo esté trabajando).`;
+        const f = (t) => t ? new Date(t).toLocaleDateString('es-AR') : '—';
+        const mb = (e.bytes / 1048576).toFixed(2);
+        return [`# Base de datos del equipo — 🟢 activa`,
+          `- **Archivo:** \`${e.ruta}\` (${mb} MB · SQLite ${e.sqlite}, viene con Node: nada que instalar)`,
+          `- **Mediciones:** ${e.mediciones.n.toLocaleString('es-AR')} de ${e.objetivos} objetivo(s) · desde ${f(e.mediciones.desde)} hasta ${f(e.mediciones.hasta)}`,
+          `- **Alertas guardadas:** ${e.alertas.n.toLocaleString('es-AR')} · **Controles registrados:** ${e.controles.n.toLocaleString('es-AR')}`,
+          `- **Se guarda:** ${RETENCION_DIAS} días de historial (lo más viejo se limpia solo, una vez por día)`,
+          `- **Ver la base por dentro (opcional, Windows):** \`winget install -e --id DBBrowserForSQLite.DBBrowserForSQLite\` y abrí el archivo de arriba. Tablas: alertas, mediciones, controles.`,
+          `- **Backup:** ml_trabajadores accion=base backup=true (o copiá el archivo con Claude cerrado).`].join('\n') + extra;
+      }
+
+      if (args.accion === 'historial') {
+        const e = estadoDB();
+        if (!e.activa) return `El historial necesita la base de datos del equipo (${e.motivo}). Mirá ml_trabajadores accion=base para activarla en 2 minutos.`;
+        if (!args.ref && !quien) return 'Decime qué objetivo (ref: item_id, vendedor o keyword) o de qué trabajador querés el historial.';
+        const dias = Math.min(Math.max(1, Math.round(args.dias ?? 30)), RETENCION_DIAS);
+        const ms = leerMediciones({ ref: args.ref?.trim(), trabajador: quien || undefined, dias });
+        if (!ms.length) return `Sin mediciones de ${args.ref ? '"' + args.ref + '"' : etiqueta(quien)} en los últimos ${dias} días. ¿Está asignado a algún trabajador? (accion=equipo)`;
+        const din = (n) => n == null ? '—' : '$ ' + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+        const dia = (t) => new Date(t).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+        const bloques = [];
+        const grupos = {};
+        for (const m of ms) (grupos[m.trabajador + '|' + m.ref] ||= []).push(m);
+        for (const [k, lista] of Object.entries(grupos)) {
+          const [id, ref] = k.split('|');
+          // un punto por día (el último del día), y el primero de todos para tener la base
+          const porDia = new Map();
+          for (const m of lista) porDia.set(new Date(m.t).toDateString(), m);
+          const pts = [...porDia.values()];
+          const primero = lista[0], ultimo = lista[lista.length - 1];
+          let cab, fila, resumen = '';
+          if (id === 'precios') {
+            cab = ['Día', 'Precio rival', 'Tu precio', 'Situación'];
+            fila = (m) => [dia(m.t), din(m.precio), din(m.mi_precio), m.mi_precio == null ? '—' : m.precio < m.mi_precio ? '🔴 más barato' : '🟢 vos más barato'];
+            const ps = lista.map((m) => m.precio).filter((n) => n > 0);
+            if (ps.length) resumen = `Mínimo ${din(Math.min(...ps))} · máximo ${din(Math.max(...ps))} · hoy ${din(ultimo.precio)}${primero.precio ? ` (${ultimo.precio >= primero.precio ? '↑' : '↓'} ${Math.abs(((ultimo.precio - primero.precio) / primero.precio) * 100).toFixed(1)}% en el período)` : ''}`;
+          } else if (id === 'ventas') {
+            cab = ['Día', 'Precio', 'Vendidos (acum.)', 'Vendió ese día', 'Stock', 'Estado'];
+            let ant = primero.vendidos;
+            fila = (m) => { const v = m.vendidos != null && ant != null ? Math.max(0, m.vendidos - ant) : null; ant = m.vendidos ?? ant; return [dia(m.t), din(m.precio), m.vendidos ?? '—', v ?? '—', m.stock ?? '—', m.stock === 0 ? 'SIN STOCK' : m.estado ?? '—']; };
+            const total = (ultimo.vendidos ?? 0) - (primero.vendidos ?? 0);
+            const d = (ultimo.t - primero.t) / 86400000;
+            resumen = `Vendió ~${Math.max(0, total)} u. en ${d < 1 ? Math.round(d * 24) + ' h' : d.toFixed(1) + ' días'}${d >= 0.04 ? ` → ≈ ${(total / d).toFixed(1)} u./día, ≈ ${din((total / d) * 30 * (ultimo.precio || 0))}/mes` : ''}`;
+          } else if (id === 'ranking') {
+            cab = ['Día', 'Tu puesto', 'Líder', 'Precio líder'];
+            fila = (m) => [dia(m.t), m.puesto ?? 'fuera del top', m.lider ?? '—', din(m.precio_lider)];
+            const ps = lista.map((m) => m.puesto).filter((n) => n != null);
+            const lideres = new Set(lista.map((m) => m.lider).filter(Boolean));
+            resumen = `${ps.length ? `Tu mejor puesto: ${Math.min(...ps)}º · peor: ${Math.max(...ps)}º · hoy: ${ultimo.puesto ?? 'fuera del top'}` : 'Sin puesto propio (pasale mi_item a Martina)'} · ${lideres.size} líder(es) distinto(s) en el período`;
+          } else if (id === 'rivales') {
+            cab = ['Día', 'Vendedores distintos en el top'];
+            fila = (m) => [dia(m.t), m.extra?.vendedores ?? '—'];
+          } else {
+            cab = ['Día', 'Top 3 de tendencias'];
+            fila = (m) => [dia(m.t), (m.extra?.top || []).slice(0, 3).map((x) => `"${x}"`).join(', ')];
+          }
+          const filas = pts.slice(-31).map(fila);
+          bloques.push(`### ${EQUIPO[id].emoji} ${EQUIPO[id].nombre} · ${ref}\n${resumen ? `**${resumen}**\n` : ''}\n| ${cab.join(' | ')} |\n| ${cab.map(() => '---').join(' | ')} |\n` + filas.map((f) => `| ${f.map((v) => String(v).replace(/\|/g, '/')).join(' | ')} |`).join('\n'));
+        }
+        return `# Historial — últimos ${dias} días (${ms.length} mediciones en la base)\n\n` + bloques.join('\n\n');
+      }
+
       if (args.accion === 'drive') {
         const GS = 'https://github.com/kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital/blob/main/docs/drive/planilla-equipo.gs';
         if (args.quitar) return desconectarDrive(args.quitar) ? `Listo: dejé de enviar a Drive (${args.quitar}). Tus archivos y planilla quedan como están.` : 'Drive no estaba conectado.';
@@ -958,7 +1033,7 @@ export const TOOLS = [
       if (!alertas.length) {
         const d = leerEquipo();
         const ultimo = Math.max(0, ...objetivo.map((id) => d.trabajadores[id].ultimo || 0));
-        return `Sin alertas nuevas${quien ? ' de ' + etiqueta(quien) : ''}. Último control: ${hora(ultimo || null)}. (Con todas=true ves el historial de la bandeja.)`;
+        return `Sin alertas nuevas${quien ? ' de ' + etiqueta(quien) : ''}. Último control: ${hora(ultimo || null)}. (Con todas=true ves las alertas ya leídas; con accion=historial la evolución día por día.)`;
       }
       const altas = alertas.filter((a) => a.nivel === 'alta').length;
       return `# Informe del equipo — ${alertas.length} alerta(s)${altas ? `, ${altas} 🔴 urgente(s)` : ''}\n\n` + agrupar(alertas) + '\n\nCada 👉 es la skill que maneja ese trabajador para resolverlo: pedímela y la corro.';

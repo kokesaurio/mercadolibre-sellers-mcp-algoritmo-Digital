@@ -110,6 +110,9 @@ export async function mainTrabajadores(sub) {
     const c = t.quienCorre(); const d = t.leerEquipo();
     console.log(c ? `🟢 Corriendo (${c.modo}, pid ${c.pid})` : '⚪ Nadie los está corriendo ahora.');
     for (const id of t.IDS) console.log(`  ${t.etiqueta(id)} — ${d.trabajadores[id].activo ? 'activo' : 'pausa'} · cada ${d.trabajadores[id].intervalo} min · último ${d.trabajadores[id].ultimo ? new Date(d.trabajadores[id].ultimo).toLocaleString('es-AR') : '—'}`);
+    const { estadoDB } = await import('./db.js');
+    const e = estadoDB();
+    console.log(e.activa ? `🗄️ Base de datos: ${e.ruta} · ${e.mediciones.n} mediciones · ${e.alertas.n} alertas` : `🗄️ Base de datos no activa: ${e.motivo}. En Windows: winget install OpenJS.NodeJS.LTS`);
     return;
   }
   // Primer plano: el bucle permanente

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.16.0
+- **🗄️ Base de datos del equipo, cero instalación (ideal Windows)**: SQLite que ya viene con Node.js (`node:sqlite`) — sin servidor, sin Docker, sin compilar paquetes nativos. Un solo archivo `equipo.db` en la carpeta del conector, con tablas `alertas`, `mediciones` y `controles`.
+- Cada control guarda la medición completa de cada objetivo (precio, tu precio, vendidos, stock, estado, tu puesto, líder, precio líder, top de tendencias): **400 días de historial** con limpieza automática.
+- `ml_trabajadores accion=historial`: evolución día por día por objetivo o trabajador, con mínimo, máximo, variación, ventas por día y $/mes del rival.
+- `ml_trabajadores accion=base`: estado, tamaño y **backup** consistente en caliente (`VACUUM INTO`).
+- Claude y el servicio 24/7 a la vez sin trabarse: modo WAL + espera, probado con 3 procesos y 2400 alertas en paralelo (sin WAL la prueba falla con "database is locked").
+- Las alertas del JSON de versiones anteriores se migran solas, una vez. Con Node < 22.5 todo sigue funcionando con el JSON y la herramienta explica cómo activarla (`winget install OpenJS.NodeJS.LTS`); el instalador avisa.
+- Drive: pestaña **Historial** en la planilla (60 días) e **Historial.csv** en la carpeta (90 días).
+- 🔒 Consultas preparadas en toda la base (probado contra inyección SQL). Suite: 87 pruebas.
+
 ## 1.15.0
 - **📊 Resultados del equipo** (`ml_trabajadores accion=resultados`): una tabla por trabajador con todo lo que sabe — Vera: precio de cada rival vs el tuyo y 🔴/🟡/🟢 · Tomás: ventas desde que vigilamos, **ritmo u./día y facturación estimada/mes del rival** · Martina: líder, mediana del top 10 y tu puesto · Bruno: vendedores vistos y rivales nuevos de la semana · Sofía: top 10 de tendencias. Con "Lo importante" arriba.
 - **📁 Google Drive** (`accion=drive`), sin apps de Google Cloud: **planilla en vivo** vía Apps Script ([docs/drive/planilla-equipo.gs](docs/drive/planilla-equipo.gs)) con pestaña Alertas + una por trabajador, protegida por clave secreta; y/o **carpeta de Drive para escritorio** (detectada sola) con Alertas.csv, un CSV por trabajador y resumen. Cada control del equipo actualiza Drive solo.

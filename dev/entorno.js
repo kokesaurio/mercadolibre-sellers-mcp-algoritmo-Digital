@@ -580,6 +580,107 @@ async function pruebas() {
     fs.rmSync(dirDrive, { recursive: true, force: true });
   });
 
+  // ───────────── Base de datos del equipo (SQLite que viene con Node) ─────────────
+  const bd = await import('../src/db.js');
+  const correrHijo = (codigo, envExtra = {}) => new Promise((res, rej) => {
+    const h = spawn(process.execPath, ['--input-type=module', '-e', codigo], { env: { ...process.env, ...envExtra }, cwd: process.cwd() });
+    let out = '', err = ''; h.stdout.on('data', (x) => { out += x; }); h.stderr.on('data', (x) => { err += x; });
+    h.on('exit', (code) => code === 0 ? res({ out, err }) : rej(new Error('hijo falló: ' + err.slice(0, 300))));
+  });
+  const src = (f) => JSON.stringify(new URL('../src/' + f, import.meta.url).href);
+  await caso('base: se crea sola (equipo.db, modo WAL, 3 tablas) y guarda alertas y mediciones', async () => {
+    const e = bd.estadoDB();
+    if (!e.activa) throw new Error('no activa: ' + e.motivo);
+    if (!fs.existsSync(path.join(dirTemp, 'equipo.db'))) throw new Error('no creó equipo.db');
+    if (bd.db().prepare('PRAGMA journal_mode').get().journal_mode !== 'wal') throw new Error('no está en WAL (Claude + servicio a la vez)');
+    if (e.mediciones.n < 10 || e.alertas.n < 5 || e.controles.n < 3) throw new Error('guardó poco: ' + JSON.stringify(e));
+    if (tr.leerEquipo().bandeja.length) throw new Error('las alertas siguen en el JSON en vez de la base');
+    contiene(await T.run({ accion: 'base' }), 'activa', 'equipo.db', 'Mediciones', 'nada que instalar', 'DBBrowserForSQLite');
+    contiene(await T.run({ accion: 'equipo' }), '🗄️ Base de datos', 'mediciones');
+  });
+  await caso('base: historial día por día de Vera (mín/máx/variación) y de Tomás (ventas y $/mes)', async () => {
+    const v = await T.run({ accion: 'historial', ref: 'MLA500' });
+    contiene(v, 'Historial', 'Vera · MLA500', 'Mínimo $ 36.000', 'máximo $ 45.000', '↓', 'Precio rival', 'Tu precio');
+    // simular 2 días reales: la primera medición de MLA650 pasa a hace 48 h
+    const db0 = bd.db(); const p0 = db0.prepare("SELECT MIN(id) AS id FROM mediciones WHERE ref = 'MLA650' AND trabajador = 'ventas'").get().id;
+    db0.prepare('UPDATE mediciones SET t = t - ? WHERE id = ?').run(2 * 86400000, p0);
+    const t = await T.run({ accion: 'historial', ref: 'MLA650', trabajador: 'Tomás' });
+    contiene(t, 'Tomás · MLA650', 'Vendió ~10 u. en 2.0 días', '≈ 5.0 u./día', '$ 1.500.000/mes', 'Vendió ese día');
+    contiene(await T.run({ accion: 'historial', trabajador: 'Martina' }), 'Tu mejor puesto', 'líder(es) distinto(s)');
+    contiene(await T.run({ accion: 'historial', trabajador: 'Sofía' }), 'Top 3 de tendencias', 'termo de vidrio');
+  });
+  await caso('base: inyección SQL en ref no hace nada (consultas preparadas)', async () => {
+    contiene(await T.run({ accion: 'historial', ref: "x' OR '1'='1" }), 'Sin mediciones');
+    contiene(await T.run({ accion: 'historial', ref: "MLA500'; DROP TABLE mediciones; --" }), 'Sin mediciones');
+    if (!bd.estadoDB().mediciones.n) throw new Error('se borró la tabla');
+  });
+  await caso('base: Claude y el servicio 24/7 escriben y leen a la vez sin "database is locked"', async () => {
+    tr.leerBandeja({ marcar: true }); // dejar todo leído
+    const codigo = `const b = await import(${src('db.js')});
+      for (let i = 0; i < 400; i++) b.guardarAlertas([{ t: Date.now(), trabajador: 'precios', ref: 'CONC', nivel: 'media', texto: 'alerta concurrente ' + i }, { t: Date.now(), trabajador: 'ventas', ref: 'CONC', nivel: 'baja', texto: 'otra ' + i }]);
+      console.log('ok');`;
+    let terminados = 0;
+    const todos = Promise.all([correrHijo(codigo), correrHijo(codigo), correrHijo(codigo)].map((p) => p.finally(() => { terminados++; })));
+    todos.catch(() => {}); // el error se reporta abajo, no como rechazo suelto
+    let leidas = 0;
+    while (terminados < 3) { leidas += tr.leerBandeja({ marcar: true }).filter((a) => a.ref === 'CONC').length; await esperar(1); }
+    await todos;
+    leidas += tr.leerBandeja({ marcar: true }).filter((a) => a.ref === 'CONC').length;
+    if (leidas !== 2400) throw new Error(`se leyeron ${leidas} de 2400 alertas concurrentes (perdidas o duplicadas)`);
+  });
+  await caso('base: migra sola las alertas del JSON de la versión anterior (una sola vez)', async () => {
+    const dirM = fs.mkdtempSync(path.join(os.tmpdir(), 'meli-mig-'));
+    fs.writeFileSync(path.join(dirM, 'trabajadores.json'), JSON.stringify({ bandeja: [
+      { t: Date.now() - 3600000, trabajador: 'precios', ref: 'MLA1', nivel: 'alta', texto: 'vieja alerta 1', leida: false },
+      { t: Date.now() - 1800000, trabajador: 'ventas', ref: 'MLA2', nivel: 'media', texto: 'vieja alerta 2', leida: true } ] }));
+    const { out } = await correrHijo(`const t = await import(${src('trabajadores.js')});
+      const a = t.leerBandeja({ marcar: true }); const b = t.leerBandeja({ marcar: true }); const todas = t.leerBandeja({ todas: true, marcar: false });
+      console.log(JSON.stringify({ a: a.length, b: b.length, todas: todas.length, json: t.leerEquipo().bandeja.length }));`, { MELI_CONFIG_DIR: dirM });
+    const r = JSON.parse(out.trim().split('\n').pop());
+    fs.rmSync(dirM, { recursive: true, force: true });
+    if (r.a !== 1 || r.b !== 0 || r.todas !== 2 || r.json !== 0) throw new Error('migración incorrecta: ' + JSON.stringify(r));
+  });
+  await caso('base: con un Node sin SQLite el equipo sigue andando y explica cómo activarla en Windows', async () => {
+    const dirS = fs.mkdtempSync(path.join(os.tmpdir(), 'meli-sin-'));
+    const { out } = await correrHijo(`const { TOOLS } = await import(${src('herramientas.js')}); const t = await import(${src('trabajadores.js')});
+      const T = TOOLS.find((x) => x.name === 'ml_trabajadores');
+      t.actualizarEquipo((d) => { d.bandeja.push({ t: Date.now(), trabajador: 'precios', ref: 'X', nivel: 'alta', texto: 'alerta sin base', leida: false }); });
+      console.log(JSON.stringify({ base: await T.run({ accion: 'base' }), hist: await T.run({ accion: 'historial', ref: 'X' }), informe: await T.run({ accion: 'informe' }), conteo: t.resumenAlertas('precios') }));`, { MELI_CONFIG_DIR: dirS, ML_SIN_SQLITE: '1' });
+    const r = JSON.parse(out.trim().split('\n').pop());
+    fs.rmSync(dirS, { recursive: true, force: true });
+    contiene(r.base, 'no activa', 'winget install OpenJS.NodeJS.LTS', 'No hay que instalar ninguna base');
+    contiene(r.hist, 'necesita la base');
+    contiene(r.informe, 'alerta sin base');
+    if (r.conteo.sinLeer !== 0 || r.conteo.h24 !== 1) throw new Error('conteo JSON mal: ' + JSON.stringify(r.conteo));
+  });
+  await caso('base: backup consistente con la base en uso', async () => {
+    const t = await T.run({ accion: 'base', backup: true });
+    contiene(t, 'Backup hecho', 'equipo-backup-');
+    const archivo = t.match(/`([^`]*equipo-backup-[^`]*)`/)[1];
+    const { DatabaseSync } = (await import('node:module')).createRequire(import.meta.url)('node:sqlite');
+    const copia = new DatabaseSync(archivo, { readOnly: true });
+    const n = copia.prepare('SELECT COUNT(*) AS n FROM mediciones').get().n; copia.close();
+    if (n !== bd.estadoDB().mediciones.n) throw new Error('el backup no tiene todas las mediciones');
+  });
+  await caso('base: el historial también va a Drive (pestaña Historial y Historial.csv)', async () => {
+    process.env.ML_DRIVE_PERMITIR_LOCAL = '1';
+    const dirD = fs.mkdtempSync(path.join(os.tmpdir(), 'drive2-'));
+    planilla.recibidos.length = 0;
+    await T.run({ accion: 'drive', url: urlPlanilla, carpeta: dirD });
+    const h = planilla.recibidos.at(-1).resultados['Historial'];
+    if (!h || h[0][0] !== 'Fecha' || !h.some((f) => f[2] === 'MLA500')) throw new Error('la planilla no recibió el historial');
+    contiene(fs.readFileSync(path.join(dirD, rs.CARPETA_NOMBRE, 'Historial.csv'), 'utf8'), 'Fecha,Trabajador', 'MLA500', 'Vera');
+    await T.run({ accion: 'drive', quitar: 'todo' });
+    fs.rmSync(dirD, { recursive: true, force: true }); delete process.env.ML_DRIVE_PERMITIR_LOCAL;
+  });
+  await caso('base: sin avisos "experimental" ensuciando la consola del servicio', async () => {
+    const h = spawn(process.execPath, ['src/stdio.js', 'trabajadores', 'estado'], { env: { ...process.env } });
+    let out = '', err = ''; h.stdout.on('data', (x) => { out += x; }); h.stderr.on('data', (x) => { err += x; });
+    await new Promise((r) => h.on('exit', r));
+    contiene(out, '🗄️ Base de datos', 'equipo.db');
+    if (/ExperimentalWarning/.test(err)) throw new Error('imprimió ExperimentalWarning');
+  });
+
   await caso('instalador: crea el config de Claude desde cero', async () => {
     const dirCfg = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-cfg-'));
     process.env.CLAUDE_CONFIG_DIR = dirCfg;
@@ -627,6 +728,7 @@ async function pruebas() {
     if (total !== TOOLS.length) throw new Error(`tools/list devolvió ${total}, esperaba ${TOOLS.length}`);
   });
 
+  try { (await import('../src/db.js')).cerrarDB(); } catch {}
   fs.rmSync(dirTemp, { recursive: true, force: true });
   return resultados;
 }

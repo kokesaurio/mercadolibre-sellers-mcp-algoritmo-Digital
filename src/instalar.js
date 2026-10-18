@@ -77,6 +77,13 @@ export async function mainInstalador() {
 
   const archivo = await instalar({ appId, appSecret, soloLectura: process.argv.includes('--solo-lectura') });
   console.log('\n✅ Conector instalado en: ' + archivo);
+  const [ma, mi] = process.versions.node.split('.').map(Number);
+  if (ma < 22 || (ma === 22 && mi < 5)) {
+    console.log(`\n⚠️ Tu Node.js es ${process.version}: el conector anda, pero la base de datos del equipo de trabajadores (historial) necesita Node 22.5 o superior.`);
+    console.log(process.platform === 'win32' ? '   Para activarla: en PowerShell corré  winget install OpenJS.NodeJS.LTS  (no hace falta instalar ninguna base de datos aparte).' : '   Para activarla: instalá el Node LTS desde https://nodejs.org (SQLite ya viene adentro).');
+  } else {
+    console.log('🗄️ Base de datos del equipo lista: SQLite viene con tu Node, no hay nada más que instalar.');
+  }
   console.log('\nÚltimos 2 pasos:');
   console.log('  1. Reiniciá Claude Desktop (cerralo del todo y volvé a abrirlo).');
   console.log('  2. En un chat nuevo decile: "conectá mi cuenta de MercadoLibre".');

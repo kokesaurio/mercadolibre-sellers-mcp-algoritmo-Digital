@@ -13,7 +13,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { EQUIPO, IDS, leerEquipo, tareasDe, claveTarea, actualizarEquipo } from './trabajadores.js';
+import { EQUIPO, IDS, leerEquipo, tareasDe, claveTarea, actualizarEquipo, resumenAlertas, alertasRecientes } from './trabajadores.js';
+import { leerMediciones, primeraMedicion } from './db.js';
 
 export const CARPETA_NOMBRE = 'MercadoLibre - Equipo de trabajadores';
 const dinero = (n) => (n == null ? '—' : '$ ' + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 }));
@@ -28,8 +29,8 @@ export function armarResultados(d = leerEquipo()) {
   for (const id of IDS) {
     const tareas = tareasDe(d, id);
     const snap = (t) => d.snapshots[id + '|' + claveTarea(t)];
-    const alertas = d.bandeja.filter((a) => a.trabajador === id);
-    const conteo = { h24: alertas.filter((a) => ahora - a.t < 86400000).length, d7: alertas.filter((a) => ahora - a.t < 7 * 86400000).length, urgentes7: alertas.filter((a) => a.nivel === 'alta' && ahora - a.t < 7 * 86400000).length };
+    const alertas = alertasRecientes({ trabajador: id, dias: 7 });
+    const conteo = resumenAlertas(id, d);
     let cabecera = [], filas = [], destacado = '';
 
     if (id === 'precios') {
@@ -53,7 +54,9 @@ export function armarResultados(d = leerEquipo()) {
       let mejor = null;
       for (const t of tareas) {
         const s = snap(t); if (!s) { filas.push([t.ref, '(esperando primer control)', '', '', '', '', '', '', '', '', '']); continue; }
-        const x = s.datos, base = x.base || { t: s.t, vendidos: x.vendidos };
+        const x = s.datos;
+        let base = x.base || { t: s.t, vendidos: x.vendidos };
+        try { const p0 = primeraMedicion('ventas', t.ref); if (p0 && p0.t < base.t) base = p0; } catch {} // la base recuerda desde el primer día
         const dias = Math.max((s.t - base.t) / 86400000, 0);
         const vend = Math.max(0, (x.vendidos ?? 0) - (base.vendidos ?? 0));
         const ritmo = dias >= 0.04 ? r1(vend / dias) : null; // ≥ 1 h de datos
@@ -182,6 +185,14 @@ export function desconectarDrive(que = 'todo') {
 const segura = (v) => (typeof v === 'string' && /^[=+\-@\t\r]/.test(v) ? "'" + v : v ?? '');
 const filaAlerta = (a) => [fecha(a.t), `${EQUIPO[a.trabajador]?.emoji ?? ''} ${EQUIPO[a.trabajador]?.nombre ?? a.trabajador}`, a.nivel === 'alta' ? '🔴 urgente' : a.nivel === 'media' ? '🟡 media' : '🟢 baja', a.ref, a.texto.replace(/\*\*/g, ''), a.skill || ''].map(segura);
 export const CABECERA_ALERTAS = ['Fecha', 'Trabajador', 'Nivel', 'Objetivo', 'Alerta', 'Skill sugerida'];
+export const CABECERA_HISTORIAL = ['Fecha', 'Trabajador', 'Objetivo', 'Precio', 'Tu precio', 'Vendidos (acum.)', 'Stock', 'Estado', 'Tu puesto', 'Líder', 'Precio líder'];
+
+// El historial de la base de datos (si está activa) como filas para la planilla y el CSV
+export function filasHistorial(dias = 60, limite = 3000) {
+  let ms; try { ms = leerMediciones({ dias, limite: 20000 }); } catch { ms = null; }
+  if (!ms) return null;
+  return ms.slice(-limite).map((m) => [fecha(m.t), EQUIPO[m.trabajador]?.nombre ?? m.trabajador, m.ref, m.precio, m.mi_precio, m.vendidos, m.stock, m.estado, m.puesto, m.lider, m.precio_lider].map((v) => (v == null ? '' : v)));
+}
 
 function csv(filas) {
   const esc = (v) => { const x = String(segura(v)); return /[",;\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x; };
@@ -199,6 +210,8 @@ async function enviarScript(cfg, alertas, res) {
     const ancho = r.cabecera.length;
     resultados[r.hoja] = [r.cabecera, ...r.filas.map((f) => f.slice(0, ancho).map(segura))].map((f) => [...f, ...Array(Math.max(0, ancho - f.length)).fill('')]);
   }
+  const hist = filasHistorial(60, 3000);
+  if (hist) resultados['Historial'] = [CABECERA_HISTORIAL, ...hist.map((f) => f.map(segura))];
   const cuerpo = { clave: cfg.clave, origen: 'meli-sellers-mcp', generado: fecha(Date.now()), cabeceraAlertas: CABECERA_ALERTAS, alertas: alertas.map(filaAlerta), resultados };
   const r = await fetch(cfg.script, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(cuerpo), redirect: 'follow', signal: AbortSignal.timeout(30000) });
   const j = await r.json().catch(() => null);
@@ -211,6 +224,8 @@ function escribirCarpeta(cfg, alertas, res) {
   if (!fs.existsSync(hist)) fs.writeFileSync(hist, '\ufeff' + csv([CABECERA_ALERTAS]));
   if (alertas.length) fs.appendFileSync(hist, csv(alertas.map(filaAlerta)));
   for (const id of IDS) escribirAtomico(path.join(cfg.carpeta, `${res[id].hoja}.csv`), '\ufeff' + csv([res[id].cabecera, ...res[id].filas]));
+  const historial = filasHistorial(90, 20000);
+  if (historial) escribirAtomico(path.join(cfg.carpeta, 'Historial.csv'), '\ufeff' + csv([CABECERA_HISTORIAL, ...historial]));
   escribirAtomico(path.join(cfg.carpeta, 'Resumen del equipo.md'), `# Equipo de trabajadores — MercadoLibre\n_Actualizado: ${fecha(Date.now())}_\n\n` + resultadosEnMarkdown(res) + '\n');
 }
 
