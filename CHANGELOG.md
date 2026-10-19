@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.24.0
+- **🟡 El tablero con los colores de MercadoLibre**: franja amarilla arriba, fondo gris con tarjetas blancas, azul de ML en botones, links y gráficos, y el verde, naranja y rojo de ML para los estados. Solo los colores: sin logos ni nada que lo haga pasar por una página oficial de MercadoLibre.
+- Accesible: textos y botones con el azul más oscuro de ML (el blanco sobre el azul claro no llega al contraste mínimo), estados en sus versiones legibles sobre blanco, y los colores de los gráficos validados para daltonismo en claro y oscuro. El modo oscuro conserva la franja amarilla.
+
 ## 1.23.0
 - **📊 Hoy y día por día en el tablero**: lo que vendiste hoy (ventas, unidades, contra tu promedio diario) y lo que invertiste hoy en publicidad (con ventas por publicidad y ACOS), **en vivo** al armar el tablero; y dos gráficos de 30 días: **ventas por día** (Carmen) y **publicidad por día** (Ana), con el detalle de cada día al pasar el mouse o con las flechas del teclado, y vista de tabla.
 - Ana guarda la publicidad por día y la completa de a poco (hoy y ayer siempre, hasta 10 días faltantes por control) para no gastar llamadas a la API.
