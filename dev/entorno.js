@@ -162,7 +162,14 @@ export function crearMockMeli() {
   app.post('/seller-promotions/items/:id', auth, (req, res) => req.body?.promotion_id ? res.json({ ok: true }) : res.status(400).json({ message: 'falta promotion_id' }));
   app.get('/trends/MLA', auth, (_q, res) => res.json(mercado.tendencias));
   app.get('/advertising/advertisers', auth, (_q, res) => res.json({ advertisers: [{ advertiser_id: 'ADV1', site_id: 'MLA' }] }));
-  app.get('/advertising/product_ads/campaigns', auth, (_q, res) => res.json({ results: campaniasML }));
+  app.get('/advertising/product_ads/campaigns', auth, (req, res) => {
+    // Un solo día: la inversión depende del día del mes (para probar el gráfico día por día)
+    if (req.query.date_from && req.query.date_from === req.query.date_to) {
+      const dia = Number(String(req.query.date_from).slice(8, 10));
+      return res.json({ results: campaniasML.map((k) => ({ ...k, metrics: { cost: 1000 * dia, acos: 10, units_quantity: 2, total_amount: 10000 * dia } })) });
+    }
+    res.json({ results: campaniasML });
+  });
   app.get('/advertising/product_ads/ads/:id', auth, (req, res) => {
     if (req.params.id !== 'MLA111') return res.status(404).json({ message: 'ad not found' });
     res.json({ metrics: { clicks: 120, prints: 8000, cost: 15000, acos: 12.5, cpc: 125, units_quantity: 10, total_amount: 420000 } });
@@ -1150,6 +1157,20 @@ async function pruebas() {
     await esperar(20);
     await tr.correrCiclo({ solo: ['atencion'], forzar: true });
     if (fs.statSync(ruta).mtimeMs === antes) throw new Error('no se regeneró después del control');
+  });
+  await caso('tablero: ventas y publicidad día por día y el total de hoy en vivo', async () => {
+    await tr.correrCiclo({ solo: ['contabilidad', 'anuncios'], forzar: true });
+    const { datos } = await (await import('../src/tablero.js')).generarTablero();
+    if (datos.ventasDia.length !== 30) throw new Error('ventasDia tiene ' + datos.ventasDia.length + ' días');
+    // hoy: órdenes 101 (42.000) y 102 (18.500) en cada una de las 2 tiendas conectadas
+    if (datos.hoy.ventas !== 121000 || datos.hoy.ordenes !== 4 || !datos.hoy.enVivo) throw new Error('total de hoy mal: ' + JSON.stringify(datos.hoy));
+    const ayer = datos.ventasDia.at(-2);
+    if (ayer.bruto !== 40000 || ayer.ordenes !== 2) throw new Error('ayer mal: ' + JSON.stringify(ayer));
+    const dia = new Date().getDate();
+    if (datos.hoy.ads !== 2000 * dia || datos.hoy.acos !== 10) throw new Error('publicidad de hoy mal: ' + JSON.stringify(datos.hoy));
+    if (datos.adsDia.length < 2) throw new Error('falta la publicidad por día');
+    const sn = Object.entries(tr.leerEquipo().snapshots).find(([k]) => k.startsWith('anuncios|'))[1];
+    if (Object.keys(sn.datos.diario).length < 2) throw new Error('Ana no guardó la publicidad por día');
   });
   await caso('tablero: la plantilla sola abre en modo demo y la página no usa innerHTML', async () => {
     const plantilla = fs.readFileSync('panel/tablero.html', 'utf8');

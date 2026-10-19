@@ -12,7 +12,8 @@ import { EQUIPO, IDS, leerEquipo, tareasDe, claveTarea, alertasRecientes, resume
 import { armarResultados } from './resultados.js';
 import { estadoDecision } from './agenda.js';
 import { COLOR } from './postventa.js';
-import { listarCuentas } from './meli.js';
+import { listarCuentas, MeliClient } from './meli.js';
+import { ordenesPagas, adsDelDia, diaLocal } from './negocio.js';
 
 const DIR = () => process.env.MELI_CONFIG_DIR || path.join(os.homedir(), '.meli-sellers-mcp');
 export const RUTA_TABLERO = () => path.join(DIR(), 'tablero.html');
@@ -155,8 +156,45 @@ export async function armarTablero() {
   const primera = urg.find((x) => x.quien !== 'contabilidad') || urg[0]; // la pérdida del mes ya está dicha
   frase += urg.length ? ` Hoy hay ${urg.length === 1 ? 'una cosa urgente' : `${urg.length} cosas urgentes`}: ${primera.texto.charAt(0).toLowerCase() + primera.texto.slice(1)}${urg.length > 1 ? ', entre otras' : ''}.` : ate.length ? ` Nada urgente: ${ate.length} cosa${ate.length === 1 ? '' : 's'} para mirar con calma.` : ' Nada pendiente: todo funciona.';
 
+  // ── Día por día: ventas (Carmen) y publicidad (Ana), sumando todas las tiendas ──
+  const ventasDia = new Map();
+  for (const x of fotos(d, 'contabilidad')) for (const v of x.diario || []) {
+    const a = ventasDia.get(v.d) || { d: v.d, bruto: 0, ordenes: 0, unidades: 0 };
+    a.bruto += v.bruto; a.ordenes += v.ordenes; a.unidades += v.unidades; ventasDia.set(v.d, a);
+  }
+  const adsDia = new Map();
+  for (const x of fotos(d, 'anuncios')) for (const v of Object.values(x.diario || {})) {
+    const a = adsDia.get(v.d) || { d: v.d, cost: 0, ventas: 0, units: 0 };
+    a.cost += v.cost; a.ventas += v.ventas; a.units += v.units; adsDia.set(v.d, a);
+  }
+  const ordenar = (m) => [...m.values()].sort((p, q) => p.d.localeCompare(q.d)).slice(-30);
+  const hoyKey = (() => { const x = new Date(ahora); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; })();
+  // Hoy, en vivo (2 consultas por tienda); si no hay conexión queda lo último que guardó el equipo
+  let enVivo = false;
+  try {
+    const cs = listarCuentas();
+    if (cs.length) {
+      const inicio = new Date(ahora); inicio.setHours(0, 0, 0, 0);
+      const v = { d: hoyKey, bruto: 0, ordenes: 0, unidades: 0 }, a = { d: hoyKey, cost: 0, ventas: 0, units: 0 };
+      let hayAds = false;
+      for (const cta of cs) {
+        const c = new MeliClient({ userId: String(cta.user_id) });
+        for (const o of await ordenesPagas(c, cta.user_id, inicio.getTime(), ahora, { maximo: 1000 })) {
+          v.bruto += o.total_amount ?? 0; v.ordenes++; for (const it of o.order_items || []) v.unidades += it.quantity ?? 0;
+        }
+        const x = await adsDelDia(c, diaLocal(ahora)).catch(() => null);
+        if (x) { hayAds = true; a.cost += x.cost; a.ventas += x.ventas; a.units += x.units; }
+      }
+      ventasDia.set(hoyKey, v); if (hayAds) adsDia.set(hoyKey, a);
+      enVivo = true;
+    }
+  } catch {}
+  const vHoy = ventasDia.get(hoyKey), aHoy = adsDia.get(hoyKey);
+  const hoy = { dia: hoyKey, ventas: vHoy ? vHoy.bruto : null, ordenes: vHoy?.ordenes ?? null, unidades: vHoy?.unidades ?? null,
+    ads: aHoy ? aHoy.cost : null, ventasAds: aHoy ? aHoy.ventas : null, acos: aHoy && aHoy.ventas ? Math.round((aHoy.cost / aHoy.ventas) * 1000) / 10 : null, enVivo };
+
   return {
-    generado: ahora, tiendas: cuentas, frase, funciona: fun.slice(0, 10), atencion: ate.slice(0, 14), numeros, equipo,
+    generado: ahora, tiendas: cuentas, hoy, ventasDia: ordenar(ventasDia), adsDia: ordenar(adsDia), frase, funciona: fun.slice(0, 10), atencion: ate.slice(0, 14), numeros, equipo,
     viene: [...unicos.values()].slice(0, 8), corriendo: corre ? corre.modo : null,
     series: {
       facturacion: await serie('contabilidad', 'facturacionMes'), neto: await serie('contabilidad', 'netoMes'),

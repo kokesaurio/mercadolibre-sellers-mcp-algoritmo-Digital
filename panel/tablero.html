@@ -12,17 +12,18 @@
     --tiza: #F1F3F6; --hoja: #FFFFFF; --tinta: #17202B; --tinta-2: #4A5563; --filete: #D7DCE3;
     --senal: #2457D6; --verde: #107A57; --ambar: #B86E00; --rojo: #C02A35;
     --verde-suave: #E3F2EC; --ambar-suave: #FBF0DD; --rojo-suave: #F8E3E5; --senal-suave: #E5ECFB;
+    --serie-ventas: #2457D6; --serie-ads: #B0368E;
     --display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
     --texto: 'Public Sans', 'Segoe UI', system-ui, sans-serif;
   }
   @media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) {
     --tiza: #0F1A1E; --hoja: #15232A; --tinta: #E8EEF0; --tinta-2: #A7B6BC; --filete: #26383F;
     --senal: #7FA3FF; --verde: #4CC79A; --ambar: #F0B04F; --rojo: #FF7A82;
-    --verde-suave: #143329; --ambar-suave: #3A2C12; --rojo-suave: #3D1C20; --senal-suave: #1A2A4A; } }
+    --verde-suave: #143329; --ambar-suave: #3A2C12; --rojo-suave: #3D1C20; --senal-suave: #1A2A4A; --serie-ventas: #5E86F0; --serie-ads: #D65AAE; } }
   :root[data-tema="oscuro"] {
     --tiza: #0F1A1E; --hoja: #15232A; --tinta: #E8EEF0; --tinta-2: #A7B6BC; --filete: #26383F;
     --senal: #7FA3FF; --verde: #4CC79A; --ambar: #F0B04F; --rojo: #FF7A82;
-    --verde-suave: #143329; --ambar-suave: #3A2C12; --rojo-suave: #3D1C20; --senal-suave: #1A2A4A; }
+    --verde-suave: #143329; --ambar-suave: #3A2C12; --rojo-suave: #3D1C20; --senal-suave: #1A2A4A; --serie-ventas: #5E86F0; --serie-ads: #D65AAE; }
 
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
@@ -71,6 +72,30 @@
   .numero .v { font: 800 clamp(22px, 2.3vw, 30px)/1.1 var(--display); white-space: nowrap; margin: 4px 0 2px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
   .numero .d { font-size: 13px; color: var(--tinta-2); }
   .numero.verde .v { color: var(--verde); } .numero.ambar .v { color: var(--ambar); } .numero.rojo .v { color: var(--rojo); }
+
+  /* Hoy + día por día */
+  .hoy { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; margin: 4px 0 18px; }
+  .hoy .t { font-size: 14px; color: var(--tinta-2); display: flex; align-items: center; gap: 8px; }
+  .hoy .clave { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .hoy .v { font: 800 clamp(34px, 4.6vw, 52px)/1.05 var(--display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin: 4px 0; white-space: nowrap; }
+  .hoy .d { font-size: 14px; color: var(--tinta-2); }
+  .graficos { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; }
+  .grafico { margin: 0; }
+  .grafico figcaption { font: 600 15px/1.3 var(--texto); margin-bottom: 6px; }
+  .grafico figcaption span { color: var(--tinta-2); font-weight: 400; }
+  .lienzo { position: relative; }
+  .lienzo svg { display: block; width: 100%; height: 210px; overflow: visible; }
+  .lienzo svg:focus-visible { outline: 3px solid var(--senal); outline-offset: 4px; border-radius: 6px; }
+  .lienzo .eje { font: 400 11px/1 var(--texto); fill: var(--tinta-2); }
+  .lienzo .valor { font: 700 12px/1 var(--texto); fill: var(--tinta); }
+  .lienzo .grilla { stroke: var(--filete); stroke-width: 1; }
+  .lienzo .col { transition: opacity 120ms; }
+  .lienzo svg.marcando .col:not(.sel) { opacity: .35; }
+  .lienzo .sin-datos { font-size: 14px; color: var(--tinta-2); padding: 70px 0; text-align: center; border: 1px dashed var(--filete); border-radius: 8px; }
+  .tip { position: fixed; z-index: 30; pointer-events: none; background: var(--tinta); color: var(--tiza); border-radius: 8px; padding: 8px 11px; font-size: 13px; line-height: 1.45; box-shadow: 0 6px 24px rgba(0,0,0,.2); display: none; max-width: 240px; }
+  .tip b { font-size: 15px; font-variant-numeric: tabular-nums; }
+  #tabla-dia { margin-top: 18px; max-height: 360px; overflow: auto; background: var(--hoja); border-radius: 10px; padding: 4px 14px; }
+  @media (max-width: 860px) { .hoy, .graficos { grid-template-columns: 1fr; gap: 24px; } }
 
   /* Planilla del equipo */
   .bloque { margin: 0 0 44px; }
@@ -183,6 +208,16 @@
 
   <section class="numeros" id="numeros" aria-label="Números" data-tour="numeros"></section>
 
+  <section class="bloque" data-tour="dia" aria-labelledby="hoy-titulo">
+    <div class="bloque-cab"><h2 id="hoy-titulo">Hoy</h2><button class="boton" id="btn-tabla-dia" type="button" aria-expanded="false" aria-controls="tabla-dia">Ver día por día como tabla</button></div>
+    <div class="hoy" id="hoy"></div>
+    <div class="graficos">
+      <figure class="grafico"><figcaption>Ventas por día <span>últimos 30 días</span></figcaption><div class="lienzo" id="g-ventas"></div></figure>
+      <figure class="grafico"><figcaption>Inversión en publicidad por día <span>últimos 30 días</span></figcaption><div class="lienzo" id="g-ads"></div></figure>
+    </div>
+    <div id="tabla-dia" hidden></div>
+  </section>
+
   <section class="bloque" data-tour="equipo">
     <div class="bloque-cab"><h2>Tu equipo de turno</h2><p id="equipo-pie"></p></div>
     <table class="planilla">
@@ -209,6 +244,7 @@
   </section>
 </div>
 
+<div class="tip" id="tip" role="status" aria-live="polite"></div>
 <div class="velo" id="velo"></div>
 <aside class="lateral" id="lateral" role="dialog" aria-modal="true" aria-labelledby="lat-nombre" hidden>
   <button class="boton cerrar" id="lat-cerrar" type="button">Cerrar</button>
@@ -270,6 +306,7 @@
   }
   function dia(t) { return new Date(t).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }); }
   function guardado(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+  var NS = 'http://www.w3.org/2000/svg';
   var porId = {}; D.equipo.forEach(function (w) { porId[w.id] = w; });
 
   // ───────── Cabecera y frase ─────────
@@ -294,6 +331,131 @@
     $('numeros').appendChild(h('div', { clase: 'numero ' + (n.tono || '') }, [h('div', { clase: 't', texto: n.titulo }), h('div', { clase: 'v', texto: n.valor }), h('div', { clase: 'd', texto: n.detalle || '' })]));
   });
 
+
+  // ───────── Hoy + ventas y publicidad día por día ─────────
+  var pesos = function (v) { return (v < 0 ? '−$ ' : '$ ') + Math.abs(Math.round(v)).toLocaleString('es-AR'); };
+  var compacto = function (v) { var a = Math.abs(v); return '$ ' + (a >= 1e6 ? (v / 1e6).toLocaleString('es-AR', { maximumFractionDigits: 1 }) + ' M' : a >= 1e3 ? (v / 1e3).toLocaleString('es-AR', { maximumFractionDigits: a >= 1e4 ? 0 : 1 }) + ' mil' : Math.round(v)); };
+  var diaLargo = function (d) { var x = new Date(d + 'T12:00:00'); return x.toLocaleDateString('es-AR', { weekday: 'long' }) + ' ' + diaCorto(d); };
+  var diaCorto = function (d) { return Number(d.slice(8, 10)) + '/' + Number(d.slice(5, 7)); };
+  var HOY = D.hoy || {}, VD = D.ventasDia || [], AD = D.adsDia || [];
+  (function () {
+    $('hoy-titulo').textContent = 'Hoy, ' + (HOY.dia ? diaLargo(HOY.dia) : '');
+    var conVentas = VD.filter(function (x) { return x.d !== HOY.dia; });
+    var prom = conVentas.length ? conVentas.reduce(function (s, x) { return s + x.bruto; }, 0) / conVentas.length : null;
+    var hora = new Date(D.generado).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    var detV = HOY.ventas == null ? 'Todavía sin datos de hoy.' : HOY.ordenes + ' venta' + (HOY.ordenes === 1 ? '' : 's') + ', ' + HOY.unidades + ' unidad' + (HOY.unidades === 1 ? '' : 'es') + (prom ? '. Tu promedio diario es ' + pesos(prom) : '') + (HOY.enVivo ? '. Al momento de las ' + hora + '.' : '.');
+    var detA = HOY.ads == null ? 'Sin Product Ads o sin datos de hoy.' : (HOY.ventasAds ? 'Vendió ' + pesos(HOY.ventasAds) + ' por publicidad, ACOS ' + String(HOY.acos).replace('.', ',') + '%.' : 'Todavía sin ventas por publicidad hoy.');
+    [['Vendiste hoy', HOY.ventas, detV, 'var(--serie-ventas)'], ['Invertiste en publicidad hoy', HOY.ads, detA, 'var(--serie-ads)']].forEach(function (x) {
+      var clave = h('span', { clase: 'clave', 'aria-hidden': 'true' }); clave.style.background = x[3];
+      $('hoy').appendChild(h('div', null, [h('div', { clase: 't' }, [clave, x[0]]), h('div', { clase: 'v', texto: x[1] == null ? '—' : pesos(x[1]) }), h('div', { clase: 'd', texto: x[2] })]));
+    });
+  })();
+
+  var tip = $('tip');
+  function mostrarTip(lineas, x, y) {
+    vaciar(tip);
+    lineas.forEach(function (l, i) { tip.appendChild(i === 1 ? h('b', { texto: l }) : h('div', { texto: l })); if (i === 1) tip.appendChild(document.createElement('br')); });
+    tip.style.display = 'block';
+    var r = tip.getBoundingClientRect();
+    tip.style.left = Math.max(8, Math.min(x - r.width / 2, innerWidth - r.width - 8)) + 'px';
+    tip.style.top = Math.max(8, y - r.height - 12) + 'px';
+  }
+  function ocultarTip() { tip.style.display = 'none'; }
+
+  function niceTope(max) {
+    if (!(max > 0)) return { tope: 1, paso: 1 };
+    var e = Math.pow(10, Math.floor(Math.log10(max / 2))), pasos = [1, 2, 2.5, 5, 10];
+    for (var i = 0; i < pasos.length; i++) { var p = pasos[i] * e; if (p * 2 >= max) return { tope: p * 2, paso: p }; }
+    return { tope: 20 * e, paso: 10 * e };
+  }
+  // Columnas: un eje, columnas finas con punta redondeada, el valor escrito solo en hoy, detalle al pasar el mouse
+  function columnas(cont, puntos, op) {
+    vaciar(cont);
+    var vals = puntos.map(function (p) { return p.v; }).filter(function (v) { return v != null; });
+    if (!vals.length || vals.every(function (v) { return v === 0; }) && op.vacio) { cont.appendChild(h('div', { clase: 'sin-datos', texto: op.vacio || 'Sin datos todavía.' })); return; }
+    var W = Math.max(280, cont.clientWidth), H = 210, ml = 58, mr = 6, mt = 22, mb = 24, n = puntos.length;
+    var esc = niceTope(Math.max.apply(null, vals)), base = H - mb, alto = base - mt;
+    var banda = (W - ml - mr) / n, ancho = Math.max(2, Math.min(24, banda - 2));
+    var svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.setAttribute('tabindex', '0'); svg.setAttribute('role', 'img');
+    var hoyP = puntos[n - 1];
+    svg.setAttribute('aria-label', op.titulo + ' de los últimos ' + n + ' días. Hoy: ' + (hoyP.v == null ? 'sin dato' : pesos(hoyP.v)) + '. Máximo: ' + pesos(Math.max.apply(null, vals)) + '. Usá las flechas para recorrer los días.');
+    function el(tag, at) { var e = document.createElementNS(NS, tag); for (var k in at) e.setAttribute(k, at[k]); return e; }
+    [0, esc.paso, esc.tope].forEach(function (t) {
+      var y = base - (t / esc.tope) * alto;
+      svg.appendChild(el('line', { 'class': 'grilla', x1: ml, x2: W - mr, y1: y, y2: y }));
+      var tx = el('text', { 'class': 'eje', x: ml - 8, y: y + 4, 'text-anchor': 'end' }); tx.textContent = compacto(t); svg.appendChild(tx);
+    });
+    var cols = [];
+    puntos.forEach(function (p, i) {
+      var x = ml + i * banda + (banda - ancho) / 2;
+      if (p.v != null && p.v > 0) {
+        var hh = Math.max(1, (p.v / esc.tope) * alto), y = base - hh, r = Math.min(4, hh, ancho / 2);
+        var d = 'M' + x + ' ' + base + ' L' + x + ' ' + (y + r) + ' Q' + x + ' ' + y + ' ' + (x + r) + ' ' + y + ' L' + (x + ancho - r) + ' ' + y + ' Q' + (x + ancho) + ' ' + y + ' ' + (x + ancho) + ' ' + (y + r) + ' L' + (x + ancho) + ' ' + base + ' Z';
+        var c = el('path', { 'class': 'col', d: d, fill: op.color }); svg.appendChild(c); cols[i] = c;
+      }
+      if (i === n - 1 || (n - 1 - i) % 7 === 0) {
+        var tx = el('text', { 'class': 'eje', x: x + ancho / 2, y: H - 6, 'text-anchor': i === n - 1 ? 'end' : 'middle' });
+        tx.textContent = i === n - 1 ? 'hoy' : diaCorto(p.d); if (i === n - 1) tx.setAttribute('x', x + ancho); svg.appendChild(tx);
+      }
+    });
+    if (hoyP.v != null) { // el único valor escrito: el de hoy, por encima de las columnas que tapa el texto
+      var texto = compacto(hoyP.v), anchoTexto = texto.length * 7 + 4, hx = ml + (n - 1) * banda + (banda + ancho) / 2;
+      var tapa = Math.ceil(anchoTexto / banda), mayor = 0;
+      for (var k = Math.max(0, n - tapa); k < n; k++) if (puntos[k].v != null) mayor = Math.max(mayor, puntos[k].v);
+      var hy = base - (mayor / esc.tope) * alto - 7;
+      var lab = el('text', { 'class': 'valor', x: hx, y: Math.max(12, hy), 'text-anchor': 'end' }); lab.textContent = texto; svg.appendChild(lab);
+    }
+    var sel = -1;
+    function marcar(i, ev) {
+      sel = i; svg.classList.add('marcando');
+      cols.forEach(function (c, j) { if (c) c.classList.toggle('sel', j === i); });
+      var p = puntos[i], r = svg.getBoundingClientRect(), esc2 = r.width / W;
+      var cx = r.left + (ml + i * banda + banda / 2) * esc2, cy = r.top + (p.v != null ? base - (p.v / esc.tope) * alto : base) * esc2;
+      mostrarTip([i === n - 1 ? 'Hoy, ' + diaLargo(p.d) : diaLargo(p.d), p.v == null ? 'sin dato' : pesos(p.v)].concat(op.detalle(p)), ev ? ev.clientX : cx, cy);
+    }
+    function soltar() { sel = -1; svg.classList.remove('marcando'); cols.forEach(function (c) { if (c) c.classList.remove('sel'); }); ocultarTip(); }
+    puntos.forEach(function (p, i) { // área de contacto: toda la banda del día, más grande que la columna
+      var hit = el('rect', { x: ml + i * banda, y: mt, width: banda, height: alto, fill: 'transparent' });
+      hit.addEventListener('mousemove', function (ev) { marcar(i, ev); });
+      svg.appendChild(hit);
+    });
+    svg.addEventListener('mouseleave', soltar);
+    svg.addEventListener('blur', soltar);
+    svg.addEventListener('focus', function () { marcar(n - 1); });
+    svg.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); marcar(Math.max(0, (sel < 0 ? n : sel) - 1)); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); marcar(Math.min(n - 1, sel + 1)); }
+      if (e.key === 'Escape') soltar();
+    });
+    cont.appendChild(svg);
+  }
+  // Los 30 días completos (sin dato = sin columna), para que los dos gráficos tengan las mismas fechas
+  var dias30 = (function () { var out = [], base = HOY.dia ? new Date(HOY.dia + 'T12:00:00') : new Date(); for (var i = 29; i >= 0; i--) { var x = new Date(base.getTime() - i * 86400000); out.push(x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0')); } return out; })();
+  var vPor = {}, aPor = {}; VD.forEach(function (x) { vPor[x.d] = x; }); AD.forEach(function (x) { aPor[x.d] = x; });
+  function pintarGraficos() {
+    columnas($('g-ventas'), dias30.map(function (d) { var x = vPor[d]; return { d: d, v: x ? x.bruto : null, x: x }; }), {
+      titulo: 'Ventas por día', color: 'var(--serie-ventas)', vacio: 'Carmen todavía no juntó las ventas por día.',
+      detalle: function (p) { return p.x ? [p.x.ordenes + ' venta' + (p.x.ordenes === 1 ? '' : 's') + ', ' + p.x.unidades + ' u.'] : []; } });
+    columnas($('g-ads'), dias30.map(function (d) { var x = aPor[d]; return { d: d, v: x ? x.cost : null, x: x }; }), {
+      titulo: 'Inversión en publicidad por día', color: 'var(--serie-ads)', vacio: AD.length ? null : 'Ana todavía no juntó la publicidad por día (o no tenés Product Ads).',
+      detalle: function (p) { return p.x ? ['Vendió ' + pesos(p.x.ventas) + ' por publicidad', p.x.ventas ? 'ACOS ' + (p.x.cost / p.x.ventas * 100).toFixed(1).replace('.', ',') + '%' : 'sin ventas por publicidad'] : []; } });
+  }
+  pintarGraficos();
+  var tRes; addEventListener('resize', function () { clearTimeout(tRes); tRes = setTimeout(pintarGraficos, 150); });
+
+  $('btn-tabla-dia').addEventListener('click', function () {
+    var cont = $('tabla-dia'), abrir = cont.hidden;
+    cont.hidden = !abrir; this.setAttribute('aria-expanded', String(abrir)); this.textContent = abrir ? 'Ocultar la tabla' : 'Ver día por día como tabla';
+    if (abrir && !cont.firstChild) {
+      var cab = ['Día', 'Ventas', 'Cantidad', 'Unidades', 'Publicidad', 'Vendió por publicidad', 'ACOS'];
+      var filas = dias30.slice().reverse().map(function (d) { var v = vPor[d], a = aPor[d];
+        return [diaCorto(d), v ? pesos(v.bruto) : '—', v ? v.ordenes : '—', v ? v.unidades : '—', a ? pesos(a.cost) : '—', a ? pesos(a.ventas) : '—', a && a.ventas ? (a.cost / a.ventas * 100).toFixed(1).replace('.', ',') + '%' : '—']; });
+      cont.appendChild(h('table', { clase: 'tabla' }, [h('caption', { clase: 'oculto', texto: 'Ventas y publicidad por día' }), h('thead', null, [h('tr', null, cab.map(function (c) { return h('th', { scope: 'col', texto: c }); }))]),
+        h('tbody', null, filas.map(function (f) { return h('tr', null, f.map(function (v) { return h('td', { texto: String(v) }); })); }))]));
+    }
+  });
+
   // ───────── Equipo ─────────
   var activos = D.equipo.filter(function (w) { return w.activo; }).length;
   $('equipo-pie').textContent = activos + ' de ' + D.equipo.length + ' trabajando. Tocá a cualquiera para ver todo lo que sabe.';
@@ -316,7 +478,6 @@
 
   // ───────── Evolución ─────────
   var SERIES = [['facturacion', 'Facturación del mes', true], ['neto', 'Neto del mes', true], ['ganancia', 'Ganancia de 30 días', true], ['publicidad', 'Publicidad de 7 días', true], ['preguntas', 'Preguntas sin responder', false], ['sinStock', 'Productos sin stock', false]];
-  var NS = 'http://www.w3.org/2000/svg';
   SERIES.forEach(function (s) {
     var pts = (D.series && D.series[s[0]]) || [];
     var ult = pts.length ? pts[pts.length - 1].v : null;
@@ -401,6 +562,7 @@
     ['funciona', 'Lo que está funcionando', 'Tus productos con mejor margen, las campañas que venden barato, los catálogos que ganás, tus mejores puestos. Lo que conviene repetir.'],
     ['atencion', 'Lo que necesita atención', 'Ordenado por urgencia: rojo primero. Cada línea dice quién del equipo lo vio y qué skill pedirle a Claude para resolverlo.'],
     ['numeros', 'Tus números', 'Facturación, lo que te queda limpio, la ganancia de 30 días, la publicidad, tu reputación y lo que tenés para responder. Si dice parcial, faltan costos en el cerebro.'],
+    ['dia', 'Hoy y día por día', 'Lo que vendiste e invertiste en publicidad hoy, al momento, contra tu promedio. Abajo, los últimos 30 días: pasá el mouse por cada columna para ver el detalle del día (con el teclado, usá las flechas).'],
     ['equipo', 'Tu equipo de turno', 'Los 18 trabajadores: cada cuánto controlan, cuándo fue la última vez y qué encontraron. Tocá cualquiera para ver su tabla completa.'],
     ['viene', 'Lo que viene', 'Las campañas de MercadoLibre y las fechas cruciales. Si dice que falta tu decisión, Clara te lo va a seguir preguntando.'],
     ['evolucion', 'Evolución de 30 días', 'Cómo se mueven tus números día a día. Se llena sola con cada control del equipo.'],
@@ -442,10 +604,15 @@
   // ───────── Datos de ejemplo ─────────
   function demo() {
     var ahora = Date.now(), H = 3600000, Dd = 86400000;
+    function ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+    var hoyDemo = ymd(new Date(ahora));
     function serie(base, paso, n) { var a = []; for (var i = n; i >= 0; i--) a.push({ d: new Date(ahora - i * Dd).toISOString().slice(0, 10), v: Math.round(base + paso * (n - i) + Math.sin(i) * base * 0.04) }); return a; }
     var eq = [['precios', '🕵️', 'Vera', 'Centinela de precios', 'cada 30 min', 'Un rival quedó más barato que vos en el termo 1L'], ['ventas', '📦', 'Tomás', 'Contador de ventas', 'cada 1 h', 'El rival que más vende: Termo Lumilagro (≈ 6 u./día)'], ['ranking', '🏆', 'Martina', 'Vigía de búsquedas', 'cada 1 h', 'Tus puestos: termo 1 litro 2º'], ['rivales', '🎯', 'Bruno', 'Cazador de rivales nuevos', 'cada 3 h', 'Sin rivales nuevos esta semana'], ['auditor', '🩺', 'Lucía', 'Auditora de publicaciones', 'cada 15 días', '3 en rojo para arreglar'], ['agenda', '🗓️', 'Clara', 'Agenda comercial', 'cada 1 día', '1 decisión pendiente: CyberMonday'], ['rentabilidad', '💰', 'Ramiro', 'Analista de rentabilidad', 'cada 1 día', 'Ganancia neta estimada 30 días: $ 412.300'], ['anuncios', '📣', 'Ana', 'Gestora de anuncios', 'cada 1 día', '7 días: invertiste $ 30.000 y vendiste $ 200.000 por ads'], ['logistica', '🚚', 'Leo', 'Coordinador de logística', 'cada 2 h', '2 para despachar hoy'], ['contabilidad', '🧾', 'Carmen', 'Contadora', 'cada 1 día', 'Neto del mes ≈ $ 1.184.000'], ['stock', '📦', 'Nico', 'Encargado de stock', 'cada 6 h', '1 se corta en una semana'], ['atencion', '💬', 'Paula', 'Atención al comprador', 'cada 30 min', '2 preguntas sin responder'], ['reclamos', '🛡️', 'Iván', 'Reclamos y mediaciones', 'cada 1 h', 'Sin reclamos abiertos'], ['reputacion', '⭐', 'Valen', 'Reputación y opiniones', 'cada 1 día', 'Verde y MercadoLíder platinum'], ['catalogo', '🏷️', 'Gabi', 'Catálogo', 'cada 6 h', 'Ganás 4 de 5 catálogos'], ['moderaciones', '🚫', 'Sole', 'Moderaciones', 'cada 6 h', 'Ninguna publicación moderada'], ['proveedores', '🔄', 'Fede', 'Proveedores', 'cada 6 h', '6 productos vinculados a proveedores'], ['tendencias', '📈', 'Sofía', 'Radar de tendencias', 'cada 12 h', 'Lo más buscado: termo de vidrio']];
     return {
       generado: ahora - 4 * 60000, tiendas: ['TU_TIENDA'], corriendo: 'servicio',
+      hoy: { dia: hoyDemo, ventas: 96500, ordenes: 7, unidades: 9, ads: 3900, ventasAds: 41000, acos: 9.5, enVivo: true },
+      ventasDia: Array.from({ length: 30 }, function (_, i) { var d = new Date(ahora - (29 - i) * Dd); var b = Math.round(70000 + 35000 * Math.sin(i / 3.2) + (d.getDay() === 0 ? -30000 : 0) + i * 900); if (i === 29) b = 96500; return { d: ymd(d), bruto: Math.max(0, b), ordenes: Math.max(1, Math.round(b / 13000)), unidades: Math.max(1, Math.round(b / 10500)) }; }),
+      adsDia: Array.from({ length: 30 }, function (_, i) { var d = new Date(ahora - (29 - i) * Dd); var c = Math.round(3600 + 900 * Math.sin(i / 2.1)); if (i === 29) c = 3900; return { d: ymd(d), cost: c, ventas: i === 29 ? 41000 : Math.round(c * (8 + 3 * Math.cos(i / 4))), units: 3 }; }),
       frase: 'En octubre facturaste $ 3.420.000 y te quedan $ 1.184.000 limpios. Hoy hay 2 cosas urgentes: el mate imperial está sin stock y se vendía, entre otras.',
       funciona: [{ quien: 'rentabilidad', nombre: 'Ramiro', emoji: '💰', texto: 'Termo acero 1L deja 31% de margen ($ 13.020 por unidad)' }, { quien: 'anuncios', nombre: 'Ana', emoji: '📣', texto: 'La campaña «Termos» vende con ACOS 9%' }, { quien: 'catalogo', nombre: 'Gabi', emoji: '🏷️', texto: 'Ganás el catálogo de Termo acero 1L' }, { quien: 'ranking', nombre: 'Martina', emoji: '🏆', texto: 'Estás 2º en «termo 1 litro»' }, { quien: 'tendencias', nombre: 'Sofía', emoji: '📈', texto: 'Lo más buscado ahora: «termo de vidrio»' }],
       atencion: [{ quien: 'stock', nombre: 'Nico', emoji: '📦', texto: 'Mate imperial está sin stock y se vendía', nivel: 'alta', skill: 'stock-ml' }, { quien: 'agenda', nombre: 'Clara', emoji: '🗓️', texto: 'Decidí si entrás a «CyberMonday»: la inscripción cierra pronto', nivel: 'alta', skill: 'agenda-comercial-ml' }, { quien: 'atencion', nombre: 'Paula', emoji: '💬', texto: '2 pregunta(s) esperando respuesta', nivel: 'media', skill: 'responder-preguntas-ml' }, { quien: 'logistica', nombre: 'Leo', emoji: '🚚', texto: '2 venta(s) para despachar', nivel: 'media', skill: 'logistica-ml' }],

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.23.0
+- **📊 Hoy y día por día en el tablero**: lo que vendiste hoy (ventas, unidades, contra tu promedio diario) y lo que invertiste hoy en publicidad (con ventas por publicidad y ACOS), **en vivo** al armar el tablero; y dos gráficos de 30 días: **ventas por día** (Carmen) y **publicidad por día** (Ana), con el detalle de cada día al pasar el mouse o con las flechas del teclado, y vista de tabla.
+- Ana guarda la publicidad por día y la completa de a poco (hoy y ayer siempre, hasta 10 días faltantes por control) para no gastar llamadas a la API.
+- Gráficos de un solo eje, columnas finas con punta redondeada, el único valor escrito es el de hoy; colores validados para daltonismo en claro y oscuro. Suite: 129 pruebas.
+
 ## 1.22.0
 - **📋 El tablero del día** (`ml_tablero` + skill `tablero-ml`): un parte diario visual tipo CRM con todo lo que sabe el equipo — la frase del día escrita con tus datos, lo que está funcionando, lo que necesita atención (urgente primero, con la skill que lo resuelve), tus números (facturación, neto, ganancia 30 días, publicidad, reputación, pendientes), la planilla de los 18 trabajadores con su tabla completa al tocarlos, lo que viene, la evolución de 30 días y la bitácora filtrable.
 - Página local y privada (0600), sin servidor y sin internet; se regenera sola después de cada control y se recarga cada 5 minutos. Tema claro/oscuro, adaptada a celular, accesible con teclado y con **tutorial guiado** la primera vez.

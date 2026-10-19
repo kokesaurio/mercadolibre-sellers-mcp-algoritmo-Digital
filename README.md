@@ -154,7 +154,7 @@ En un chat nuevo decile a Claude: **"conectá mi cuenta de MercadoLibre"** — o
 
 ## 📋 El tablero del día
 
-Todo lo que encuentra el equipo, **en una página que se ve linda y se entiende de un vistazo**: la frase del día ("En octubre facturaste $… y te quedan $… limpios. Hoy hay 2 cosas urgentes…"), **lo que está funcionando** y **lo que necesita atención** (urgente primero, cada cosa con la skill que la resuelve), tus números, la planilla de los 18 trabajadores (tocás uno y ves su tabla), lo que viene, la evolución de 30 días y la bitácora filtrable.
+Todo lo que encuentra el equipo, **en una página que se ve linda y se entiende de un vistazo**: la frase del día ("En octubre facturaste $… y te quedan $… limpios. Hoy hay 2 cosas urgentes…"), **lo que está funcionando** y **lo que necesita atención** (urgente primero, cada cosa con la skill que la resuelve), **el total de hoy en vivo con los gráficos de ventas y de publicidad día por día** (30 días, con el detalle de cada día al pasar el mouse y vista de tabla), tus números, la planilla de los 18 trabajadores (tocás uno y ves su tabla), lo que viene, la evolución de 30 días y la bitácora filtrable.
 
 Decile a Claude **"abrí el tablero"** (`ml_tablero`). Es una página local, privada y sin servidor: funciona sin internet, se actualiza sola con cada control del equipo, tiene modo oscuro, se ve bien en el celular y la primera vez arranca con un **tutorial guiado**. Mirala con datos de ejemplo en [panel/tablero.html](panel/tablero.html).
 

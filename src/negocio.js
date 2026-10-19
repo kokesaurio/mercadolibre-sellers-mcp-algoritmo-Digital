@@ -73,10 +73,26 @@ export function ventasPorItem(ordenes) {
   return [...m.values()].sort((a, b) => b.u - a.u);
 }
 
+/** Día local (YYYY-MM-DD) de un instante: las ventas de las 23 h de Buenos Aires son de ese día, no del siguiente. */
+export const diaLocal = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+/** Ventas por día de los últimos `dias` días (los días sin ventas van en cero). */
+export function ventasDiarias(ordenes, dias = 30, ahora = Date.now()) {
+  const m = new Map();
+  for (let i = dias - 1; i >= 0; i--) m.set(diaLocal(ahora - i * DIA), { d: diaLocal(ahora - i * DIA), bruto: 0, ordenes: 0, unidades: 0 });
+  for (const o of ordenes) {
+    const x = m.get(diaLocal(Date.parse(o.date_created)));
+    if (!x) continue;
+    x.bruto += o.total_amount ?? 0; x.ordenes++;
+    for (const it of o.order_items || []) x.unidades += it.quantity ?? 0;
+  }
+  return [...m.values()];
+}
+
 // ───────────────────────────── Publicidad ─────────────────────────────
 /** Campañas de Product Ads con métricas del período. null si la cuenta no tiene Product Ads. */
-export async function campanias(c, dias = 7) {
-  const qy = { date_from: fechaCorta(Date.now() - (dias - 1) * DIA), date_to: fechaCorta(Date.now()), metrics: 'clicks,prints,cost,acos,cpc,units_quantity,total_amount' };
+export async function campanias(c, dias = 7, { desde, hasta } = {}) {
+  const qy = { date_from: desde || fechaCorta(Date.now() - (dias - 1) * DIA), date_to: hasta || fechaCorta(Date.now()), metrics: 'clicks,prints,cost,acos,cpc,units_quantity,total_amount' };
   try {
     const adv = await c.get('/advertising/advertisers', { product_id: 'PADS' });
     const a = adv.advertisers?.[0];
@@ -87,6 +103,13 @@ export async function campanias(c, dias = 7) {
       clics: Number(k.metrics?.clicks || 0), impresiones: Number(k.metrics?.prints || 0),
     }));
   } catch (e) { if ([400, 403, 404].includes(e.status)) return null; throw e; }
+}
+
+/** Publicidad de UN día (todas las campañas sumadas). null si la cuenta no tiene Product Ads. */
+export async function adsDelDia(c, dia) {
+  const ks = await campanias(c, 1, { desde: dia, hasta: dia });
+  if (!ks) return null;
+  return { d: dia, cost: Math.round(ks.reduce((s, k) => s + k.cost, 0)), ventas: Math.round(ks.reduce((s, k) => s + k.ventas, 0)), units: ks.reduce((s, k) => s + k.units, 0) };
 }
 
 // ───────────────────────────── Logística ─────────────────────────────

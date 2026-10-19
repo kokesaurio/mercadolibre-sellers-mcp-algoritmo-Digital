@@ -19,7 +19,7 @@ import { auditarItem, idsDeTienda } from './auditoria.js';
 import { fechasComerciales, cronogramaML, estadoDecision, diasHasta, tipoLegible } from './agenda.js';
 import { saberDe } from './cerebro.js';
 import { stockDias, preguntasPendientes, mensajesSinLeer, reclamosAbiertos, reputacionDe, opinionesDe, estadoCatalogo, ESTADO_CATALOGO, moderadas, traducirSub, precioProveedor, COLOR } from './postventa.js';
-import { rentabilidadDe, comisionML, adsDeItem, ordenesPagas, ventasPorItem, campanias, enviosRecientes, resumenContable, inicioDeMes, nombreMes } from './negocio.js';
+import { rentabilidadDe, comisionML, adsDeItem, ordenesPagas, ventasPorItem, campanias, enviosRecientes, resumenContable, inicioDeMes, nombreMes, ventasDiarias, adsDelDia, diaLocal } from './negocio.js';
 import { leerVigilancia, claveDe, tomarSnapshot, compararSnapshots } from './vigilancia.js';
 import * as base from './db.js';
 
@@ -535,9 +535,20 @@ const OFICIOS = {
     },
   },
   anuncios: {
-    async foto(c) {
+    async foto(c, t) {
       const ks = await campanias(c, 7);
       if (!ks) return { sinAds: true, campanias: {}, items: {} };
+      // Publicidad día por día: lo ya guardado + hoy y ayer de nuevo (cambian) + hasta 10 días que falten por control
+      const previo = leerEquipo().snapshots['anuncios|' + claveTarea(t)]?.datos?.diario || {};
+      const diario = {}, hoy = Date.now();
+      const dias30 = Array.from({ length: 30 }, (_, i) => diaLocal(hoy - i * 86400000));
+      for (const d of dias30) if (previo[d]) diario[d] = previo[d];
+      let pedidos = 0;
+      for (const [i, d] of dias30.entries()) {
+        if (diario[d] && i > 1) continue;
+        if (i > 1 && pedidos >= 10) continue;
+        try { const x = await adsDelDia(c, d); if (x) { diario[d] = x; pedidos++; } } catch {}
+      }
       // Cruce con Ramiro: el ACOS que aguanta cada producto según su margen
       const items = {};
       const ram = Object.entries(leerEquipo().snapshots).filter(([k]) => k.startsWith('rentabilidad|')).flatMap(([, s]) => Object.entries(s.datos.items || {}));
@@ -545,7 +556,7 @@ const OFICIOS = {
         try { const a = await adsDeItem(c, id, 7); if (a && a.cost > 0) items[id] = { titulo: x.titulo, acos: a.acos, acosMax: x.acosMax, cost: a.cost, units: a.units }; } catch {}
       }
       const campa = Object.fromEntries(ks.map((k) => [k.id, k]));
-      return { campanias: campa, items, gasto: ks.reduce((s, k) => s + k.cost, 0), ventas: ks.reduce((s, k) => s + k.ventas, 0) };
+      return { campanias: campa, items, gasto: ks.reduce((s, k) => s + k.cost, 0), ventas: ks.reduce((s, k) => s + k.ventas, 0), diario };
     },
     cambios(t, v, n) {
       const out = [], din = (x) => '$ ' + Number(x).toLocaleString('es-AR', { maximumFractionDigits: 0 });
@@ -596,7 +607,8 @@ const OFICIOS = {
       const comparado = await resumenContable(c, me.id, m1, m1 + (ahora - m0), { conAds: false });
       const dia = new Date(ahora).getDate();
       const cierre = dia <= 3 ? { ...(await resumenContable(c, me.id, m1, m0)), mes: new Date(m1).toISOString().slice(0, 7), nombre: nombreMes(m1) } : null;
-      return { mes: { ...mes, nombre: nombreMes(m0) }, comparado, cierre, avisos: {} };
+      const diario = ventasDiarias(await ordenesPagas(c, me.id, ahora - 30 * 86400000, ahora, { maximo: 2000 }), 30, ahora);
+      return { mes: { ...mes, nombre: nombreMes(m0) }, comparado, cierre, diario, avisos: {} };
     },
     cambios(t, v, n) {
       const out = [], avisos = { ...(v?.avisos || {}) };
