@@ -169,6 +169,24 @@ export function filaDeMedicion(trabajador, tarea, datos) {
     f.extra = JSON.stringify({ porDespachar: datos.porDespachar ?? 0, demorados: datos.demorados ?? 0, problemas: datos.problemas ?? 0, demoraPct: datos.demoraRate != null ? Math.round(datos.demoraRate * 1000) / 10 : null });
   } else if (trabajador === 'contabilidad') {
     f.extra = JSON.stringify({ facturacionMes: Math.round(datos.mes?.bruto ?? 0), netoMes: Math.round(datos.mes?.neto ?? 0), margenMes: Math.round((datos.mes?.margen ?? 0) * 10) / 10 });
+  } else if (trabajador === 'stock') {
+    const its = Object.values(datos.items || {});
+    f.extra = JSON.stringify({ conStock: its.length, criticos: its.filter((x) => x.dias != null && x.dias <= 3 && x.stock > 0).length, semana: its.filter((x) => x.dias != null && x.dias <= 7 && x.stock > 0).length, sinStock: its.filter((x) => x.stock === 0 && x.u30 > 0).length });
+  } else if (trabajador === 'atencion') {
+    f.extra = JSON.stringify({ preguntas: Object.keys(datos.preguntas || {}).length, mensajes: (datos.mensajes || []).reduce((s2, x) => s2 + x.cantidad, 0) });
+  } else if (trabajador === 'reclamos') {
+    const rs = Object.values(datos.reclamos || {});
+    f.extra = JSON.stringify({ abiertos: rs.length, enMediacion: rs.filter((x) => x.mediacion).length });
+  } else if (trabajador === 'reputacion') {
+    f.extra = JSON.stringify({ nivel: datos.rep?.nivel ?? null, reclamosPct: datos.rep?.reclamos ?? null, demorasPct: datos.rep?.demoras ?? null, cancelacionesPct: datos.rep?.cancelaciones ?? null });
+  } else if (trabajador === 'catalogo') {
+    const its = Object.values(datos.items || {});
+    f.extra = JSON.stringify({ ganando: its.filter((x) => x.estado === 'winning' || x.estado === 'sharing_first_place').length, perdiendo: its.filter((x) => x.estado === 'competing').length });
+  } else if (trabajador === 'moderaciones') {
+    f.extra = JSON.stringify({ moderadas: Object.keys(datos.items || {}).length });
+  } else if (trabajador === 'proveedores') {
+    Object.assign(f, { precio: datos.prov?.precio ?? null, mi_precio: datos.mio?.precio ?? null, stock: datos.mio?.stock ?? null });
+    f.extra = JSON.stringify({ precioProveedor: datos.prov?.precio ?? null, stockProveedor: datos.prov?.stock == null ? null : datos.prov.stock ? 'sí' : 'agotado' });
   } else if (trabajador === 'tendencias') {
     const ks = (datos.keywords || []).slice(0, 10);
     Object.assign(f, { lider: ks[0] ?? null, extra: JSON.stringify({ top: ks }) });

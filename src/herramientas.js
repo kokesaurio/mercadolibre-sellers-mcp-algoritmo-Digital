@@ -646,10 +646,16 @@ export const TOOLS = [
       if (obj.length < 3) return 'Decime el objetivo en una frase (ej: "vender más este mes", "¿por qué gano poco?", "preparame para el CyberMonday").';
       const REGLAS = [
         [/precio|barat|caro|competen|rival|competidor/, ['precios', 'rivales', 'ranking'], 'competencia'],
-        [/vender mas|mas ventas|ventas|facturar|crecer|escalar|vendo poco|no vendo/, ['ventas', 'ranking', 'anuncios', 'auditor', 'agenda', 'tendencias'], 'vender más'],
+        [/vender mas|mas ventas|ventas|facturar|crecer|escalar|vendo poco|no vendo/, ['ventas', 'ranking', 'anuncios', 'agenda', 'tendencias', 'stock', 'catalogo', 'atencion'], 'vender más'],
         [/margen|ganancia|ganar|gano|rentab|plata|pierdo|perd|cost/, ['rentabilidad', 'contabilidad', 'anuncios'], 'ganar más por venta'],
         [/publicidad|\bads\b|anuncio|acos|product ads|pauta/, ['anuncios', 'rentabilidad'], 'publicidad'],
-        [/envi|despach|logistic|demora|reputacion|reclamo|color|termometro|full|flex/, ['logistica'], 'logística y reputación'],
+        [/envi|despach|logistic|demora|full|flex/, ['logistica'], 'logística'],
+        [/reputacion|reclamo|mediacion|color|termometro|opinion|calificacion|estrella/, ['reclamos', 'reputacion', 'logistica', 'atencion'], 'reputación'],
+        [/stock|reponer|reposicion|quiebre|inventario|me quedo sin/, ['stock', 'proveedores'], 'stock'],
+        [/pregunta|mensaje|atencion|comprador|responder/, ['atencion'], 'atención'],
+        [/catalogo|buy ?box|primer lugar/, ['catalogo', 'rentabilidad'], 'catálogo'],
+        [/pausad|moderad|infraccion|bloquead|dada de baja|penaliz/, ['moderaciones'], 'moderaciones'],
+        [/proveedor|mayorista|reventa|revendo/, ['proveedores', 'stock', 'rentabilidad'], 'proveedores'],
         [/numero|contab|cierre|impuesto|balance|resultado|mes pasado|este mes/, ['contabilidad', 'rentabilidad'], 'números'],
         [/publicacion|foto|descripcion|auditor|desactualiz|posicion|ranking|puesto|aparecer|titulo|pregunta/, ['auditor', 'ranking'], 'publicaciones'],
         [/promo|hot ?sale|cyber|black|fecha|navidad|reyes|dia de la madre|dia del padre|evento|cronograma|mi pagina/, ['agenda', 'rentabilidad', 'anuncios'], 'fechas y promociones'],
@@ -658,11 +664,11 @@ export const TOOLS = [
       const elegidos = new Set(), temas = [];
       for (const [re, ids, tema] of REGLAS) if (re.test(obj)) { ids.forEach((i) => elegidos.add(i)); temas.push(tema); }
       const todos = !elegidos.size;
-      const equipo = todos ? IDS.filter((i) => i !== 'auditor') : IDS.filter((i) => elegidos.has(i)); // Lucía (auditoría completa) solo si el objetivo es de publicaciones
+      const equipo = todos ? IDS.filter((i) => i !== 'auditor' && i !== 'proveedores') : IDS.filter((i) => elegidos.has(i)); // Lucía y Fede: solo si el objetivo los nombra // Lucía (auditoría completa) solo si el objetivo es de publicaciones
       let corrida = null;
       if (!args.sin_correr) corrida = await correrCiclo({ solo: equipo, forzar: true });
       const res = armarResultados();
-      const ORDEN = ['logistica', 'rentabilidad', 'anuncios', 'agenda', 'auditor', 'precios', 'ranking', 'ventas', 'rivales', 'tendencias', 'contabilidad'];
+      const ORDEN = ['reclamos', 'moderaciones', 'logistica', 'atencion', 'stock', 'proveedores', 'rentabilidad', 'catalogo', 'anuncios', 'reputacion', 'agenda', 'auditor', 'precios', 'ranking', 'ventas', 'rivales', 'tendencias', 'contabilidad'];
       const ACCION = {
         logistica: ['despachar lo pendiente y resolver demoras/devoluciones', 'logistica-ml', true],
         rentabilidad: ['corregir precio, costo o publicidad de los productos que dejan poco o pierden', 'calculadora-ml', true],
@@ -675,6 +681,13 @@ export const TOOLS = [
         rivales: ['analizar a los rivales nuevos y sumarlos a la vigilancia', 'competencia-ml', false],
         tendencias: ['validar las búsquedas en alza como productos para vender', 'descubrir-ganadores-ml', false],
         contabilidad: ['cerrar los números del mes y completar costos/impuestos que falten', 'contabilidad-ml', false],
+        reclamos: ['responder cada reclamo antes de su plazo', 'reclamos-ml', true],
+        moderaciones: ['corregir las publicaciones moderadas y reactivarlas', 'moderaciones-ml', true],
+        atencion: ['responder las preguntas y mensajes pendientes', 'responder-preguntas-ml', true],
+        stock: ['reponer lo que se corta en menos de una semana', 'stock-ml', false],
+        proveedores: ['ajustar precio/costo o pausar según tu proveedor', 'proveedores-ml', true],
+        catalogo: ['recuperar el catálogo donde convenga por margen', 'competencia-ml', true],
+        reputacion: ['atender las opiniones negativas y lo que mueve tu color', 'reputacion-ml', false],
       };
       const pasos = [];
       for (const id of ORDEN.filter((i) => equipo.includes(i))) {
@@ -1069,12 +1082,14 @@ export const TOOLS = [
   // ───────────────────── El equipo de trabajadores 24/7 ─────────────────────
   {
     name: 'ml_trabajadores', title: 'Equipo de trabajadores (vigilancia constante)', readOnly: true,
-    description: 'El equipo de 7 trabajadores que vigilan solos y constantemente: 🕵️ Vera (precios), 📦 Tomás (ventas de rivales y quiebres de stock), 🏆 Martina (ranking en búsquedas y tu puesto), 🎯 Bruno (rivales nuevos), 🩺 Lucía (audita TODAS tus publicaciones cada 15 días: desactualizadas, precio congelado o fuera de mercado, fotos, stock, ficha), 🗓️ Clara (agenda comercial: fechas cruciales y cronograma de promociones de ML — siempre pregunta si querés participar; Mi página al día) y 📈 Sofía (tendencias). Cada uno tiene sus skills a cargo y cada alerta recomienda qué skill correr. Guardan todo en una base de datos SQLite local (equipo.db, viene con Node: cero instalación, ideal Windows) y envían sus resultados a Google Drive (planilla en vivo o carpeta de Drive). Acciones: equipo (estado de todos), asignar (darle una tarea), quitar, pausar, activar, frecuencia (minutos), correr (que trabajen ya), informe (alertas nuevas), resultados (tablas con todo lo que sabe cada uno), historial (evolución día por día de un rival/keyword), base (la base de datos: estado y backup), drive (conectar Google Drive). Se puede nombrar al trabajador por su nombre (Vera) o puesto (precios). Si un trabajador no tiene tareas propias vigila tus seguidos de ml_vigilar de su tipo.',
+    description: 'El equipo de 18 trabajadores que vigilan solos y constantemente (más 💰 Ramiro rentabilidad, 📣 Ana anuncios, 🚚 Leo logística, 🧾 Carmen contabilidad, 📦 Nico días de stock antes del quiebre, 💬 Paula preguntas y mensajes sin responder, 🛡️ Iván reclamos y plazos, ⭐ Valen reputación y opiniones, 🏷️ Gabi catálogo/buy box, 🚫 Sole moderaciones, 🔄 Fede precio y stock de tus proveedores — a Fede se le asigna ref=TU publicación y fuente=publicación o URL del proveedor): 🕵️ Vera (precios), 📦 Tomás (ventas de rivales y quiebres de stock), 🏆 Martina (ranking en búsquedas y tu puesto), 🎯 Bruno (rivales nuevos), 🩺 Lucía (audita TODAS tus publicaciones cada 15 días: desactualizadas, precio congelado o fuera de mercado, fotos, stock, ficha), 🗓️ Clara (agenda comercial: fechas cruciales y cronograma de promociones de ML — siempre pregunta si querés participar; Mi página al día) y 📈 Sofía (tendencias). Cada uno tiene sus skills a cargo y cada alerta recomienda qué skill correr. Guardan todo en una base de datos SQLite local (equipo.db, viene con Node: cero instalación, ideal Windows) y envían sus resultados a Google Drive (planilla en vivo o carpeta de Drive). Acciones: equipo (estado de todos), asignar (darle una tarea), quitar, pausar, activar, frecuencia (minutos), correr (que trabajen ya), informe (alertas nuevas), resultados (tablas con todo lo que sabe cada uno), historial (evolución día por día de un rival/keyword), base (la base de datos: estado y backup), drive (conectar Google Drive). Se puede nombrar al trabajador por su nombre (Vera) o puesto (precios). Si un trabajador no tiene tareas propias vigila tus seguidos de ml_vigilar de su tipo.',
     schema: { ...cuentaParam,
       accion: z.enum(['equipo', 'asignar', 'quitar', 'pausar', 'activar', 'frecuencia', 'correr', 'informe', 'resultados', 'historial', 'base', 'drive']).describe('Qué hacer. historial = evolución día por día de un objetivo (precio, ventas por día, puesto, líder) desde la base de datos. base = estado de la base de datos del equipo y backup. resultados = las tablas con lo que sabe cada trabajador (precio rival vs el tuyo, ritmo de ventas, tu puesto, rivales nuevos, top de tendencias). drive = conectar/ver/probar el envío a Google Drive'),
-      trabajador: z.string().optional().describe('Vera/precios, Tomás/ventas, Martina/ranking, Bruno/rivales, Lucía/auditor, Clara/agenda, Sofía/tendencias, o "todos"'),
+      trabajador: z.string().optional().describe('Nombre (Vera, Tomás, Martina, Bruno, Lucía, Clara, Ramiro, Ana, Leo, Carmen, Nico, Paula, Iván, Valen, Gabi, Sole, Fede, Sofía) o puesto, o "todos"'),
       tipo: z.enum(['vendedor', 'publicacion', 'busqueda', 'tendencias']).optional().describe('Se deduce solo según el trabajador; Vera acepta vendedor o publicacion'),
       ref: z.string().optional().describe('item_id rival, nickname/id del vendedor, palabra clave, o categoría (tendencias)'),
+      fuente: z.string().optional().describe('Fede (proveedores): la publicación del proveedor en MercadoLibre (MLA…) o la URL https del producto en su tienda; ref = TU publicación'),
+      recargo: z.number().optional().describe('Fede: % que le sumás al precio del proveedor para vender (para sugerirte el precio)'),
       mi_item: z.string().optional().describe('Tu item_id para comparar: Vera avisa si un rival queda más barato, Martina te dice tu puesto en la búsqueda'),
       umbral: z.number().optional().describe('Vera: % mínimo de cambio de precio para avisar · Martina: puestos mínimos de cambio · Tomás: unidades mínimas'),
       minutos: z.number().optional().describe(`Frecuencia de control en minutos (mínimo ${INTERVALO_MINIMO})`),
@@ -1127,13 +1142,13 @@ export const TOOLS = [
       }
 
       if (args.accion === 'asignar') {
-        if (!quien) return 'Decime a quién: Vera (precios), Tomás (ventas), Martina (ranking), Bruno (rivales), Lucía (auditoría de tus publicaciones), Clara (agenda comercial) o Sofía (tendencias).';
+        if (!quien) return `Decime a quién: ${IDS.map(etiqueta).join(' · ')}.`;
         let sitio;
         if (EQUIPO[quien].tipos.includes('tendencias') && !args.ref) sitio = (await cliente(args).get('/users/me')).site_id || 'MLA';
-        const r = asignarTarea(quien, { tipo: args.tipo, ref: args.ref, mi_item: args.mi_item, umbral: args.umbral, nota: args.nota, cuenta: args.cuenta, sitio });
+        const r = asignarTarea(quien, { tipo: args.tipo, ref: args.ref, mi_item: args.mi_item, umbral: args.umbral, nota: args.nota, cuenta: args.cuenta, sitio, fuente: args.fuente, recargo: args.recargo });
         const w = leerEquipo().trabajadores[quien];
         const skills = EQUIPO[quien].skills.map((x) => '`' + x.skill + '`').join(', ');
-        return `✅ ${etiqueta(quien)} ${r.actualizada ? 'actualizó' : 'tomó'} la tarea: ${r.tarea.tipo} **${r.tarea.ref}**${r.tarea.mi_item ? ` comparando con tu ${r.tarea.mi_item}` : ''}${r.tarea.umbral != null ? ` (umbral ${r.tarea.umbral})` : ''}.\nControla ${cadaCuanto(w.intervalo)}${w.activo ? '' : ' (⚠️ está en pausa: activalo)'}; el primer control guarda la foto de base y desde ahí avisa solo lo que cambia. Cuando encuentre algo te va a recomendar una de sus skills: ${skills}.`;
+        return `✅ ${etiqueta(quien)} ${r.actualizada ? 'actualizó' : 'tomó'} la tarea: ${r.tarea.tipo} **${r.tarea.ref}**${r.tarea.mi_item ? ` comparando con tu ${r.tarea.mi_item}` : ''}${r.tarea.fuente ? ` contra el proveedor ${r.tarea.fuente}${r.tarea.recargo != null ? ` (recargo ${r.tarea.recargo}%)` : ''}` : ''}${r.tarea.umbral != null ? ` (umbral ${r.tarea.umbral})` : ''}.\nControla ${cadaCuanto(w.intervalo)}${w.activo ? '' : ' (⚠️ está en pausa: activalo)'}; el primer control guarda la foto de base y desde ahí avisa solo lo que cambia. Cuando encuentre algo te va a recomendar una de sus skills: ${skills}.`;
       }
 
       if (args.accion === 'quitar') {
@@ -1243,10 +1258,10 @@ export const TOOLS = [
           } else if (id === 'rivales') {
             cab = ['Día', 'Vendedores distintos en el top'];
             fila = (m) => [dia(m.t), m.extra?.vendedores ?? '—'];
-          } else if (['rentabilidad', 'anuncios', 'logistica', 'contabilidad'].includes(id)) {
-            const NOMBRES = { calculados: 'Productos calculados', conPerdida: 'Con pérdida', sinCosto: 'Sin costo cargado', ganancia30d: 'Ganancia 30 días', campanias: 'Campañas', gasto7d: 'Invertido 7 días', ventasAds7d: 'Ventas por ads 7 días', porDespachar: 'Por despachar', demorados: 'Demorados', problemas: 'Devueltos/no entregados', demoraPct: '% despachos con demora', facturacionMes: 'Facturación del mes', netoMes: 'Neto del mes', margenMes: 'Margen %' };
+          } else if (['rentabilidad', 'anuncios', 'logistica', 'contabilidad', 'stock', 'atencion', 'reclamos', 'reputacion', 'catalogo', 'moderaciones', 'proveedores'].includes(id)) {
+            const NOMBRES = { conStock: 'Productos', criticos: 'Se cortan en ≤3 días', semana: 'Se cortan en ≤7 días', sinStock: 'Sin stock vendiendo', preguntas: 'Preguntas sin responder', mensajes: 'Mensajes sin leer', abiertos: 'Reclamos abiertos', enMediacion: 'En mediación', nivel: 'Color', reclamosPct: '% reclamos', demorasPct: '% demoras', cancelacionesPct: '% cancelaciones', perdiendo: 'Catálogo perdido', ganando: 'Catálogo ganado', moderadas: 'Moderadas', precioProveedor: 'Precio proveedor', stockProveedor: 'Stock proveedor', calculados: 'Productos calculados', conPerdida: 'Con pérdida', sinCosto: 'Sin costo cargado', ganancia30d: 'Ganancia 30 días', campanias: 'Campañas', gasto7d: 'Invertido 7 días', ventasAds7d: 'Ventas por ads 7 días', porDespachar: 'Por despachar', demorados: 'Demorados', problemas: 'Devueltos/no entregados', demoraPct: '% despachos con demora', facturacionMes: 'Facturación del mes', netoMes: 'Neto del mes', margenMes: 'Margen %' };
             const claves = Object.keys(ultimo.extra || {});
-            const plata = /ganancia|gasto|ventas|facturacion|neto/i;
+            const plata = /ganancia|gasto|ventasAds|facturacion|neto|precioProveedor/i;
             cab = ['Día', ...claves.map((k) => NOMBRES[k] || k)];
             fila = (m) => [dia(m.t), ...claves.map((k) => (m.extra?.[k] == null ? '—' : plata.test(k) ? din(m.extra[k]) : m.extra[k]))];
           } else {

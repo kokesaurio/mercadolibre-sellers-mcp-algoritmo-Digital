@@ -1,4 +1,4 @@
-// src/trabajadores.js — el equipo de 11 trabajadores que vigilan solos, 24/7.
+// src/trabajadores.js — el equipo de 18 trabajadores que vigilan solos, 24/7.
 //
 // Cada trabajador tiene un oficio fijo, una frecuencia y una lista de tareas
 // (lo que le asignás con ml_trabajadores). Si no le asignás nada, vigila
@@ -18,6 +18,7 @@ import { MeliClient, listarCuentas } from './meli.js';
 import { auditarItem, idsDeTienda } from './auditoria.js';
 import { fechasComerciales, cronogramaML, estadoDecision, diasHasta, tipoLegible } from './agenda.js';
 import { saberDe } from './cerebro.js';
+import { stockDias, preguntasPendientes, mensajesSinLeer, reclamosAbiertos, reputacionDe, opinionesDe, estadoCatalogo, ESTADO_CATALOGO, moderadas, traducirSub, precioProveedor, COLOR } from './postventa.js';
 import { rentabilidadDe, comisionML, adsDeItem, ordenesPagas, ventasPorItem, campanias, enviosRecientes, resumenContable, inicioDeMes, nombreMes } from './negocio.js';
 import { leerVigilancia, claveDe, tomarSnapshot, compararSnapshots } from './vigilancia.js';
 import * as base from './db.js';
@@ -44,7 +45,6 @@ export const EQUIPO = {
     oficio: 'Cuenta las ventas estimadas de publicaciones rivales (unidades y ritmo por día), y avisa cuando un rival se queda sin stock, pausa o reactiva: esas son tus ventanas de oportunidad.',
     skills: [
       { skill: 'panel-ventas-ml', para: 'comparar el ritmo del rival con tus ventas de hoy y del mes' },
-      { skill: 'responder-preguntas-ml', para: 'cuando un rival se queda sin stock, contestar rápido las preguntas que te llegan' },
     ],
   },
   ranking: {
@@ -58,7 +58,6 @@ export const EQUIPO = {
     alias: 'bruno', emoji: '🎯', nombre: 'Bruno', puesto: 'Cazador de rivales nuevos', intervalo: 180, tipos: ['busqueda'],
     oficio: 'Detecta vendedores que aparecen por primera vez en tus búsquedas (con qué producto y a qué precio) para que los sumes a la vigilancia antes de que te saquen ventas.',
     skills: [
-      { skill: 'competencia-ml', para: 'radiografía del rival nuevo: precios, envío, reputación y cómo responder' },
       { skill: 'revisar-publicaciones-aldi', para: 'revisar la publicación del rival y la tuya con Aldi para ver quién está mejor armada' },
     ],
   },
@@ -110,6 +109,41 @@ export const EQUIPO = {
       { skill: 'reporte-ventas-ml', para: 'el resumen de 4 líneas para mandar por WhatsApp' },
     ],
   },
+  stock: {
+    alias: 'nico', emoji: '📦', nombre: 'Nico', puesto: 'Encargado de stock', intervalo: 6 * 60, tipos: ['tienda'],
+    oficio: 'Cada 6 horas cruza cuánto vendés por día con tu stock y te dice cuántos días te quedan de cada producto, antes del quiebre (sin stock perdés el posicionamiento ganado). También avisa lo que se quedó sin stock mientras vendía y lo que tiene stock parado.',
+    skills: [{ skill: 'stock-ml', para: 'reponer a tiempo: qué pedir, cuánto y qué hacer mientras llega' }],
+  },
+  atencion: {
+    alias: 'paula', emoji: '💬', nombre: 'Paula', puesto: 'Atención al comprador', intervalo: 30, tipos: ['tienda'],
+    oficio: 'Cada 30 minutos mira las preguntas sin responder (con el tiempo que llevan: MercadoLibre premia responder rápido) y los mensajes de postventa sin leer. Avisa las nuevas y las que se están demorando.',
+    skills: [{ skill: 'responder-preguntas-ml', para: 'responder todas juntas con tu OK, sin datos de contacto' }],
+  },
+  reclamos: {
+    alias: 'ivan', emoji: '🛡️', nombre: 'Iván', puesto: 'Reclamos y mediaciones', intervalo: 60, tipos: ['tienda'],
+    oficio: 'Cada hora revisa tus reclamos abiertos: los nuevos, el plazo que tenés para responder cada uno, los que pasan a mediación con MercadoLibre y los que se cierran. Un reclamo sin respuesta a tiempo es lo que más daña la reputación.',
+    skills: [{ skill: 'reclamos-ml', para: 'responder bien y a tiempo, y cuidar la reputación' }],
+  },
+  reputacion: {
+    alias: 'valen', emoji: '⭐', nombre: 'Valen', puesto: 'Reputación y opiniones', intervalo: 24 * 60, tipos: ['tienda'],
+    oficio: 'Todos los días mira tu color de reputación, MercadoLíder y las métricas que la mueven (reclamos, demoras, cancelaciones), y las opiniones de tus productos más vendidos: avisa cada opinión negativa nueva y si baja el promedio.',
+    skills: [{ skill: 'reputacion-ml', para: 'entender qué mueve tu color y qué hacer con cada opinión negativa' }],
+  },
+  catalogo: {
+    alias: 'gabi', emoji: '🏷️', nombre: 'Gabi', puesto: 'Catálogo', intervalo: 6 * 60, tipos: ['tienda'],
+    oficio: 'Cada 6 horas revisa tus publicaciones de catálogo: avisa en el momento en que perdés el primer lugar (buy box), con qué precio lo recuperás y si a ese precio todavía ganás plata (con tus costos del cerebro).',
+    skills: [{ skill: 'competencia-ml', para: 'decidir si conviene recuperar el catálogo, validado por margen' }],
+  },
+  moderaciones: {
+    alias: 'sole', emoji: '🚫', nombre: 'Sole', puesto: 'Moderaciones', intervalo: 6 * 60, tipos: ['tienda'],
+    oficio: 'Cada 6 horas busca publicaciones que MercadoLibre pausó, puso en revisión o penalizó (infracciones, datos a corregir, portada de baja calidad), con el motivo y cómo corregirlo. Avisa también cuando se resuelven.',
+    skills: [{ skill: 'moderaciones-ml', para: 'corregir cada moderación y reactivar la publicación' }],
+  },
+  proveedores: {
+    alias: 'fede', emoji: '🔄', nombre: 'Fede', puesto: 'Proveedores', intervalo: 6 * 60, tipos: ['proveedor'],
+    oficio: 'Cada 6 horas vigila el precio y el stock de tus proveedores (una publicación suya en MercadoLibre o la página del producto en su tienda) para cada producto que revendés: avisa cuando cambian el precio (y a cuánto tendrías que vender con tu recargo) o se quedan sin stock (para que pauses antes de vender lo que no tenés).',
+    skills: [{ skill: 'proveedores-ml', para: 'ajustar precio y costo, o pausar, cuando el proveedor cambia' }],
+  },
   tendencias: {
     alias: 'sofia', emoji: '📈', nombre: 'Sofía', puesto: 'Radar de tendencias', intervalo: 720, tipos: ['tendencias'],
     oficio: 'Sigue las búsquedas en tendencia del sitio o de tus categorías: qué keywords entran, salen o suben fuerte, para anticiparte a la demanda.',
@@ -123,7 +157,7 @@ export const EQUIPO = {
 };
 export const IDS = Object.keys(EQUIPO);
 // Trabajadores que trabajan sobre TU tienda (sin tareas: una por cada cuenta conectada) y avisan desde el primer control
-export const DE_TIENDA = { auditor: 'propias', agenda: 'agenda', rentabilidad: 'tienda', anuncios: 'tienda', logistica: 'tienda', contabilidad: 'tienda' };
+export const DE_TIENDA = { auditor: 'propias', agenda: 'agenda', rentabilidad: 'tienda', anuncios: 'tienda', logistica: 'tienda', contabilidad: 'tienda', stock: 'tienda', atencion: 'tienda', reclamos: 'tienda', reputacion: 'tienda', catalogo: 'tienda', moderaciones: 'tienda' };
 export const etiqueta = (id) => `${EQUIPO[id].emoji} ${EQUIPO[id].nombre} (${EQUIPO[id].puesto})`;
 
 // Acepta el puesto (precios), el nombre (Vera / vera / Sofía) o "todos"
@@ -170,12 +204,13 @@ export function actualizarEquipo(fn) {
 // ───────────────────────────── Tareas ─────────────────────────────
 export function tipoPorDefecto(trabajador, ref) {
   if (DE_TIENDA[trabajador]) return DE_TIENDA[trabajador];
+  if (trabajador === 'proveedores') return 'proveedor';
   if (trabajador === 'precios') return /^[A-Z]{3}\d+$/i.test(String(ref || '').trim()) ? 'publicacion' : 'vendedor';
   return EQUIPO[trabajador].tipos[0];
 }
 export const claveTarea = (t) => claveDe(t) + (t.cuenta ? '@' + t.cuenta : '');
 
-export function asignarTarea(quien, { tipo, ref, mi_item, umbral, nota, cuenta, sitio }) {
+export function asignarTarea(quien, { tipo, ref, mi_item, umbral, nota, cuenta, sitio, fuente, recargo }) {
   const trabajador = resolverTrabajador(quien);
   if (!trabajador) throw new Error(`No existe "${quien}" en el equipo: ${IDS.map(etiqueta).join(', ')}.`);
   tipo = tipo || tipoPorDefecto(trabajador, ref);
@@ -184,11 +219,18 @@ export function asignarTarea(quien, { tipo, ref, mi_item, umbral, nota, cuenta, 
   if (!limpio && !['tendencias', 'propias', 'agenda', 'tienda'].includes(tipo)) throw new Error('Falta ref: el item_id, vendedor o palabra clave a vigilar.');
   if (limpio.length > 120) throw new Error('ref demasiado largo (máx. 120 caracteres).');
   if (mi_item && !/^[A-Z]{3}\d+$/i.test(String(mi_item).trim())) throw new Error('mi_item tiene que ser un item_id de MercadoLibre (ej: MLA123456789).');
+  if (tipo === 'proveedor') {
+    if (!/^[A-Z]{3}\d+$/i.test(limpio)) throw new Error('Para Fede, ref es TU publicación (ej: MLA123456789).');
+    const f = String(fuente ?? '').trim();
+    if (!/^[A-Z]{3}\d+$/i.test(f) && !/^https?:\/\/[^\s]{4,500}$/i.test(f)) throw new Error('Falta fuente: la publicación del proveedor en MercadoLibre (MLA…) o la URL https del producto en su tienda.');
+    if (recargo != null && !(Number(recargo) >= 0 && Number(recargo) <= 1000)) throw new Error('recargo es el % que le sumás al costo del proveedor (0 a 1000).');
+  }
   const tarea = {
-    tipo, ref: limpio || (['propias', 'agenda', 'tienda'].includes(tipo) ? (cuenta ? 'tienda ' + cuenta : 'mi tienda') : sitio || 'MLA'), sitio, nota,
+    tipo, ref: (tipo === 'proveedor' ? limpio.toUpperCase() : limpio) || (['propias', 'agenda', 'tienda'].includes(tipo) ? (cuenta ? 'tienda ' + cuenta : 'mi tienda') : sitio || 'MLA'), sitio, nota,
     ...(mi_item ? { mi_item: String(mi_item).trim().toUpperCase() } : {}),
     ...(umbral != null ? { umbral: Math.max(0, Number(umbral) || 0) } : {}),
     ...(cuenta ? { cuenta: String(cuenta) } : {}),
+    ...(tipo === 'proveedor' ? { fuente: /^[A-Z]{3}\d+$/i.test(String(fuente).trim()) ? String(fuente).trim().toUpperCase() : String(fuente).trim(), ...(recargo != null ? { recargo: Number(recargo) } : {}) } : {}),
     agregada: new Date().toISOString().slice(0, 10),
   };
   return actualizarEquipo((d) => {
@@ -573,6 +615,142 @@ const OFICIOS = {
       return out;
     },
   },
+  stock: {
+    async foto(c) { const me = await c.get('/users/me'); return { items: await stockDias(c, me.id), avisos: {} }; },
+    cambios(t, v, n) {
+      const out = [], avisos = { ...(v?.avisos || {}) }, din = (x) => '$ ' + Number(x).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+      const unaVez = (k) => (avisos[k] ? false : (avisos[k] = Date.now(), true));
+      const pocos = [], criticos = [];
+      for (const [id, x] of Object.entries(n.items)) {
+        if (x.stock === 0 && x.u30 > 0) { if (unaVez(id + ':cero')) out.push({ nivel: 'alta', skill: 'stock-ml', texto: `🛑 ${id} «${x.titulo}» está SIN STOCK y vendías ${x.porDia}/día: perdés ~${din(x.porDia * (x.precio || 0))} por día y el posicionamiento — reponé o activá el stock` }); continue; }
+        if (x.dias != null && x.dias <= 3) { if (unaVez(id + ':3')) criticos.push(`${id} «${x.titulo}» (${x.stock} u. ≈ ${x.dias} día(s))`); }
+        else if (x.dias != null && x.dias <= 7) { if (unaVez(id + ':7')) pocos.push(`${id} «${x.titulo}» (${x.stock} u. ≈ ${x.dias} días)`); }
+        if (x.dias == null || x.dias > 10) for (const k of [':cero', ':3', ':7']) delete avisos[id + k]; // repuso: vuelve a avisar la próxima vez
+      }
+      if (criticos.length) out.push({ nivel: 'alta', skill: 'stock-ml', texto: `⏳ Se te corta el stock en 3 días o menos: ${criticos.slice(0, 6).join(' · ')}${criticos.length > 6 ? '…' : ''}` });
+      if (pocos.length) out.push({ nivel: 'media', skill: 'stock-ml', texto: `📦 Stock para una semana o menos: ${pocos.slice(0, 6).join(' · ')}${pocos.length > 6 ? '…' : ''} — es momento de pedir` });
+      const parado = Object.values(n.items).filter((x) => x.u30 === 0 && x.stock >= 20);
+      const semana = Math.floor(Date.now() / (7 * 86400000));
+      if (parado.length && unaVez('parado:' + semana)) out.push({ nivel: 'baja', skill: 'stock-ml', texto: `🧊 ${parado.length} publicación(es) con stock parado (20+ unidades y sin ventas en 30 días): ${parado.slice(0, 4).map((x) => x.titulo).join(', ')}${parado.length > 4 ? '…' : ''}` });
+      n.avisos = avisos;
+      return out;
+    },
+  },
+  atencion: {
+    async foto(c) { const me = await c.get('/users/me'); return { preguntas: Object.fromEntries((await preguntasPendientes(c, me.id)).map((q) => [q.id, q])), mensajes: await mensajesSinLeer(c), avisos: {} }; },
+    cambios(t, v, n) {
+      const out = [], avisos = { ...(v?.avisos || {}) }, ahora = Date.now();
+      const unaVez = (k) => (avisos[k] ? false : (avisos[k] = ahora, true));
+      const nuevas = Object.values(n.preguntas).filter((q) => !v?.preguntas?.[q.id]);
+      if (nuevas.length) out.push({ nivel: 'media', skill: 'responder-preguntas-ml', texto: `💬 ${nuevas.length} pregunta(s) sin responder: ${nuevas.slice(0, 4).map((q) => `«${q.texto}» (${q.item})`).join(' · ')}${nuevas.length > 4 ? '…' : ''}` });
+      const viejas = Object.values(n.preguntas).filter((q) => q.t && ahora - q.t > 2 * 3600000 && unaVez(q.id + ':2h'));
+      if (viejas.length) out.push({ nivel: 'alta', skill: 'responder-preguntas-ml', texto: `⏰ ${viejas.length} pregunta(s) llevan más de 2 horas sin respuesta (cada hora baja la chance de venta): ${viejas.slice(0, 3).map((q) => `«${q.texto}»`).join(' · ')}` });
+      const tm = (n.mensajes || []).reduce((s, x) => s + x.cantidad, 0), tv = (v?.mensajes || []).reduce((s, x) => s + x.cantidad, 0);
+      if (n.mensajes && tm > tv) out.push({ nivel: tm >= 3 ? 'alta' : 'media', skill: 'responder-preguntas-ml', texto: `📨 ${tm} mensaje(s) de compradores sin leer en ${n.mensajes.length} venta(s): respondelos desde Mensajes de MercadoLibre` });
+      for (const k of Object.keys(avisos)) if (!n.preguntas[k.split(':')[0]]) delete avisos[k]; // las respondidas salen de la memoria
+      n.avisos = avisos;
+      return out;
+    },
+  },
+  reclamos: {
+    async foto(c) { return { reclamos: await reclamosAbiertos(c), avisos: {} }; },
+    cambios(t, v, n) {
+      const out = [], avisos = { ...(v?.avisos || {}) }, ahora = Date.now();
+      const unaVez = (k) => (avisos[k] ? false : (avisos[k] = ahora, true));
+      const h = (ts) => { const x = Math.round((ts - ahora) / 3600000); return x <= 0 ? 'YA VENCIÓ' : x < 48 ? `en ${x} h` : `en ${Math.round(x / 24)} días`; };
+      for (const [id, k] of Object.entries(n.reclamos)) {
+        const a = v?.reclamos?.[id];
+        if (!a) out.push({ nivel: 'alta', skill: 'reclamos-ml', texto: `🛡️ Reclamo nuevo #${id}: ${k.tipo}${k.motivo ? ` (motivo ${k.motivo})` : ''} sobre ${k.recurso}${k.vence ? ` — tenés que responder ${h(k.vence)}` : ''}` });
+        else if (k.mediacion && !a.mediacion) out.push({ nivel: 'alta', skill: 'reclamos-ml', texto: `⚖️ El reclamo #${id} pasó a MEDIACIÓN con MercadoLibre${k.vence ? ` — próxima acción ${h(k.vence)}` : ''}` });
+        if (k.vence && k.vence - ahora < 24 * 3600000 && unaVez(id + ':24h:' + k.vence)) out.push({ nivel: 'alta', skill: 'reclamos-ml', texto: `⏰ El plazo del reclamo #${id} vence ${h(k.vence)}${k.accion ? ` (acción: ${k.accion})` : ''} — si no respondés, MercadoLibre decide y afecta tu reputación` });
+      }
+      for (const id of Object.keys(v?.reclamos || {})) if (!n.reclamos[id]) out.push({ nivel: 'baja', skill: 'reclamos-ml', texto: `✅ Se cerró el reclamo #${id}` });
+      n.avisos = avisos;
+      return out;
+    },
+  },
+  reputacion: {
+    async foto(c) {
+      const me = await c.get('/users/me');
+      const top = ventasPorItem(await ordenesPagas(c, me.id, Date.now() - 30 * 86400000)).filter((x) => x.id).slice(0, 10);
+      const opiniones = {};
+      for (const x of top) { try { opiniones[x.id] = { titulo: x.titulo, ...(await opinionesDe(c, x.id)) }; } catch {} }
+      return { rep: reputacionDe(me), opiniones };
+    },
+    cambios(t, v, n) {
+      const out = [], r = n.rep, a = v?.rep;
+      const NIVEL = ['1_red', '2_orange', '3_yellow', '4_light_green', '5_green'];
+      if (a && a.nivel !== r.nivel) { const sube = NIVEL.indexOf(r.nivel) > NIVEL.indexOf(a.nivel); out.push({ nivel: sube ? 'baja' : 'alta', skill: 'reputacion-ml', texto: `${sube ? '🎉 Subiste' : '⚠️ Bajaste'} de reputación: ${COLOR[a.nivel] || a.nivel} → ${COLOR[r.nivel] || r.nivel}` }); }
+      if (a && a.lider !== r.lider) out.push({ nivel: r.lider ? 'baja' : 'alta', skill: 'reputacion-ml', texto: `MercadoLíder: ${a.lider || 'no'} → ${r.lider || 'perdiste la medalla'}` });
+      for (const [k, nombre] of [['reclamos', 'reclamos'], ['demoras', 'despachos con demora'], ['cancelaciones', 'cancelaciones']]) {
+        if (a?.[k] != null && r[k] != null && r[k] - a[k] >= 0.5) out.push({ nivel: 'media', skill: 'reputacion-ml', texto: `📉 Subió tu tasa de ${nombre}: ${a[k]}% → ${r[k]}% (es lo que mueve tu color)` });
+      }
+      let negativas30 = 0;
+      for (const [id, o] of Object.entries(n.opiniones)) {
+        const vistos = new Set((v?.opiniones?.[id]?.recientes || []).map((x) => x.id));
+        negativas30 += o.recientes.filter((x) => x.rate <= 2 && x.t && Date.now() - x.t < 30 * 86400000).length;
+        if (!v) continue;
+        for (const x of o.recientes.filter((x) => !vistos.has(x.id) && x.rate <= 2)) out.push({ nivel: 'alta', skill: 'reputacion-ml', texto: `⭐ Opinión de ${x.rate} estrella(s) en ${id} «${o.titulo}»: «${x.titulo ? x.titulo + ' — ' : ''}${x.texto}»` });
+        const p0 = v?.opiniones?.[id]?.promedio;
+        if (p0 != null && o.promedio != null && p0 - o.promedio >= 0.2) out.push({ nivel: 'media', skill: 'reputacion-ml', texto: `El promedio de opiniones de ${id} «${o.titulo}» bajó de ${p0} a ${o.promedio}` });
+      }
+      if (!v) out.push({ nivel: negativas30 ? 'media' : 'baja', skill: 'reputacion-ml', texto: `⭐ Tu reputación: ${COLOR[r.nivel] || r.nivel || 's/d'}${r.lider ? ` · MercadoLíder ${r.lider}` : ''} · reclamos ${r.reclamos ?? '—'}% · demoras ${r.demoras ?? '—'}% · cancelaciones ${r.cancelaciones ?? '—'}%${negativas30 ? ` · ${negativas30} opinión(es) negativa(s) en 30 días en tus más vendidos` : ''}` });
+      return out;
+    },
+  },
+  catalogo: {
+    async foto(c) {
+      const me = await c.get('/users/me');
+      const items = await estadoCatalogo(c, me.id);
+      for (const [id, x] of Object.entries(items)) { // ¿a precio ganador todavía ganás? (comisión aproximada 14%)
+        const s = saberDe(id);
+        if (x.ganador && s.costo != null) { const r = rentabilidadDe({ precio: x.ganador, costo: s.costo, impuestos_pct: s.impuestos_pct ?? 0, envio: s.costo_envio ?? 0 }); x.margenGanador = Math.round(r.margen * 10) / 10; x.gananciaGanador = Math.round(r.ganancia); }
+      }
+      return { items };
+    },
+    cambios(t, v, n) {
+      const out = [], din = (x) => '$ ' + Number(x).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+      const gana = (e) => e === 'winning' || e === 'sharing_first_place';
+      for (const [id, x] of Object.entries(n.items)) {
+        const a = v?.items?.[id];
+        const margen = x.margenGanador != null ? (x.gananciaGanador > 0 ? ` — a ese precio ganarías ${din(x.gananciaGanador)} por unidad (margen ${x.margenGanador}% aprox.)` : ` — ⚠️ a ese precio PERDÉS ${din(-x.gananciaGanador)} por unidad: no conviene`) : ' (cargá tu costo con ml_cerebro y te digo si conviene)';
+        if (x.estado === 'competing' && (!a || gana(a.estado))) out.push({ nivel: 'alta', skill: 'competencia-ml', texto: `🏷️ ${a ? 'Perdiste' : 'Estás perdiendo'} el catálogo de ${id} «${x.titulo}»: tu precio ${din(x.precio)}${x.ganador ? `, ganás con ${din(x.ganador)}` : ''}${x.mejoras.length ? ` o mejorando: ${x.mejoras.join(', ')}` : ''}${x.ganador ? margen : ''}` });
+        if (a && a.estado === 'competing' && gana(x.estado)) out.push({ nivel: 'baja', skill: 'competencia-ml', texto: `✅ Recuperaste el catálogo de ${id} «${x.titulo}» (${ESTADO_CATALOGO[x.estado]})` });
+      }
+      return out;
+    },
+  },
+  moderaciones: {
+    async foto(c) { const me = await c.get('/users/me'); return { items: await moderadas(c, me.id) }; },
+    cambios(t, v, n) {
+      const out = [];
+      for (const [id, x] of Object.entries(n.items)) {
+        const a = v?.items?.[id];
+        const nuevos = x.motivos.filter((m) => !(a?.motivos || []).includes(m));
+        if (!a || nuevos.length) out.push({ nivel: x.motivos.includes('poor_quality_thumbnail') && x.estado === 'active' ? 'media' : 'alta', skill: 'moderaciones-ml', texto: `🚫 ${id} «${x.titulo}» ${x.estado === 'active' ? 'tiene una marca de MercadoLibre' : `está ${x.estado === 'under_review' ? 'en revisión' : x.estado}`}: ${(nuevos.length ? nuevos : x.motivos).map(traducirSub).join(', ') || 'revisión de MercadoLibre'}` });
+      }
+      for (const [id, a] of Object.entries(v?.items || {})) if (!n.items[id]) out.push({ nivel: 'baja', skill: 'moderaciones-ml', texto: `✅ Se resolvió la moderación de ${id} «${a.titulo}»` });
+      return out;
+    },
+  },
+  proveedores: {
+    async foto(c, t) {
+      const prov = await precioProveedor(c, t.fuente);
+      let mio = null; try { const b = await c.get(`/items/${t.ref}`); mio = { titulo: b.title, precio: b.price, stock: b.available_quantity ?? 0, estado: b.status }; } catch {}
+      return { prov, mio };
+    },
+    cambios(t, v, n) {
+      const out = [], din = (x) => '$ ' + Number(x).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+      const p = n.prov, a = v?.prov, nombre = n.mio?.titulo || p.titulo || t.ref;
+      const sugerido = t.recargo != null && p.precio ? Math.round(p.precio * (1 + t.recargo / 100)) : null;
+      const sug = sugerido ? ` — con tu recargo de ${t.recargo}% tendrías que vender a ${din(sugerido)}${n.mio?.precio ? ` (hoy ${din(n.mio.precio)})` : ''}` : '';
+      if (a && a.precio && p.precio && a.precio !== p.precio) out.push({ nivel: Math.abs(p.precio - a.precio) / a.precio >= 0.05 ? 'alta' : 'media', skill: 'proveedores-ml', texto: `🔄 El proveedor de ${t.ref} «${nombre}» cambió el precio: ${din(a.precio)} → ${din(p.precio)} (${p.precio > a.precio ? '↑' : '↓'} ${(Math.abs(p.precio - a.precio) / a.precio * 100).toFixed(1)}%)${sug}` });
+      else if (!v && sugerido && n.mio?.precio && Math.abs(n.mio.precio - sugerido) / sugerido > 0.03) out.push({ nivel: 'media', skill: 'proveedores-ml', texto: `🔄 ${t.ref} «${nombre}»: el proveedor está a ${din(p.precio)}${sug}` });
+      if (p.stock === false && (!a || a.stock !== false) && n.mio?.estado === 'active' && n.mio.stock > 0) out.push({ nivel: 'alta', skill: 'proveedores-ml', texto: `🛑 El proveedor se quedó SIN STOCK de «${nombre}» y tu publicación ${t.ref} sigue activa con ${n.mio.stock} u.: pausala o bajá el stock antes de vender lo que no tenés` });
+      if (a?.stock === false && p.stock === true) out.push({ nivel: 'media', skill: 'proveedores-ml', texto: `✅ El proveedor repuso stock de «${nombre}» (${t.ref}): podés reactivar` });
+      return out;
+    },
+  },
   tendencias: {
     async foto(c, t, sitio) { return tomarSnapshot(c, { ...t, tipo: 'tendencias' }, sitio); },
     cambios(t, v, n) { return compararSnapshots({ tipo: 'tendencias' }, v, n).map((texto) => ({ nivel: 'media', ...(texto.startsWith('entraron') || texto.includes('subió') ? { skill: 'descubrir-ganadores-ml' } : {}), texto: `${t.ref}: ${texto}` })); },
@@ -596,8 +774,8 @@ async function correrTarea(trabajador, t, d, c, sitio) {
       vistos.add(nick);
     }
     d.vistos[clave] = [...vistos].slice(-500);
-  } else if (DE_TIENDA[trabajador]) {
-    const pre = trabajador === 'auditor' || trabajador === 'agenda' ? '' : deCual(t); // Lucía y Clara ya nombran la tienda
+  } else if (DE_TIENDA[trabajador] || trabajador === 'proveedores') {
+    const pre = !DE_TIENDA[trabajador] || trabajador === 'auditor' || trabajador === 'agenda' ? '' : deCual(t); // Lucía y Clara ya nombran la tienda
     alertas = OFICIOS[trabajador].cambios(t, viejo?.datos ?? null, nuevo.datos).map((a) => (pre ? { ...a, texto: pre + a.texto } : a));
   } else if (viejo) {
     alertas = OFICIOS[trabajador].cambios(t, viejo.datos, nuevo.datos, (nuevo.t - viejo.t) / 3600000);
@@ -605,7 +783,7 @@ async function correrTarea(trabajador, t, d, c, sitio) {
   // Tomás guarda desde cuándo vigila cada publicación para calcular el ritmo real de ventas
   if (trabajador === 'ventas') nuevo.datos.base = viejo?.datos?.base || (viejo ? { t: viejo.t, vendidos: viejo.datos.vendidos } : { t: nuevo.t, vendidos: nuevo.datos.vendidos });
   d.snapshots[clave] = nuevo;
-  return { primera: !viejo && !DE_TIENDA[trabajador], alertas, medicion: { t: nuevo.t, trabajador, tarea: t, datos: nuevo.datos } };
+  return { primera: !viejo && !DE_TIENDA[trabajador] && trabajador !== 'proveedores', alertas, medicion: { t: nuevo.t, trabajador, tarea: t, datos: nuevo.datos } };
 }
 
 const sitioCache = new Map();

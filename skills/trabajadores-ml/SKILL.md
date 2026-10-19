@@ -1,6 +1,6 @@
 ---
 name: trabajadores-ml
-description: El equipo de 11 trabajadores que vigilan MercadoLibre solos y constantemente — Vera (precios), Tomás (ventas de rivales y quiebres de stock), Martina (ranking en búsquedas), Bruno (rivales nuevos), Lucía (audita todas tus publicaciones cada 15 días), Clara (agenda comercial: cronograma de ML y fechas cruciales), Ramiro (rentabilidad), Ana (anuncios), Leo (logística), Carmen (contabilidad) y Sofía (tendencias). Con un objetivo amplio, usar el jefe (skill jefe-de-equipo-ml). Darles tareas, ver qué encontraron y despachar cada alerta a la skill que maneja ese trabajador. Usar cuando pidan "poné a vigilar", "resultados del equipo", "mandalo a Drive", "conectá la planilla", "historial de", "cómo evolucionó", "estado de la base", "backup", "dale una tarea a Vera", "¿qué encontraron los trabajadores?", "informe del equipo", "auditá mis publicaciones cada 15 días", "¿qué fechas vienen?", "cronograma de MercadoLibre", "¿qué publicaciones están desactualizadas?", "vigilá 24/7" o nombren a cualquiera del equipo.
+description: El equipo de 18 trabajadores que vigilan MercadoLibre solos y constantemente — Vera (precios), Tomás (ventas de rivales y quiebres de stock), Martina (ranking en búsquedas), Bruno (rivales nuevos), Lucía (audita todas tus publicaciones cada 15 días), Clara (agenda comercial: cronograma de ML y fechas cruciales), Ramiro (rentabilidad), Ana (anuncios), Leo (logística), Carmen (contabilidad), Nico (stock), Paula (atención), Iván (reclamos), Valen (reputación), Gabi (catálogo), Sole (moderaciones), Fede (proveedores) y Sofía (tendencias). Con un objetivo amplio, usar el jefe (skill jefe-de-equipo-ml). Darles tareas, ver qué encontraron y despachar cada alerta a la skill que maneja ese trabajador. Usar cuando pidan "poné a vigilar", "resultados del equipo", "mandalo a Drive", "conectá la planilla", "historial de", "cómo evolucionó", "estado de la base", "backup", "dale una tarea a Vera", "¿qué encontraron los trabajadores?", "informe del equipo", "auditá mis publicaciones cada 15 días", "¿qué fechas vienen?", "cronograma de MercadoLibre", "¿qué publicaciones están desactualizadas?", "vigilá 24/7" o nombren a cualquiera del equipo.
 ---
 
 # Equipo de trabajadores 24/7
@@ -14,15 +14,22 @@ Herramienta `ml_trabajadores` del conector de MercadoLibre de Algoritmo Digital
 | Trabajador | Vigila | Cada | Skills que maneja |
 | --- | --- | --- | --- |
 | 🕵️ **Vera** · Centinela de precios | precio de publicaciones y vendedores rivales; si le das `mi_item`, avisa cuando un rival queda más barato que vos | 30 min | `vigilancia-ml` |
-| 📦 **Tomás** · Contador de ventas | ventas estimadas del rival (ritmo/día y $/mes), sin stock, pausas | 60 min | `panel-ventas-ml`, `responder-preguntas-ml` |
+| 📦 **Tomás** · Contador de ventas | ventas estimadas del rival (ritmo/día y $/mes), sin stock, pausas | 60 min | `panel-ventas-ml` |
 | 🏆 **Martina** · Vigía de búsquedas | top 50 de tus keywords: líder, precio líder y TU puesto (`mi_item`) | 60 min | `imagenes-ml` |
-| 🎯 **Bruno** · Cazador de rivales nuevos | vendedores que aparecen por primera vez en tus búsquedas | 3 h | `competencia-ml`, `revisar-publicaciones-aldi` |
+| 🎯 **Bruno** · Cazador de rivales nuevos | vendedores que aparecen por primera vez en tus búsquedas | 3 h | `revisar-publicaciones-aldi` |
 | 🩺 **Lucía** · Auditora de publicaciones | TODAS tus publicaciones activas: preguntas que te repiten y no están en la descripción, desactualizadas (60+ días sin tocar), precio congelado (45+ días) o fuera de mercado, sin stock, fotos pocas o chicas, sin marca/modelo, sin garantía, sin video, catálogo perdido | 15 días | `mejorar-publicaciones-ml`, `visualizador-publicaciones-ml`, `copiar-publicaciones-ml`, `faq-descripcion-ml` |
 | 🗓️ **Clara** · Agenda comercial | cronograma de promociones de ML (invitaciones, cierre de inscripción, arranque y fin) y fechas cruciales del año; **siempre pregunta si participás** hasta que decidas | 1 día | `agenda-comercial-ml`, `mi-pagina-ml` |
 | 💰 **Ramiro** · Analista de rentabilidad | ganancia neta real por producto vendido (con costos del cerebro); pérdida, caída de margen, productos sin costo | 1 día | `calculadora-ml`, `cerebro-ml` |
 | 📣 **Ana** · Gestora de anuncios | campañas de Product Ads: gasto sin ventas, ACOS que sube, ACOS arriba de lo que aguanta el margen | 1 día | `publicidad-ml` |
 | 🚚 **Leo** · Coordinador de logística | qué despachar y hasta cuándo, demorados, devueltos, tasa de demora | 2 h | `logistica-ml` |
 | 🧾 **Carmen** · Contadora | resultado del mes y cierre el día 1 (parcial si faltan costos) | 1 día | `contabilidad-ml`, `reporte-ventas-ml` |
+| 📦 **Nico** · Encargado de stock | días de stock por producto; se corta esta semana, sin stock vendiendo, stock parado | 6 h | `stock-ml` |
+| 💬 **Paula** · Atención al comprador | preguntas sin responder (+2 h) y mensajes de postventa sin leer | 30 min | `responder-preguntas-ml` |
+| 🛡️ **Iván** · Reclamos y mediaciones | reclamos nuevos con plazo, vencen en 24 h, mediación, cierre | 1 h | `reclamos-ml` |
+| ⭐ **Valen** · Reputación y opiniones | color, MercadoLíder, métricas, opiniones negativas | 1 día | `reputacion-ml` |
+| 🏷️ **Gabi** · Catálogo | catálogo perdido, precio ganador y margen a ese precio | 6 h | `competencia-ml` |
+| 🚫 **Sole** · Moderaciones | pausadas/en revisión/penalizadas con motivo | 6 h | `moderaciones-ml` |
+| 🔄 **Fede** · Proveedores | precio y stock del proveedor (ML o su web); precio sugerido con recargo; pausar si se agota | 6 h | `proveedores-ml` |
 | 📈 **Sofía** · Radar de tendencias | keywords que entran, salen o suben en tendencias | 12 h | `descubrir-ganadores-ml`, `video-publicaciones-ml`, `clips-ml`, `ugc-ml` |
 
 Si un trabajador no tiene tareas propias, vigila solo tus seguidos de
@@ -75,6 +82,12 @@ Si un trabajador no tiene tareas propias, vigila solo tus seguidos de
 - Ana cruza con Ramiro: el ACOS que aguanta cada producto sale de su margen real.
 - Herramientas: `ml_rentabilidad` (Ramiro), `ml_publicidad` (Ana), `ml_despachos`
   (Leo), `ml_numeros` (Carmen).
+
+## Postventa, stock y proveedores
+- Nico, Paula, Iván, Valen, Gabi y Sole trabajan solos sobre cada tienda conectada.
+- **Fede necesita que le vincules cada producto**: `ml_trabajadores accion=asignar
+  trabajador=Fede ref=<TU MLA…> fuente=<MLA del proveedor o URL https de su tienda>
+  recargo=<%>` (skill `proveedores-ml`).
 
 ## 🎩 El jefe
 Con un objetivo amplio ("vender más", "¿por qué gano poco?", "preparame para el

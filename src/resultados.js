@@ -16,6 +16,7 @@ import crypto from 'node:crypto';
 import { EQUIPO, IDS, leerEquipo, tareasDe, claveTarea, actualizarEquipo, resumenAlertas, alertasRecientes } from './trabajadores.js';
 import { leerMediciones, primeraMedicion } from './db.js';
 import { estadoDecision, ICONO_DECISION } from './agenda.js';
+import { COLOR, ESTADO_CATALOGO, traducirSub } from './postventa.js';
 
 export const CARPETA_NOMBRE = 'MercadoLibre - Equipo de trabajadores';
 const dinero = (n) => (n == null ? '—' : '$ ' + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 }));
@@ -180,6 +181,87 @@ export function armarResultados(d = leerEquipo()) {
       }
     }
 
+    if (id === 'stock') {
+      cabecera = ['Publicación', 'Título', 'Stock', 'Vende por día', 'Días de stock', 'FULL', 'Estado'];
+      let crit = 0, sin = 0;
+      for (const t of tareas) {
+        const s = snap(t); if (!s) continue;
+        for (const [itemId, x] of Object.entries(s.datos.items || {}).sort((p1, p2) => (p1[1].stock === 0 && p1[1].u30 ? -1 : p1[1].dias ?? 1e9) - (p2[1].stock === 0 && p2[1].u30 ? -1 : p2[1].dias ?? 1e9))) {
+          if (x.stock === 0 && x.u30) sin++; else if (x.dias != null && x.dias <= 7) crit++;
+          filas.push([itemId, x.titulo, x.stock, x.porDia, x.stock === 0 && x.u30 ? '🛑 SIN STOCK' : x.dias == null ? 'sin ventas' : x.dias <= 3 ? `⏳ ${x.dias}` : x.dias <= 7 ? `📦 ${x.dias}` : x.dias, x.full ? 'sí' : '', x.estado]);
+        }
+      }
+      destacado = filas.length ? `${sin} sin stock vendiendo · ${crit} se cortan en una semana o menos` : '';
+    }
+
+    if (id === 'atencion') {
+      cabecera = ['Tipo', 'Detalle', 'Publicación / venta', 'Hace'];
+      let preg = 0, msj = 0;
+      const hace = (ts) => { if (!ts) return '—'; const m = Math.round((Date.now() - ts) / 60000); return m < 60 ? `${m} min` : m < 1440 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} días`; };
+      for (const t of tareas) {
+        const s = snap(t); if (!s) continue;
+        for (const q of Object.values(s.datos.preguntas || {}).sort((x, y) => (x.t || 0) - (y.t || 0))) { preg++; filas.push(['❓ Pregunta', q.texto, q.item, hace(q.t)]); }
+        for (const m of s.datos.mensajes || []) { msj += m.cantidad; filas.push(['📨 Mensaje', `${m.cantidad} sin leer`, `venta ${m.pack}`, '—']); }
+      }
+      destacado = filas.length ? `${preg} pregunta(s) sin responder · ${msj} mensaje(s) sin leer` : '✅ nada pendiente';
+    }
+
+    if (id === 'reclamos') {
+      cabecera = ['Reclamo', 'Tipo', 'Etapa', 'Sobre', 'Vence', 'Acción'];
+      let med = 0, vence24 = 0;
+      for (const t of tareas) {
+        const s = snap(t); if (!s) continue;
+        for (const [rid, k] of Object.entries(s.datos.reclamos || {}).sort((x, y) => (x[1].vence || 9e15) - (y[1].vence || 9e15))) {
+          if (k.mediacion) med++; if (k.vence && k.vence - Date.now() < 86400000) vence24++;
+          filas.push([rid, k.tipo, k.mediacion ? '⚖️ mediación' : k.etapa, k.recurso, k.vence ? fecha(k.vence) : '—', k.accion || '—']);
+        }
+      }
+      destacado = filas.length ? `${filas.length} abierto(s) · ${vence24} vencen en 24 h · ${med} en mediación` : '✅ sin reclamos abiertos';
+    }
+
+    if (id === 'reputacion') {
+      cabecera = ['Qué', 'Valor', 'Detalle'];
+      const s = tareas.map(snap).find(Boolean);
+      if (s) {
+        const r = s.datos.rep || {};
+        filas.push(['Color', COLOR[r.nivel] || r.nivel || '—', ''], ['MercadoLíder', r.lider || 'no', ''], ['Reclamos', r.reclamos != null ? r.reclamos + '%' : '—', ''], ['Despachos con demora', r.demoras != null ? r.demoras + '%' : '—', ''], ['Cancelaciones', r.cancelaciones != null ? r.cancelaciones + '%' : '—', '']);
+        for (const [itemId, o] of Object.entries(s.datos.opiniones || {})) filas.push([`⭐ ${itemId} ${o.titulo}`, o.promedio != null ? `${o.promedio} (${o.total})` : 'sin opiniones', `${o.recientes.filter((x) => x.rate <= 2).length} negativa(s) recientes`]);
+        destacado = `${COLOR[r.nivel] || r.nivel || 's/d'}${r.lider ? ` · MercadoLíder ${r.lider}` : ''} · reclamos ${r.reclamos ?? '—'}% · demoras ${r.demoras ?? '—'}% · cancelaciones ${r.cancelaciones ?? '—'}%`;
+      }
+    }
+
+    if (id === 'catalogo') {
+      cabecera = ['Publicación', 'Título', 'Estado', 'Tu precio', 'Precio ganador', 'Margen a precio ganador %'];
+      let perd = 0;
+      for (const t of tareas) {
+        const s = snap(t); if (!s) continue;
+        for (const [itemId, x] of Object.entries(s.datos.items || {})) { if (x.estado === 'competing') perd++; filas.push([itemId, x.titulo, ESTADO_CATALOGO[x.estado] || x.estado, x.precio, x.ganador, x.margenGanador ?? '']); }
+      }
+      destacado = filas.length ? `${perd} de ${filas.length} publicación(es) de catálogo perdiendo el primer lugar` : '';
+    }
+
+    if (id === 'moderaciones') {
+      cabecera = ['Publicación', 'Título', 'Estado', 'Motivo'];
+      for (const t of tareas) {
+        const s = snap(t); if (!s) continue;
+        for (const [itemId, x] of Object.entries(s.datos.items || {})) filas.push([itemId, x.titulo, x.estado, x.motivos.map(traducirSub).join(', ')]);
+      }
+      destacado = filas.length ? `${filas.length} publicación(es) moderada(s) o marcada(s) por MercadoLibre` : '✅ ninguna publicación moderada';
+    }
+
+    if (id === 'proveedores') {
+      cabecera = ['Tu publicación', 'Producto', 'Tu precio', 'Precio proveedor', 'Precio sugerido', 'Stock proveedor', 'Fuente'];
+      let agotados = 0;
+      for (const t of tareas) {
+        const s = snap(t);
+        if (!s) { filas.push([t.ref, '(esperando primer control)', '', '', '', '', t.fuente]); continue; }
+        const p0 = s.datos.prov || {}, m = s.datos.mio || {};
+        if (p0.stock === false) agotados++;
+        filas.push([t.ref, m.titulo || p0.titulo, m.precio, p0.precio, t.recargo != null && p0.precio ? Math.round(p0.precio * (1 + t.recargo / 100)) : '', p0.stock == null ? '—' : p0.stock ? 'sí' : '🛑 agotado', p0.origen || t.fuente]);
+      }
+      destacado = filas.length ? `${filas.length} producto(s) vinculados a proveedores${agotados ? ` · ${agotados} agotado(s) en el proveedor` : ''}` : 'Sin proveedores vinculados: asignale a Fede tu publicación y la del proveedor';
+    }
+
     if (id === 'tendencias') {
       cabecera = ['Sitio / categoría', 'Puesto', 'Keyword', 'Último control'];
       for (const t of tareas) {
@@ -195,7 +277,7 @@ export function armarResultados(d = leerEquipo()) {
 }
 
 export function resultadosEnMarkdown(res, solo) {
-  const celda = (v, i, cab) => v == null || v === '' ? '—' : typeof v === 'number' && /precio|facturaci|ganancia|invertido|ventas por ads/i.test(cab[i]) ? dinero(v) : String(v).replace(/\|/g, '/');
+  const celda = (v, i, cab) => v == null || v === '' ? '—' : typeof v === 'number' && /precio|facturaci|ganancia|invertido|ventas por ads|tu precio|precio sugerido|precio proveedor|precio ganador/i.test(cab[i]) ? dinero(v) : String(v).replace(/\|/g, '/');
   return (solo ? [solo] : IDS).map((id) => {
     const r = res[id], e = EQUIPO[id];
     const tabla = r.filas.length

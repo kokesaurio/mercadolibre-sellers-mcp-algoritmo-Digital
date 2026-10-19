@@ -23,6 +23,14 @@ const envios = {
 };
 let campaniasML = [{ id: 'C1', name: 'Campaña general', status: 'active', budget: 5000, metrics: { cost: 30000, acos: 15, units_quantity: 25, total_amount: 200000 } }];
 let demoraRate = 0.02;
+const itemsPorEstado = { active: ['MLA111', 'MLA222'], under_review: [], paused: [], inactive: [] };
+let portadaPobre = [];
+let ptwMLA111 = { status: 'competing', current_price: 42000, price_to_win: 39900, boosts: [{ id: 'fulfillment' }] };
+let preguntasPend = [{ id: 555, item_id: 'MLA111', text: '¿Tenés stock?', date_created: new Date(Date.now() - 10 * 60000).toISOString() }];
+let mensajesPend = [];
+let reclamosML = [];
+const opinionesML = { MLA111: { rating_average: 4.6, paging: { total: 12 }, reviews: [{ id: 1, rate: 5, title: 'Excelente', content: 'Mantiene el calor todo el día', date_created: new Date(Date.now() - 5 * 86400000).toISOString() }] } };
+const paginasProveedor = { termo: { precio: '25000', disponible: 'https://schema.org/InStock' } };
 const enDias = (d) => new Date(Date.now() + d * 86400000).toISOString();
 const promosML = [{ id: 'P-HOT', name: 'Hot Sale', type: 'DEAL', status: 'candidate', start_date: enDias(10), finish_date: enDias(13), deadline_date: enDias(8) }];
 const promoItems = { 'P-HOT': [{ id: 'MLA111', original_price: 42000, suggested_discounted_price: 37800, meli_percentage: 5, status: 'candidate' }] };
@@ -71,6 +79,11 @@ export function crearMockMeli() {
     res.redirect(302, '/macros/echo/' + (planilla.respuestas.length - 1));
   });
   app.get('/macros/echo/:n', (req, res) => res.json(planilla.respuestas[Number(req.params.n)]));
+  app.get('/messages/unread', auth, (_q, res) => res.json({ results: mensajesPend }));
+  app.get('/post-purchase/v1/claims/search', auth, (_q, res) => res.json({ paging: { total: reclamosML.length }, data: reclamosML }));
+  app.get('/reviews/item/:id', auth, (req, res) => res.json(opinionesML[req.params.id] || { rating_average: null, paging: { total: 0 }, reviews: [] }));
+  app.get('/proveedor/:p', (req, res) => { const p = paginasProveedor[req.params.p]; if (!p) return res.status(404).send('no'); res.send(`<html><head><title>Termo proveedor</title><script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'Product', name: 'Termo acero 1L mayorista', offers: { '@type': 'Offer', price: p.precio, priceCurrency: 'ARS', availability: p.disponible } })}</script></head><body>.</body></html>`); });
+  app.get('/proveedor-sin-datos', (_q, res) => res.send('<html><title>x</title><body>sin datos</body></html>'));
   app.get('/pkg-remoto', (_q, res) => res.json({ name: 'x', version: versionRemota }));
   app.post('/oauth/token', async (req, res) => {
     const b = req.body || {};
@@ -106,8 +119,12 @@ export function crearMockMeli() {
     return res.json({ paging: { total: resultados.length }, results: resultados });
   });
   app.get('/orders/:id/shipments', auth, (req, res) => envios[req.params.id] ? res.json(envios[req.params.id]) : res.status(404).json({ message: 'shipment not found' }));
-  app.get('/users/:uid/items/search', auth, (_q, res) => res.json({ paging: { total: 2 }, results: ['MLA111', 'MLA222'] }));
-  app.get('/items', auth, (req, res) => res.json(String(req.query.ids).split(',').map((id) => ({ code: 200, body: { id, title: 'Producto ' + id, price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', permalink: 'https://articulo.mercadolibre.com.ar/' + id, catalog_listing: id === 'MLA111' } }))));
+  app.get('/users/:uid/items/search', auth, (req, res) => {
+    if (req.query.tags === 'poor_quality_thumbnail') return res.json({ paging: { total: portadaPobre.length }, results: portadaPobre });
+    const r = itemsPorEstado[req.query.status || 'active'] || [];
+    res.json({ paging: { total: r.length }, results: r });
+  });
+  app.get('/items', auth, (req, res) => res.json(String(req.query.ids).split(',').map((id) => ({ code: 200, body: { id, title: 'Producto ' + id, price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', permalink: 'https://articulo.mercadolibre.com.ar/' + id, catalog_listing: id === 'MLA111', ...(mercado.items?.[id] || {}) } }))));
   app.get('/items/:id', auth, (req, res) => res.json({ ...itemMLA111, id: req.params.id, title: 'Producto ' + req.params.id, ...(mercado.items?.[req.params.id] || {}) }));
   app.get('/items/:id/description', auth, (req, res) => res.json({ plain_text: descripciones[req.params.id] ?? 'Descripción original del producto.' }));
   app.put('/items/:id/description', auth, (req, res) => {
@@ -124,14 +141,14 @@ export function crearMockMeli() {
   app.post('/items/:id/description', auth, (req, res) => res.json({ ok: true }));
   app.put('/items/:id', auth, (req, res) => res.json({ id: req.params.id, price: req.body.price ?? 42000, currency_id: 'ARS', available_quantity: req.body.available_quantity ?? 10, status: req.body.status ?? 'active' }));
   app.get('/items/:id/visits/time_window', auth, (_q, res) => res.json({ total_visits: 340 }));
-  app.get('/items/:id/price_to_win', auth, (_q, res) => res.json({ status: 'losing', current_price: 42000, price_to_win: 39900, boosts: [{ id: 'fulfillment' }] }));
+  app.get('/items/:id/price_to_win', auth, (_q, res) => res.json(ptwMLA111));
   app.get('/questions/search', auth, (req, res) => {
     if (req.query.item) {
       const todas = (preguntasPorItem[req.query.item] || []).filter((q) => !req.query.status || q.status === req.query.status);
       const off = Number(req.query.offset || 0), lim = Number(req.query.limit || 50);
       return res.json({ total: todas.length, questions: todas.slice(off, off + lim) });
     }
-    res.json({ total: 1, questions: [{ id: 555, item_id: 'MLA111', text: '¿Tenés stock?' }] });
+    res.json({ total: preguntasPend.length, questions: preguntasPend });
   });
   app.post('/answers', auth, (req, res) => req.body?.question_id ? res.json({ ok: true }) : res.status(400).json({ message: 'falta question_id' }));
   app.get('/sites/MLA/listing_prices', auth, (_q, res) => res.json([{ listing_type_id: 'gold_special', listing_type_name: 'Clásica', sale_fee_amount: 5900, sale_fee_details: { percentage_fee: 14, fixed_fee: 0 } }]));
@@ -419,10 +436,10 @@ async function pruebas() {
   // ───────────── Equipo de trabajadores 24/7 ─────────────
   const tr = await import('../src/trabajadores.js');
   const T = tool('ml_trabajadores');
-  await caso('trabajadores: equipo con 11 nombres, puestos y skills a cargo', async () => {
+  await caso('trabajadores: equipo con 18 nombres, puestos y skills a cargo', async () => {
     const t = await T.run({ accion: 'equipo' });
-    contiene(t, 'Vera', 'Tomás', 'Martina', 'Bruno', 'Lucía', 'Clara', 'Ramiro', 'Ana', 'Leo', 'Carmen', 'Sofía', 'Analista de rentabilidad', 'Gestora de anuncios', 'Coordinador de logística', 'Contadora', 'cada 2 h', 'Auditora de publicaciones', 'Agenda comercial', 'cada 15 días', 'cada 1 día', 'Centinela de precios', 'Cazador de rivales', 'calculadora-ml', 'competencia-ml', 'descubrir-ganadores-ml', 'mejorar-publicaciones-ml', 'panel-ventas-ml');
-    if (tr.IDS.length !== 11) throw new Error('el equipo no tiene 11');
+    contiene(t, 'Vera', 'Tomás', 'Martina', 'Bruno', 'Lucía', 'Clara', 'Ramiro', 'Ana', 'Leo', 'Carmen', 'Nico', 'Paula', 'Iván', 'Valen', 'Gabi', 'Sole', 'Fede', 'Sofía', 'cada 30 min', 'Analista de rentabilidad', 'Gestora de anuncios', 'Coordinador de logística', 'Contadora', 'cada 2 h', 'Auditora de publicaciones', 'Agenda comercial', 'cada 15 días', 'cada 1 día', 'Centinela de precios', 'Cazador de rivales', 'calculadora-ml', 'competencia-ml', 'descubrir-ganadores-ml', 'mejorar-publicaciones-ml', 'panel-ventas-ml');
+    if (tr.IDS.length !== 18) throw new Error('el equipo no tiene 18');
     const todas = tr.IDS.flatMap((id) => tr.EQUIPO[id].skills.map((x) => x.skill));
     if (new Set(todas).size !== todas.length) throw new Error('una skill está asignada a dos trabajadores');
     for (const sk of todas) if (!fs.existsSync(path.join('skills', sk, 'SKILL.md'))) throw new Error('skill inexistente: ' + sk);
@@ -900,6 +917,107 @@ async function pruebas() {
     const pubs = await J.run({ objetivo: 'mis publicaciones están desactualizadas', sin_correr: true });
     contiene(pubs, 'Lucía', 'mejorar-publicaciones-ml');
     contiene(await J.run({ objetivo: 'x' }), 'Decime el objetivo');
+  });
+
+  // ───────────── Nico, Paula, Iván, Valen, Gabi, Sole y Fede ─────────────
+  const pv = await import('../src/postventa.js');
+  await caso('Nico: días de stock por producto, se corta esta semana y sin stock vendiendo', async () => {
+    mercado.items.MLA111 = { ...(mercado.items.MLA111 || {}), available_quantity: 1 };   // vende 2 en 30 días → 15 días… y con 1 u.
+    mercado.items.MLA222 = { ...(mercado.items.MLA222 || {}), available_quantity: 0 };   // vendía y se quedó sin stock
+    tr.actualizarEquipo((d) => { for (const k of Object.keys(d.snapshots)) if (k.startsWith('stock|')) delete d.snapshots[k]; });
+    const r = await tr.correrCiclo({ solo: ['stock'], forzar: true });
+    const t = deTrab('stock', r);
+    contiene(t, '🛑 MLA222', 'SIN STOCK', 'perdés', '[stock-ml]');
+    contiene(await T.run({ accion: 'resultados', trabajador: 'Nico' }), 'Encargado de stock', 'Días de stock', '🛑 SIN STOCK', 'sin stock vendiendo');
+    const r2 = await tr.correrCiclo({ solo: ['stock'], forzar: true });
+    if (deTrab('stock', r2).includes('MLA222')) throw new Error('repitió el aviso de sin stock');
+  });
+  await caso('Paula: preguntas sin responder (y las que pasan 2 h) y mensajes sin leer', async () => {
+    preguntasPend = [...preguntasPend, { id: 556, item_id: 'MLA222', text: '¿Viene con caja?', date_created: new Date(Date.now() - 3 * 3600000).toISOString() }];
+    mensajesPend = [{ resource: '/packs/2000001', count: 2 }];
+    const r = await tr.correrCiclo({ solo: ['atencion'], forzar: true });
+    const t = deTrab('atencion', r);
+    contiene(t, '«¿Viene con caja?»', 'más de 2 horas', '2 mensaje(s) de compradores sin leer', '[responder-preguntas-ml]');
+    preguntasPend = preguntasPend.filter((q) => q.id !== 556); // la respondió
+    const r2 = await tr.correrCiclo({ solo: ['atencion'], forzar: true });
+    if (deTrab('atencion', r2)) throw new Error('avisó de nuevo sin novedades: ' + deTrab('atencion', r2));
+    contiene(await T.run({ accion: 'resultados', trabajador: 'Paula' }), 'Atención al comprador', '¿Tenés stock?', '📨 Mensaje');
+  });
+  await caso('Iván: reclamo nuevo con plazo, vencimiento en 24 h, mediación y cierre', async () => {
+    reclamosML = [{ id: 7001, resource_id: 101, type: 'mediations', stage: 'claim', status: 'opened', reason_id: 'PNR', date_created: new Date().toISOString(), players: [{ role: 'complainant' }, { role: 'respondent', available_actions: [{ action: 'send_message_to_complainant', due_date: new Date(Date.now() + 3 * 86400000).toISOString(), mandatory: true }] }] }];
+    let r = await tr.correrCiclo({ solo: ['reclamos'], forzar: true });
+    contiene(deTrab('reclamos', r), 'Reclamo nuevo #7001', 'tenés que responder en 3 días', '[reclamos-ml]');
+    reclamosML[0] = { ...reclamosML[0], stage: 'dispute', players: [{ role: 'respondent', available_actions: [{ action: 'send_message_to_mediator', due_date: new Date(Date.now() + 10 * 3600000).toISOString() }] }] };
+    r = await tr.correrCiclo({ solo: ['reclamos'], forzar: true });
+    contiene(deTrab('reclamos', r), 'pasó a MEDIACIÓN', '⏰ El plazo del reclamo #7001 vence en 10 h', 'afecta tu reputación');
+    reclamosML = [];
+    r = await tr.correrCiclo({ solo: ['reclamos'], forzar: true });
+    contiene(deTrab('reclamos', r), '✅ Se cerró el reclamo #7001');
+  });
+  await caso('Valen: reputación, métricas que suben y opinión negativa nueva', async () => {
+    let r = await tr.correrCiclo({ solo: ['reputacion'], forzar: true });
+    contiene(tr.alertasRecientes({ trabajador: 'reputacion' }).map((a) => a.texto).join('\n'), 'Tu reputación', 'verde', 'MercadoLíder platinum');
+    opinionesML.MLA111 = { rating_average: 4.2, paging: { total: 13 }, reviews: [{ id: 2, rate: 1, title: 'Malísimo', content: 'No mantiene el calor', date_created: new Date().toISOString() }, ...opinionesML.MLA111.reviews] };
+    demoraRate = 0.12;
+    r = await tr.correrCiclo({ solo: ['reputacion'], forzar: true });
+    contiene(deTrab('reputacion', r), 'Opinión de 1 estrella(s) en MLA111', 'No mantiene el calor', 'bajó de 4.6 a 4.2', 'Subió tu tasa de despachos con demora', '[reputacion-ml]');
+  });
+  await caso('Gabi: catálogo perdido con precio ganador y si conviene por margen; recuperado', async () => {
+    ptwMLA111 = { status: 'winning', current_price: 42000, price_to_win: 42000, boosts: [] };
+    await tr.correrCiclo({ solo: ['catalogo'], forzar: true });
+    ptwMLA111 = { status: 'competing', current_price: 42000, price_to_win: 39900, boosts: [{ id: 'fulfillment' }] };
+    let r = await tr.correrCiclo({ solo: ['catalogo'], forzar: true });
+    contiene(deTrab('catalogo', r), '🏷️ Perdiste el catálogo de MLA111', 'ganás con $ 39.900', 'fulfillment', 'por unidad', '[competencia-ml]');
+    ptwMLA111 = { status: 'winning', current_price: 39900, price_to_win: 39900, boosts: [] };
+    r = await tr.correrCiclo({ solo: ['catalogo'], forzar: true });
+    contiene(deTrab('catalogo', r), '✅ Recuperaste el catálogo de MLA111');
+  });
+  await caso('Sole: publicaciones moderadas con el motivo en castellano, y cuando se resuelven', async () => {
+    itemsPorEstado.under_review = ['MLA444']; mercado.items.MLA444 = { status: 'under_review', sub_status: ['waiting_for_patch'], title: 'Mate imperial' };
+    portadaPobre = ['MLA222'];
+    let r = await tr.correrCiclo({ solo: ['moderaciones'], forzar: true });
+    contiene(deTrab('moderaciones', r), '🚫 MLA444', 'en revisión', 'esperando que corrijas datos', 'MLA222', 'foto de portada de baja calidad', '[moderaciones-ml]');
+    itemsPorEstado.under_review = []; portadaPobre = [];
+    r = await tr.correrCiclo({ solo: ['moderaciones'], forzar: true });
+    contiene(deTrab('moderaciones', r), '✅ Se resolvió la moderación de MLA444');
+  });
+  await caso('Fede: proveedor por publicación de ML y por web (schema.org); precio, recargo y sin stock', async () => {
+    process.env.ML_PROVEEDOR_PERMITIR_LOCAL = '1';
+    mercado.items.MLA900 = { price: 20000, available_quantity: 50, status: 'active', title: 'Termo mayorista (proveedor)' };
+    mercado.items.MLA111 = { ...(mercado.items.MLA111 || {}), price: 42000, available_quantity: 8 };
+    contiene(await T.run({ accion: 'asignar', trabajador: 'Fede', ref: 'MLA111', fuente: 'MLA900', recargo: 80 }), 'Fede', 'proveedor MLA900', 'recargo 80%');
+    contiene(await T.run({ accion: 'asignar', trabajador: 'Fede', ref: 'MLA222', fuente: `http://localhost:${PUERTO}/proveedor/termo` }), 'Fede');
+    let r = await tr.correrCiclo({ solo: ['proveedores'], forzar: true });
+    contiene(deTrab('proveedores', r), 'el proveedor está a $ 20.000', 'tendrías que vender a $ 36.000');
+    mercado.items.MLA900 = { ...mercado.items.MLA900, price: 23000 };
+    paginasProveedor.termo = { precio: '27.500,00', disponible: 'https://schema.org/OutOfStock' };
+    mercado.items.MLA222 = { ...(mercado.items.MLA222 || {}), available_quantity: 5, status: 'active' };
+    r = await tr.correrCiclo({ solo: ['proveedores'], forzar: true });
+    const t = deTrab('proveedores', r);
+    contiene(t, 'cambió el precio: $ 20.000 → $ 23.000 (↑ 15.0%)', 'tendrías que vender a $ 41.400', '$ 25.000 → $ 27.500', '🛑 El proveedor se quedó SIN STOCK', 'MLA222', '[proveedores-ml]');
+    contiene(await T.run({ accion: 'resultados', trabajador: 'Fede' }), 'Proveedores', 'Precio sugerido', '🛑 agotado', 'localhost');
+    let m = ''; try { await T.run({ accion: 'asignar', trabajador: 'Fede', ref: 'MLA111', fuente: 'ftp://x' }); } catch (e) { m = e.message; } contiene(m, 'Falta fuente');
+    m = ''; try { await T.run({ accion: 'asignar', trabajador: 'Fede', ref: 'termo', fuente: 'MLA900' }); } catch (e) { m = e.message; } contiene(m, 'TU publicación');
+    delete process.env.ML_PROVEEDOR_PERMITIR_LOCAL;
+  });
+  await caso('Fede: seguridad — solo https público (sin red interna, sin credenciales en la URL)', async () => {
+    for (const [u, esperado] of [['http://tienda.com/x', 'https'], ['https://127.0.0.1/x', 'red privada'], ['https://192.168.0.10/x', 'red privada'], ['https://10.1.2.3/x', 'red privada'], ['https://[::1]/x', 'red privada'], ['https://usr:clave@tienda.com/x', 'usuario/contraseña'], [`http://localhost:${PUERTO}/proveedor/termo`, 'https']]) {
+      let m = ''; try { await pv.validarURLProveedor(u); } catch (e) { m = e.message; }
+      if (!m.includes(esperado)) throw new Error(`${u} → "${m}" (esperaba "${esperado}")`);
+    }
+    const f = pv.leerFichaProducto(`<meta property="product:price:amount" content="1.234,50"><title>X</title>`);
+    if (f.precio !== 1234.5) throw new Error('no leyó el precio de la meta: ' + f.precio);
+    process.env.ML_PROVEEDOR_PERMITIR_LOCAL = '1';
+    let m = ''; try { await pv.precioProveedor(null, `http://localhost:${PUERTO}/proveedor-sin-datos`); } catch (e) { m = e.message; }
+    delete process.env.ML_PROVEEDOR_PERMITIR_LOCAL;
+    contiene(m, 'no encontré el precio');
+  });
+  await caso('Jefe: con 18 trabajadores, reparte reputación, stock y proveedores a quien corresponde', async () => {
+    const J = tool('ml_jefe');
+    contiene(await J.run({ objetivo: 'cuidar la reputación', sin_correr: true }), 'Iván', 'Valen', 'reclamos-ml');
+    contiene(await J.run({ objetivo: 'no quedarme sin stock', sin_correr: true }), 'Nico', 'Fede', 'stock-ml');
+    const todo = await J.run({ objetivo: 'xyz', sin_correr: true });
+    if (todo.includes('Fede (')) throw new Error('el jefe metió a Fede sin que el objetivo lo pida');
   });
 
   // ───────────── Base de datos del equipo (SQLite que viene con Node) ─────────────

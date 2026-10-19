@@ -1,4 +1,4 @@
-# Guía de uso — las 25 skills del conector
+# Guía de uso — las 30 skills del conector
 
 Skills listas para Claude que convierten el [conector de MercadoLibre de
 Algoritmo Digital](../README.md) en flujos de trabajo completos. **Cómo
@@ -62,6 +62,26 @@ skill**. Claude las usa solo cuando corresponde.
 **Pedilo así:** "¿cuánto gané este mes?" · "cierre del mes" · "números para el contador"
 **Qué hace:** facturación − comisiones reales de ML − publicidad − impuestos − mercadería − envíos = neto y margen, contra el mes anterior. Si faltan costos, te pide los de los productos que más vendiste y los guarda.
 **Ojo:** es un resultado de gestión para decidir; no reemplaza la contabilidad formal.
+
+### 📦 [stock-ml](stock-ml/) — reponer antes del quiebre
+**Pedilo así:** "¿qué tengo que reponer?" · "¿cuánto stock me queda?"
+**Qué hace:** días de stock de cada producto según lo que vendés por día, qué pedir y cuánto, y qué hacer con el stock parado.
+
+### 🛡️ [reclamos-ml](reclamos-ml/) — reclamos a tiempo
+**Pedilo así:** "¿tengo reclamos?" · "me hicieron un reclamo" · "mediación"
+**Qué hace:** los reclamos ordenados por vencimiento, la respuesta propuesta lista para mandar desde MercadoLibre, y cómo evitar que se repitan.
+
+### ⭐ [reputacion-ml](reputacion-ml/) — tu color, explicado
+**Pedilo así:** "¿cómo está mi reputación?" · "me pusieron una mala opinión"
+**Qué hace:** qué métrica empuja tu color para abajo y quién del equipo la ataca; qué hacer con cada opinión negativa.
+
+### 🚫 [moderaciones-ml](moderaciones-ml/) — reactivar lo que ML pausó
+**Pedilo así:** "me pausaron una publicación" · "¿por qué está en revisión?"
+**Qué hace:** el motivo en castellano y cómo corregirlo, sin "esquivar" la moderación.
+
+### 🔄 [proveedores-ml](proveedores-ml/) — tu precio atado al del proveedor
+**Pedilo así:** "vigilá a mi proveedor" · "el proveedor subió los precios"
+**Qué hace:** vinculás cada producto con su proveedor (su publicación de ML o la página de su tienda) y te avisa cambios de precio con el precio sugerido según tu recargo, y cuándo pausar porque se quedó sin stock.
 ### 🔍 [mejorar-publicaciones-ml](mejorar-publicaciones-ml/) — auditoría y mejoras
 **Pedilo así:** "auditá mis publicaciones" · "¿qué publicaciones tengo que mejorar?"
 **Qué hace:** semáforo 🔴🟡🟢 de cada publicación (título, fotos, descripción, envío, stock, video, catálogo) con la acción concreta, las peores primero. Aplica precio/stock/estado con tu confirmación por ítem; fotos y descripción te marca que van por el panel.
@@ -101,7 +121,7 @@ skill**. Claude las usa solo cuando corresponde.
 
 ### 👷 [trabajadores-ml](trabajadores-ml/) — el equipo que vigila 24/7
 **Pedilo así:** "dale una tarea a Vera" · "Martina, ¿en qué puesto estoy para 'termo 1 litro'?" · "¿qué encontró el equipo?"
-**Qué hace:** 11 trabajadores con nombre que vigilan solos y constantemente — 🕵️ Vera (precios y quién queda más barato que vos), 📦 Tomás (ventas del rival y quiebres de stock), 🏆 Martina (líder y tu puesto en búsquedas), 🎯 Bruno (rivales nuevos), 🩺 Lucía (cada 15 días audita todas tus publicaciones: cuáles quedaron desactualizadas y qué empeoró), 🗓️ Clara (agenda comercial: cronograma de ML y fechas cruciales, siempre preguntando si participás), 💰 Ramiro (rentabilidad), 📣 Ana (anuncios), 🚚 Leo (logística), 🧾 Carmen (contabilidad) y 📈 Sofía (tendencias). Cada alerta viene con la skill del trabajador que la resuelve.
+**Qué hace:** 18 trabajadores con nombre que vigilan solos y constantemente — 🕵️ Vera (precios y quién queda más barato que vos), 📦 Tomás (ventas del rival y quiebres de stock), 🏆 Martina (líder y tu puesto en búsquedas), 🎯 Bruno (rivales nuevos), 🩺 Lucía (cada 15 días audita todas tus publicaciones: cuáles quedaron desactualizadas y qué empeoró), 🗓️ Clara (agenda comercial: cronograma de ML y fechas cruciales, siempre preguntando si participás), 💰 Ramiro (rentabilidad), 📣 Ana (anuncios), 🚚 Leo (logística), 🧾 Carmen (contabilidad), 📦 Nico (stock), 💬 Paula (atención), 🛡️ Iván (reclamos), ⭐ Valen (reputación), 🏷️ Gabi (catálogo), 🚫 Sole (moderaciones), 🔄 Fede (proveedores) y 📈 Sofía (tendencias). Cada alerta viene con la skill del trabajador que la resuelve.
 **Historial y base:** "historial de MLA..." · "¿cómo evolucionó el precio de este rival?" · "estado de la base" — todo queda en SQLite que viene con Node (cero instalación, ideal Windows), 400 días.
 **Resultados y Drive:** "mostrame los resultados del equipo" (precio rival vs el tuyo, ritmo de ventas y $/mes del rival, tu puesto, rivales nuevos, tendencias) · "conectá el equipo a Drive" (planilla de Google en vivo con una pestaña por trabajador, o carpeta de Drive).
 **Ojo:** trabajan solos mientras Claude está abierto; para 24/7 corré una vez `npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital trabajadores instalar`.

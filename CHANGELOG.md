@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.21.0
+- **7 trabajadores nuevos — el equipo pasa a 18:**
+  - 📦 **Nico · Stock**: días de stock por producto según lo que vendés por día; avisa lo que se corta en ≤3 y ≤7 días, lo que quedó sin stock vendiendo (con la plata que perdés por día) y el stock parado.
+  - 💬 **Paula · Atención**: preguntas sin responder (y las que pasan 2 h) y mensajes de postventa sin leer.
+  - 🛡️ **Iván · Reclamos**: reclamos nuevos con su plazo, vencimiento en 24 h, paso a mediación y cierre.
+  - ⭐ **Valen · Reputación**: color, MercadoLíder, métricas que suben y opiniones negativas nuevas de tus más vendidos.
+  - 🏷️ **Gabi · Catálogo**: catálogo perdido con precio ganador y si a ese precio ganás plata; recuperado.
+  - 🚫 **Sole · Moderaciones**: publicaciones en revisión, pausadas o penalizadas (y portada de baja calidad), con el motivo en castellano.
+  - 🔄 **Fede · Proveedores**: precio y stock de tus proveedores desde su publicación de ML **o la página de su tienda** (schema.org: Tiendanube, WooCommerce, Shopify…); precio sugerido con tu recargo y aviso de pausar si se agotan.
+- 🔒 Fede solo lee páginas públicas https: bloquea redes internas (IPv4 e IPv6), credenciales en la URL y redirecciones a la red interna; limita el tamaño y el tiempo de lectura.
+- El jefe reparte también reputación, stock, atención, catálogo, moderaciones y proveedores. Skills nuevas: `stock-ml`, `reclamos-ml`, `reputacion-ml`, `moderaciones-ml`, `proveedores-ml` (30 en total); responder preguntas pasa a Paula y competencia a Gabi.
+- El simulado de catálogo usa los estados reales de la API (`competing`, no `losing`). Suite: 126 pruebas.
+
 ## 1.20.0
 - **4 trabajadores nuevos — el equipo pasa a 11:**
   - 💰 **Ramiro · Rentabilidad**: ganancia neta real de cada producto vendido (comisión real de ML + publicidad por unidad + impuestos + envío + costo del cerebro). Avisa pérdidas, caídas de margen y productos sin costo cargado (nunca inventa).
