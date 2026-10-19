@@ -1,4 +1,4 @@
-# Guía de uso — las 22 skills del conector
+# Guía de uso — las 25 skills del conector
 
 Skills listas para Claude que convierten el [conector de MercadoLibre de
 Algoritmo Digital](../README.md) en flujos de trabajo completos. **Cómo
@@ -49,6 +49,19 @@ skill**. Claude las usa solo cuando corresponde.
 **Pedilo así:** "actualizá Mi página" · "poné el banner del Hot Sale" · "sacá el banner"
 **Qué hace:** arma el kit con datos reales (texto del banner con el % OFF de tus publicaciones inscriptas, destacados en orden) y lo aplica en tu navegador, mostrándote cada cambio antes de guardar. Cuando termina el evento, vuelve todo a la normalidad.
 **Ojo:** Mi página no tiene API pública: se edita en el panel de ML desde tu navegador, con tu sesión.
+
+### 🎩 [jefe-de-equipo-ml](jefe-de-equipo-ml/) — le das un objetivo, él reparte el trabajo
+**Pedilo así:** "quiero vender más este mes" · "¿por qué gano poco?" · "preparame para el CyberMonday" · "¿por dónde arranco?"
+**Qué hace:** elige qué trabajadores tienen que ver con tu objetivo, los pone a trabajar ya, junta lo que encontraron y te da el plan en orden (urgentes primero), cada paso con su responsable y la skill que lo resuelve. Ejecuta de a un paso con tu OK.
+
+### 🚚 [logistica-ml](logistica-ml/) — despachar a tiempo
+**Pedilo así:** "¿qué tengo que despachar?" · "envíos demorados" · "me devolvieron un paquete"
+**Qué hace:** la lista del día por tipo de envío con el horario límite (FULL lo despacha ML), demorados con mensaje al comprador, devoluciones y cuidado de la tasa de despachos con demora.
+
+### 🧾 [contabilidad-ml](contabilidad-ml/) — cuánto queda de verdad
+**Pedilo así:** "¿cuánto gané este mes?" · "cierre del mes" · "números para el contador"
+**Qué hace:** facturación − comisiones reales de ML − publicidad − impuestos − mercadería − envíos = neto y margen, contra el mes anterior. Si faltan costos, te pide los de los productos que más vendiste y los guarda.
+**Ojo:** es un resultado de gestión para decidir; no reemplaza la contabilidad formal.
 ### 🔍 [mejorar-publicaciones-ml](mejorar-publicaciones-ml/) — auditoría y mejoras
 **Pedilo así:** "auditá mis publicaciones" · "¿qué publicaciones tengo que mejorar?"
 **Qué hace:** semáforo 🔴🟡🟢 de cada publicación (título, fotos, descripción, envío, stock, video, catálogo) con la acción concreta, las peores primero. Aplica precio/stock/estado con tu confirmación por ítem; fotos y descripción te marca que van por el panel.
@@ -88,7 +101,7 @@ skill**. Claude las usa solo cuando corresponde.
 
 ### 👷 [trabajadores-ml](trabajadores-ml/) — el equipo que vigila 24/7
 **Pedilo así:** "dale una tarea a Vera" · "Martina, ¿en qué puesto estoy para 'termo 1 litro'?" · "¿qué encontró el equipo?"
-**Qué hace:** 7 trabajadores con nombre que vigilan solos y constantemente — 🕵️ Vera (precios y quién queda más barato que vos), 📦 Tomás (ventas del rival y quiebres de stock), 🏆 Martina (líder y tu puesto en búsquedas), 🎯 Bruno (rivales nuevos), 🩺 Lucía (cada 15 días audita todas tus publicaciones: cuáles quedaron desactualizadas y qué empeoró), 🗓️ Clara (agenda comercial: cronograma de ML y fechas cruciales, siempre preguntando si participás) y 📈 Sofía (tendencias). Cada alerta viene con la skill del trabajador que la resuelve.
+**Qué hace:** 11 trabajadores con nombre que vigilan solos y constantemente — 🕵️ Vera (precios y quién queda más barato que vos), 📦 Tomás (ventas del rival y quiebres de stock), 🏆 Martina (líder y tu puesto en búsquedas), 🎯 Bruno (rivales nuevos), 🩺 Lucía (cada 15 días audita todas tus publicaciones: cuáles quedaron desactualizadas y qué empeoró), 🗓️ Clara (agenda comercial: cronograma de ML y fechas cruciales, siempre preguntando si participás), 💰 Ramiro (rentabilidad), 📣 Ana (anuncios), 🚚 Leo (logística), 🧾 Carmen (contabilidad) y 📈 Sofía (tendencias). Cada alerta viene con la skill del trabajador que la resuelve.
 **Historial y base:** "historial de MLA..." · "¿cómo evolucionó el precio de este rival?" · "estado de la base" — todo queda en SQLite que viene con Node (cero instalación, ideal Windows), 400 días.
 **Resultados y Drive:** "mostrame los resultados del equipo" (precio rival vs el tuyo, ritmo de ventas y $/mes del rival, tu puesto, rivales nuevos, tendencias) · "conectá el equipo a Drive" (planilla de Google en vivo con una pestaña por trabajador, o carpeta de Drive).
 **Ojo:** trabajan solos mientras Claude está abierto; para 24/7 corré una vez `npx -y github:kokesaurio/mercadolibre-sellers-mcp-algoritmo-Digital trabajadores instalar`.

@@ -1,4 +1,4 @@
-// src/trabajadores.js — el equipo de 7 trabajadores que vigilan solos, 24/7.
+// src/trabajadores.js — el equipo de 11 trabajadores que vigilan solos, 24/7.
 //
 // Cada trabajador tiene un oficio fijo, una frecuencia y una lista de tareas
 // (lo que le asignás con ml_trabajadores). Si no le asignás nada, vigila
@@ -17,6 +17,8 @@ import os from 'node:os';
 import { MeliClient, listarCuentas } from './meli.js';
 import { auditarItem, idsDeTienda } from './auditoria.js';
 import { fechasComerciales, cronogramaML, estadoDecision, diasHasta, tipoLegible } from './agenda.js';
+import { saberDe } from './cerebro.js';
+import { rentabilidadDe, comisionML, adsDeItem, ordenesPagas, ventasPorItem, campanias, enviosRecientes, resumenContable, inicioDeMes, nombreMes } from './negocio.js';
 import { leerVigilancia, claveDe, tomarSnapshot, compararSnapshots } from './vigilancia.js';
 import * as base from './db.js';
 
@@ -35,8 +37,6 @@ export const EQUIPO = {
     oficio: 'Vigila los precios de publicaciones y vendedores rivales. Avisa cada suba/baja (con umbral opcional) y, si le pasás tu publicación (mi_item), te avisa apenas un rival queda más barato que vos.',
     skills: [
       { skill: 'vigilancia-ml', para: 'armar y mantener la lista de rivales y productos seguidos' },
-      { skill: 'calculadora-ml', para: 'antes de igualar un precio: ver si con ese precio todavía ganás plata' },
-      { skill: 'cerebro-ml', para: 'guardar tus costos e impuestos para que la calculadora no pregunte' },
     ],
   },
   ventas: {
@@ -44,7 +44,6 @@ export const EQUIPO = {
     oficio: 'Cuenta las ventas estimadas de publicaciones rivales (unidades y ritmo por día), y avisa cuando un rival se queda sin stock, pausa o reactiva: esas son tus ventanas de oportunidad.',
     skills: [
       { skill: 'panel-ventas-ml', para: 'comparar el ritmo del rival con tus ventas de hoy y del mes' },
-      { skill: 'reporte-ventas-ml', para: 'el resumen de 4 líneas para mandar por WhatsApp' },
       { skill: 'responder-preguntas-ml', para: 'cuando un rival se queda sin stock, contestar rápido las preguntas que te llegan' },
     ],
   },
@@ -53,7 +52,6 @@ export const EQUIPO = {
     oficio: 'Mira el top 50 de tus palabras clave: avisa cambios de líder y de precio líder, y si le pasás tu publicación (mi_item) te dice en qué puesto estás y cuándo subís, bajás o salís del top.',
     skills: [
       { skill: 'imagenes-ml', para: 'rehacer las fotos 2-10 cuando el problema es la presentación' },
-      { skill: 'publicidad-ml', para: 'empujar con Product Ads una keyword donde perdiste puestos' },
     ],
   },
   rivales: {
@@ -82,6 +80,36 @@ export const EQUIPO = {
       { skill: 'mi-pagina-ml', para: 'mantener Mi página al día: banner del evento y productos destacados' },
     ],
   },
+  rentabilidad: {
+    alias: 'ramiro', emoji: '💰', nombre: 'Ramiro', puesto: 'Analista de rentabilidad', intervalo: 24 * 60, tipos: ['tienda'],
+    oficio: 'Todos los días calcula la ganancia neta real de cada producto que vendiste (precio − comisión real de ML − publicidad por unidad − impuestos − envío − costo) con los costos de tu cerebro. Avisa cuando un producto te hace perder plata, cuando el margen cae, y qué productos vendidos no tienen costo cargado (nunca inventa un costo).',
+    skills: [
+      { skill: 'calculadora-ml', para: 'el desglose peso por peso de un producto y el precio de equilibrio' },
+      { skill: 'cerebro-ml', para: 'cargar costos e impuestos una sola vez para que todo el equipo los use' },
+    ],
+  },
+  anuncios: {
+    alias: 'ana', emoji: '📣', nombre: 'Ana', puesto: 'Gestora de anuncios', intervalo: 24 * 60, tipos: ['tienda'],
+    oficio: 'Todos los días revisa tus campañas de Product Ads: gasto, ventas por ads y ACOS. Avisa cuando una campaña gasta sin vender, cuando el ACOS se dispara o cambia de estado, y —cruzando con Ramiro— cuando el ACOS de un producto supera lo que su margen aguanta.',
+    skills: [
+      { skill: 'publicidad-ml', para: 'ajustar campañas y promociones con la regla ACOS vs margen' },
+    ],
+  },
+  logistica: {
+    alias: 'leo', emoji: '🚚', nombre: 'Leo', puesto: 'Coordinador de logística', intervalo: 120, tipos: ['tienda'],
+    oficio: 'Cada 2 horas mira los envíos de tus ventas de los últimos 7 días: qué tenés que despachar (y hasta cuándo), envíos demorados, no entregados o devueltos, y si sube tu tasa de despachos con demora — lo que más castiga la reputación.',
+    skills: [
+      { skill: 'logistica-ml', para: 'despachar a tiempo, resolver demoras y devoluciones, y cuidar la reputación' },
+    ],
+  },
+  contabilidad: {
+    alias: 'carmen', emoji: '🧾', nombre: 'Carmen', puesto: 'Contadora', intervalo: 24 * 60, tipos: ['tienda'],
+    oficio: 'Todos los días ordena tus números del mes: facturación, comisiones de ML, publicidad, impuestos, costo de mercadería y resultado neto, comparado con el mes anterior. El día 1 te da el cierre del mes. Si faltan costos o impuestos cargados, te dice que el neto es parcial.',
+    skills: [
+      { skill: 'contabilidad-ml', para: 'el resultado del mes y el cierre mensual para vos o tu contador' },
+      { skill: 'reporte-ventas-ml', para: 'el resumen de 4 líneas para mandar por WhatsApp' },
+    ],
+  },
   tendencias: {
     alias: 'sofia', emoji: '📈', nombre: 'Sofía', puesto: 'Radar de tendencias', intervalo: 720, tipos: ['tendencias'],
     oficio: 'Sigue las búsquedas en tendencia del sitio o de tus categorías: qué keywords entran, salen o suben fuerte, para anticiparte a la demanda.',
@@ -94,6 +122,8 @@ export const EQUIPO = {
   },
 };
 export const IDS = Object.keys(EQUIPO);
+// Trabajadores que trabajan sobre TU tienda (sin tareas: una por cada cuenta conectada) y avisan desde el primer control
+export const DE_TIENDA = { auditor: 'propias', agenda: 'agenda', rentabilidad: 'tienda', anuncios: 'tienda', logistica: 'tienda', contabilidad: 'tienda' };
 export const etiqueta = (id) => `${EQUIPO[id].emoji} ${EQUIPO[id].nombre} (${EQUIPO[id].puesto})`;
 
 // Acepta el puesto (precios), el nombre (Vera / vera / Sofía) o "todos"
@@ -139,8 +169,7 @@ export function actualizarEquipo(fn) {
 
 // ───────────────────────────── Tareas ─────────────────────────────
 export function tipoPorDefecto(trabajador, ref) {
-  if (trabajador === 'auditor') return 'propias';
-  if (trabajador === 'agenda') return 'agenda';
+  if (DE_TIENDA[trabajador]) return DE_TIENDA[trabajador];
   if (trabajador === 'precios') return /^[A-Z]{3}\d+$/i.test(String(ref || '').trim()) ? 'publicacion' : 'vendedor';
   return EQUIPO[trabajador].tipos[0];
 }
@@ -152,11 +181,11 @@ export function asignarTarea(quien, { tipo, ref, mi_item, umbral, nota, cuenta, 
   tipo = tipo || tipoPorDefecto(trabajador, ref);
   if (!EQUIPO[trabajador].tipos.includes(tipo)) throw new Error(`${EQUIPO[trabajador].nombre} (${EQUIPO[trabajador].puesto}) no trabaja con "${tipo}": acepta ${EQUIPO[trabajador].tipos.join(' o ')}.`);
   const limpio = String(ref ?? '').trim();
-  if (!limpio && !['tendencias', 'propias', 'agenda'].includes(tipo)) throw new Error('Falta ref: el item_id, vendedor o palabra clave a vigilar.');
+  if (!limpio && !['tendencias', 'propias', 'agenda', 'tienda'].includes(tipo)) throw new Error('Falta ref: el item_id, vendedor o palabra clave a vigilar.');
   if (limpio.length > 120) throw new Error('ref demasiado largo (máx. 120 caracteres).');
   if (mi_item && !/^[A-Z]{3}\d+$/i.test(String(mi_item).trim())) throw new Error('mi_item tiene que ser un item_id de MercadoLibre (ej: MLA123456789).');
   const tarea = {
-    tipo, ref: limpio || (tipo === 'propias' || tipo === 'agenda' ? (cuenta ? 'tienda ' + cuenta : 'mi tienda') : sitio || 'MLA'), sitio, nota,
+    tipo, ref: limpio || (['propias', 'agenda', 'tienda'].includes(tipo) ? (cuenta ? 'tienda ' + cuenta : 'mi tienda') : sitio || 'MLA'), sitio, nota,
     ...(mi_item ? { mi_item: String(mi_item).trim().toUpperCase() } : {}),
     ...(umbral != null ? { umbral: Math.max(0, Number(umbral) || 0) } : {}),
     ...(cuenta ? { cuenta: String(cuenta) } : {}),
@@ -187,11 +216,11 @@ export function quitarTarea(quien, ref) {
 // Tareas efectivas = las asignadas + tus seguidos de ml_vigilar del tipo que maneja
 export function tareasDe(d, trabajador) {
   const propias = d.trabajadores[trabajador].tareas;
-  if (trabajador === 'auditor' || trabajador === 'agenda') {
+  if (DE_TIENDA[trabajador]) {
     if (propias.length) return propias;
     // Sin tareas propias: trabaja sobre cada tienda conectada
     let cs = []; try { cs = listarCuentas(); } catch {}
-    return cs.map((c) => ({ tipo: trabajador === 'auditor' ? 'propias' : 'agenda', ref: 'tienda ' + c.nickname, cuenta: String(c.user_id), deLista: true }));
+    return cs.map((c) => ({ tipo: DE_TIENDA[trabajador], ref: 'tienda ' + c.nickname, cuenta: String(c.user_id), deLista: true }));
   }
   const claves = new Set(propias.map(claveTarea));
   const deLista = (leerVigilancia().objetivos || [])
@@ -420,11 +449,138 @@ const OFICIOS = {
       return out;
     },
   },
+  rentabilidad: {
+    async foto(c, t, sitio) {
+      const me = await c.get('/users/me');
+      const vendidos = ventasPorItem(await ordenesPagas(c, me.id, Date.now() - 30 * 86400000)).filter((x) => x.id).slice(0, Number(process.env.ML_RENTABILIDAD_MAX || 40));
+      const negocio = saberDe('__negocio__');
+      const items = {}, cache = new Map();
+      for (const x of vendidos) {
+        let b; try { b = await c.get(`/items/${x.id}`); } catch { continue; }
+        const sabido = saberDe(x.id);
+        const base = { titulo: b.title || x.titulo, precio: b.price, u: x.u };
+        if (sabido.costo == null) { items[x.id] = { ...base, sinCosto: true }; continue; }
+        const fee = await comisionML(c, sitio, b.price, b.listing_type_id || 'gold_special', cache);
+        let adsU = 0; try { const a = await adsDeItem(c, x.id, 30); if (a) adsU = a.units > 0 ? a.cost / a.units : a.cost / Math.max(x.u, 1); } catch {}
+        const r = rentabilidadDe({ precio: b.price, pct: fee.pct, fijo: fee.fijo, costo: sabido.costo, impuestos_pct: sabido.impuestos_pct ?? 0, envio: sabido.costo_envio ?? 0, adsPorUnidad: adsU });
+        items[x.id] = { ...base, margen: Math.round(r.margen * 10) / 10, ganancia: Math.round(r.ganancia), semaforo: r.semaforo, acosMax: Math.round(r.acosMax * 10) / 10, adsU: Math.round(adsU), gananciaMes: Math.round(r.ganancia * x.u) };
+      }
+      const conCosto = Object.values(items).filter((x) => !x.sinCosto);
+      return { items, sinCosto: Object.values(items).filter((x) => x.sinCosto).length, faltaImpuestos: negocio.impuestos_pct == null, gananciaTotal: conCosto.reduce((s, x) => s + x.gananciaMes, 0), avisos: {} };
+    },
+    cambios(t, v, n) {
+      const out = [], avisos = { ...(v?.avisos || {}) };
+      const semana = Math.floor(Date.now() / (7 * 86400000));
+      const unaVez = (k) => (avisos[k] ? false : (avisos[k] = Date.now(), true));
+      const din = (x) => '$ ' + Number(x).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+      for (const [id, x] of Object.entries(n.items)) {
+        if (x.sinCosto) continue;
+        const a = v?.items?.[id];
+        if (x.semaforo === '🔴' && a?.semaforo !== '🔴') out.push({ nivel: 'alta', skill: 'calculadora-ml', texto: `💸 ${id} «${x.titulo}» te hace PERDER ${din(-x.ganancia)} por unidad (margen ${x.margen}%) y vendiste ${x.u} en 30 días${x.adsU ? ` — la publicidad se lleva ${din(x.adsU)} por unidad` : ''}` });
+        else if (a && !a.sinCosto && a.margen - x.margen >= 5) out.push({ nivel: 'media', skill: 'calculadora-ml', texto: `📉 El margen de ${id} «${x.titulo}» bajó de ${a.margen}% a ${x.margen}% (${a.precio !== x.precio ? `precio ${din(a.precio)} → ${din(x.precio)}` : 'por comisión o publicidad'})` });
+      }
+      if (n.sinCosto && unaVez('sincosto:' + semana + ':' + n.sinCosto)) {
+        const ej = Object.entries(n.items).filter(([, x]) => x.sinCosto).slice(0, 4).map(([id, x]) => `${id} «${x.titulo}»`).join(', ');
+        out.push({ nivel: 'media', skill: 'cerebro-ml', texto: `🧠 ${n.sinCosto} producto(s) que vendiste no tienen costo cargado, así que no puedo decirte si ganás plata con ellos: ${ej}${n.sinCosto > 4 ? '…' : ''}. Cargalos con ml_cerebro (una sola vez).` });
+      }
+      if (n.faltaImpuestos && unaVez('impuestos:' + semana)) out.push({ nivel: 'media', skill: 'cerebro-ml', texto: '🧠 No tengo cargado tu % de impuestos sobre las ventas: estoy calculando márgenes SIN impuestos (te dan más altos de lo real). Pasámelo y lo guardo con ml_cerebro.' });
+      if (!v && Object.keys(n.items).length) {
+        const rojos = Object.values(n.items).filter((x) => x.semaforo === '🔴').length;
+        out.push({ nivel: rojos ? 'alta' : 'baja', skill: 'calculadora-ml', texto: `💰 Rentabilidad de lo que vendiste en 30 días: ${Object.keys(n.items).length - n.sinCosto} producto(s) calculados${rojos ? `, ${rojos} con PÉRDIDA` : ''} · ganancia neta estimada ${din(n.gananciaTotal)}${n.sinCosto ? ` (sin contar ${n.sinCosto} sin costo cargado)` : ''}` });
+      }
+      n.avisos = avisos;
+      return out;
+    },
+  },
+  anuncios: {
+    async foto(c) {
+      const ks = await campanias(c, 7);
+      if (!ks) return { sinAds: true, campanias: {}, items: {} };
+      // Cruce con Ramiro: el ACOS que aguanta cada producto según su margen
+      const items = {};
+      const ram = Object.entries(leerEquipo().snapshots).filter(([k]) => k.startsWith('rentabilidad|')).flatMap(([, s]) => Object.entries(s.datos.items || {}));
+      for (const [id, x] of ram.filter(([, x]) => !x.sinCosto && x.acosMax != null).slice(0, 15)) {
+        try { const a = await adsDeItem(c, id, 7); if (a && a.cost > 0) items[id] = { titulo: x.titulo, acos: a.acos, acosMax: x.acosMax, cost: a.cost, units: a.units }; } catch {}
+      }
+      const campa = Object.fromEntries(ks.map((k) => [k.id, k]));
+      return { campanias: campa, items, gasto: ks.reduce((s, k) => s + k.cost, 0), ventas: ks.reduce((s, k) => s + k.ventas, 0) };
+    },
+    cambios(t, v, n) {
+      const out = [], din = (x) => '$ ' + Number(x).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+      if (n.sinAds) { if (!v) out.push({ nivel: 'baja', skill: 'publicidad-ml', texto: '📣 La cuenta no tiene Product Ads activo (o no es visible por API): no hay campañas para vigilar.' }); return out; }
+      for (const [id, k] of Object.entries(n.campanias)) {
+        const a = v?.campanias?.[id];
+        if (k.cost > 0 && k.units === 0 && !(a && a.cost > 0 && a.units === 0)) out.push({ nivel: 'alta', skill: 'publicidad-ml', texto: `🔥 La campaña «${k.nombre}» gastó ${din(k.cost)} en 7 días SIN ventas por ads: revisá qué publicaciones tiene o pausala` });
+        if (a?.acos != null && k.acos != null && k.acos >= a.acos * 1.3 && k.acos - a.acos >= 5) out.push({ nivel: 'media', skill: 'publicidad-ml', texto: `📈 El ACOS de «${k.nombre}» subió de ${a.acos}% a ${k.acos}% (cada venta por ads te cuesta más)` });
+        if (a && a.estado !== k.estado) out.push({ nivel: 'media', skill: 'publicidad-ml', texto: `La campaña «${k.nombre}» pasó de ${a.estado} a ${k.estado}` });
+      }
+      for (const [id, x] of Object.entries(n.items)) {
+        const a = v?.items?.[id];
+        if (x.acos != null && x.acos > x.acosMax && !(a && a.acos > a.acosMax)) out.push({ nivel: 'alta', skill: 'publicidad-ml', texto: `🚫 El anuncio de ${id} «${x.titulo}» tiene ACOS ${x.acos}% y tu margen aguanta hasta ${x.acosMax}%: perdés plata en cada venta por publicidad — bajá la puja/presupuesto o sacalo de la campaña` });
+      }
+      if (!v) out.push({ nivel: 'baja', skill: 'publicidad-ml', texto: `📣 Publicidad de los últimos 7 días: invertiste ${din(n.gasto)} y vendiste ${din(n.ventas)} por ads${n.ventas ? ` (ACOS total ${(n.gasto / n.ventas * 100).toFixed(1)}%)` : ''} en ${Object.keys(n.campanias).length} campaña(s)` });
+      return out;
+    },
+  },
+  logistica: {
+    async foto(c) {
+      const me = await c.get('/users/me');
+      const envios = Object.fromEntries((await enviosRecientes(c, me.id, 7)).map((e) => [e.orden, e]));
+      const lista = Object.values(envios);
+      return { envios, porDespachar: lista.filter((e) => e.porDespachar).length, demorados: lista.filter((e) => e.demorado).length, problemas: lista.filter((e) => e.problema).length,
+        demoraRate: me.seller_reputation?.metrics?.delayed_handling_time?.rate ?? null };
+    },
+    cambios(t, v, n) {
+      const out = [], h = (ts) => new Date(ts).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const nuevos = Object.values(n.envios).filter((e) => e.porDespachar && !v?.envios?.[e.orden]?.porDespachar);
+      if (nuevos.length) {
+        const urgente = nuevos.some((e) => e.limiteDespacho && e.limiteDespacho - Date.now() < 24 * 3600000);
+        out.push({ nivel: urgente ? 'alta' : 'media', skill: 'logistica-ml', texto: `📦 ${nuevos.length} venta(s) para despachar: ${nuevos.slice(0, 5).map((e) => `#${e.orden} ${e.titulo} (${e.tipo}${e.limiteDespacho ? `, despachá antes del ${h(e.limiteDespacho)}` : ''})`).join(' · ')}${nuevos.length > 5 ? '…' : ''}` });
+      }
+      for (const e of Object.values(n.envios)) {
+        const a = v?.envios?.[e.orden];
+        if (e.demorado && !a?.demorado) out.push({ nivel: 'alta', skill: 'logistica-ml', texto: `🚨 Envío demorado: orden #${e.orden} «${e.titulo}» (${e.tipo}, ${e.estado}${e.subestado ? '/' + e.subestado : ''}${e.provincia ? ', a ' + e.provincia : ''}) — escribile al comprador antes de que reclame` });
+        if (e.problema && a?.problema !== e.problema) out.push({ nivel: 'alta', skill: 'logistica-ml', texto: `↩️ Orden #${e.orden} «${e.titulo}»: ${e.problema === 'returned' ? 'el envío volvió (devolución)' : e.problema === 'not_delivered' ? 'no se pudo entregar' : 'envío cancelado'} — revisalo hoy` });
+      }
+      if (v?.demoraRate != null && n.demoraRate != null && n.demoraRate - v.demoraRate >= 0.02) out.push({ nivel: 'alta', skill: 'logistica-ml', texto: `⚠️ Tu tasa de despachos con demora subió de ${(v.demoraRate * 100).toFixed(1)}% a ${(n.demoraRate * 100).toFixed(1)}%: es lo que más castiga la reputación — despachá en el día` });
+      return out;
+    },
+  },
+  contabilidad: {
+    async foto(c) {
+      const me = await c.get('/users/me');
+      const ahora = Date.now(), m0 = inicioDeMes(ahora), m1 = inicioDeMes(ahora, -1);
+      const mes = await resumenContable(c, me.id, m0, ahora);
+      const comparado = await resumenContable(c, me.id, m1, m1 + (ahora - m0), { conAds: false });
+      const dia = new Date(ahora).getDate();
+      const cierre = dia <= 3 ? { ...(await resumenContable(c, me.id, m1, m0)), mes: new Date(m1).toISOString().slice(0, 7), nombre: nombreMes(m1) } : null;
+      return { mes: { ...mes, nombre: nombreMes(m0) }, comparado, cierre, avisos: {} };
+    },
+    cambios(t, v, n) {
+      const out = [], avisos = { ...(v?.avisos || {}) };
+      const unaVez = (k) => (avisos[k] ? false : (avisos[k] = Date.now(), true));
+      const din = (x) => '$ ' + Number(x).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+      const linea = (r) => `facturaste ${din(r.bruto)} (${r.ordenes} ventas) − comisiones ML ${din(r.comisiones)}${r.ads != null ? ` − publicidad ${din(r.ads)}` : ''}${r.impuestos != null ? ` − impuestos ${din(r.impuestos)}` : ''} − mercadería ${din(r.costoMercaderia)}${r.envios ? ` − envíos ${din(r.envios)}` : ''} = **neto ≈ ${din(r.neto)}** (${r.margen.toFixed(1)}%)${r.parcial ? ` ⚠️ parcial: ${Math.round((1 - r.cobertura) * 100)}% de las unidades sin costo cargado${r.impuestosPct == null ? ' y sin impuestos cargados' : ''}` : ''}`;
+      if (n.cierre && unaVez('cierre:' + n.cierre.mes)) out.push({ nivel: 'alta', skill: 'contabilidad-ml', texto: `🧾 Cierre de ${n.cierre.nombre}: ${linea(n.cierre)}` });
+      const mesKey = new Date().toISOString().slice(0, 7);
+      const tocaResumen = unaVez('resumen:' + mesKey + ':' + Math.floor(new Date().getDate() / 7)); // uno por semana (y el primero)
+      if (tocaResumen) {
+        const vs = n.comparado.bruto ? ` · vs mismo período del mes anterior: ${n.mes.bruto >= n.comparado.bruto ? '↑' : '↓'} ${Math.abs((n.mes.bruto - n.comparado.bruto) / n.comparado.bruto * 100).toFixed(1)}% de facturación` : '';
+        out.push({ nivel: 'baja', skill: 'contabilidad-ml', texto: `🧾 ${n.mes.nombre} hasta hoy: ${linea(n.mes)}${vs}` });
+      }
+      if (n.mes.bruto > 0 && n.mes.neto < 0 && !n.mes.parcial && unaVez('negativo:' + mesKey)) out.push({ nivel: 'alta', skill: 'contabilidad-ml', texto: `🔴 Vas PERDIENDO plata este mes (neto ${din(n.mes.neto)}): Ramiro te muestra qué productos lo causan — pedile "resultados de Ramiro"` });
+      n.avisos = avisos;
+      return out;
+    },
+  },
   tendencias: {
     async foto(c, t, sitio) { return tomarSnapshot(c, { ...t, tipo: 'tendencias' }, sitio); },
     cambios(t, v, n) { return compararSnapshots({ tipo: 'tendencias' }, v, n).map((texto) => ({ nivel: 'media', ...(texto.startsWith('entraron') || texto.includes('subió') ? { skill: 'descubrir-ganadores-ml' } : {}), texto: `${t.ref}: ${texto}` })); },
   },
 };
+
+// Con varias tiendas conectadas, cada aviso de "tu tienda" dice de cuál es
+const deCual = (t) => { try { return listarCuentas().length > 1 ? `[${t.ref}] ` : ''; } catch { return ''; } };
 
 // ───────────────────────────── Ejecución ─────────────────────────────
 async function correrTarea(trabajador, t, d, c, sitio) {
@@ -440,15 +596,16 @@ async function correrTarea(trabajador, t, d, c, sitio) {
       vistos.add(nick);
     }
     d.vistos[clave] = [...vistos].slice(-500);
-  } else if (trabajador === 'auditor' || trabajador === 'agenda') {
-    alertas = OFICIOS[trabajador].cambios(t, viejo?.datos ?? null, nuevo.datos);
+  } else if (DE_TIENDA[trabajador]) {
+    const pre = trabajador === 'auditor' || trabajador === 'agenda' ? '' : deCual(t); // Lucía y Clara ya nombran la tienda
+    alertas = OFICIOS[trabajador].cambios(t, viejo?.datos ?? null, nuevo.datos).map((a) => (pre ? { ...a, texto: pre + a.texto } : a));
   } else if (viejo) {
     alertas = OFICIOS[trabajador].cambios(t, viejo.datos, nuevo.datos, (nuevo.t - viejo.t) / 3600000);
   }
   // Tomás guarda desde cuándo vigila cada publicación para calcular el ritmo real de ventas
   if (trabajador === 'ventas') nuevo.datos.base = viejo?.datos?.base || (viejo ? { t: viejo.t, vendidos: viejo.datos.vendidos } : { t: nuevo.t, vendidos: nuevo.datos.vendidos });
   d.snapshots[clave] = nuevo;
-  return { primera: !viejo && !['auditor', 'agenda'].includes(trabajador), alertas, medicion: { t: nuevo.t, trabajador, tarea: t, datos: nuevo.datos } };
+  return { primera: !viejo && !DE_TIENDA[trabajador], alertas, medicion: { t: nuevo.t, trabajador, tarea: t, datos: nuevo.datos } };
 }
 
 const sitioCache = new Map();

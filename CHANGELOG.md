@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.20.0
+- **4 trabajadores nuevos — el equipo pasa a 11:**
+  - 💰 **Ramiro · Rentabilidad**: ganancia neta real de cada producto vendido (comisión real de ML + publicidad por unidad + impuestos + envío + costo del cerebro). Avisa pérdidas, caídas de margen y productos sin costo cargado (nunca inventa).
+  - 📣 **Ana · Anuncios**: campañas de Product Ads — gasto sin ventas, ACOS que se dispara, cambios de estado, y (cruzando con Ramiro) anuncios cuyo ACOS supera lo que aguanta el margen.
+  - 🚚 **Leo · Logística** (cada 2 h): qué despachar y hasta cuándo (FULL lo despacha ML), demorados, no entregados/devueltos, y la tasa de despachos con demora.
+  - 🧾 **Carmen · Contabilidad**: resultado del mes con comisiones reales, publicidad, impuestos y mercadería; comparación con el mes anterior y **cierre el día 1**; "parcial" si faltan costos.
+- **🎩 El jefe de equipo** (`ml_jefe` + skill `jefe-de-equipo-ml`): le das un objetivo en una frase y reparte el trabajo entre los trabajadores que corresponden, los hace trabajar ya y devuelve el plan en orden con responsable y skill por paso.
+- Herramientas nuevas: `ml_numeros` (Carmen) y `ml_despachos` (Leo). Skills nuevas: `logistica-ml`, `contabilidad-ml`, `jefe-de-equipo-ml` (25 en total). Skills reasignadas a su dueño natural: calculadora y cerebro → Ramiro, publicidad → Ana, reporte de ventas → Carmen.
+- Con varias tiendas conectadas, cada aviso de tu tienda dice de cuál es. Carmen no repite el resumen del mes.
+- Suite: 117 pruebas (incluye pruebas que detectan si el cálculo de ganancia se rompe).
+
 ## 1.19.0
 - **🗓️ Clara, la agenda comercial** (7ª trabajadora): todos los días mira el **cronograma de promociones de MercadoLibre** (invitaciones, cierre de inscripción, candidatas, si ya participás) y las **fechas cruciales** del año — y por cada una **te pregunta si querés participar**: al llegar, a 3 y 1 día del cierre, y a 30/14/7/1 días de cada fecha, hasta que decidas. Un NO se respeta. Nunca se inscribe sola.
 - **Calendario comercial que se calcula solo cada año**, por país: Argentina (Hot Sale y CyberMonday estimadas hasta que las confirmes, Día de la Madre/Padre/Infancias, Pascuas, Black Friday, Navidad, Reyes, San Valentín, vuelta a clases…), México (Buen Fin, Día de las Madres, Día del Niño), Brasil (Dia das Mães, dos Pais, das Crianças, Namorados) y el resto de LatAm. Fechas propias del negocio.

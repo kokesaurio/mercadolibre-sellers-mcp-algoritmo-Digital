@@ -15,6 +15,14 @@ let refrescosHechos = 0;
 let demoraRefresh = 0;
 const planilla = { recibidos: [], respuestas: [], clave: null }; // Apps Script simulado
 const descripciones = {}; const descripcionesPut = [];
+const envios = {
+  101: { status: 'shipped', substatus: 'in_transit', tracking_number: 'TRK123', logistic_type: 'fulfillment', receiver_address: { state: { name: 'Buenos Aires' } } },
+  102: { status: 'ready_to_ship', substatus: 'ready_to_print', logistic_type: 'self_service', receiver_address: { state: { name: 'Capital Federal' } }, shipping_option: { estimated_handling_limit: { date: new Date(Date.now() + 5 * 3600000).toISOString() } } },
+  100: { status: 'delivered', logistic_type: 'cross_docking', receiver_address: { state: { name: 'Santa Fe' } } },
+  103: { status: 'delivered', logistic_type: 'cross_docking', receiver_address: { state: { name: 'Córdoba' } } },
+};
+let campaniasML = [{ id: 'C1', name: 'Campaña general', status: 'active', budget: 5000, metrics: { cost: 30000, acos: 15, units_quantity: 25, total_amount: 200000 } }];
+let demoraRate = 0.02;
 const enDias = (d) => new Date(Date.now() + d * 86400000).toISOString();
 const promosML = [{ id: 'P-HOT', name: 'Hot Sale', type: 'DEAL', status: 'candidate', start_date: enDias(10), finish_date: enDias(13), deadline_date: enDias(8) }];
 const promoItems = { 'P-HOT': [{ id: 'MLA111', original_price: 42000, suggested_discounted_price: 37800, meli_percentage: 5, status: 'candidate' }] };
@@ -83,24 +91,21 @@ export function crearMockMeli() {
 
   app.get('/users/me', auth, (req, res) => res.json({
     id: req.usuario, nickname: req.usuario === 888 ? 'TIENDA_DOS' : 'TIENDA_DEMO', site_id: 'MLA',
-    seller_reputation: { level_id: '5_green', power_seller_status: 'platinum', transactions: { total: 1543 }, metrics: { claims: { rate: 0.001 }, delayed_handling_time: { rate: 0.02 }, cancellations: { rate: 0 } } },
+    seller_reputation: { level_id: '5_green', power_seller_status: 'platinum', transactions: { total: 1543 }, metrics: { claims: { rate: 0.001 }, delayed_handling_time: { rate: demoraRate }, cancellations: { rate: 0 } } },
   }));
   app.get('/orders/search', auth, (req, res) => {
     const desde = String(req.query['order.date_created.from'] || '1970-01-01');
     const hasta = String(req.query['order.date_created.to'] || '9999-12-31');
     const todas = [
-      { id: 101, date_created: new Date(Date.now() - 60000).toISOString(), total_amount: 42000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Termo Demo 1L' }, quantity: 1, unit_price: 42000 }] },
-      { id: 102, date_created: new Date(Date.now() - 60000).toISOString(), total_amount: 18500, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Mate Demo' }, quantity: 2, unit_price: 9250 }] },
-      { id: 103, date_created: new Date(Date.now() - 86400000).toISOString(), total_amount: 20000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Termo Demo 1L' }, quantity: 1, unit_price: 20000 }] },
-      { id: 100, date_created: new Date(Date.now() - 10 * 86400000).toISOString(), total_amount: 20000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { title: 'Termo viejo' }, quantity: 1, unit_price: 20000 }] },
+      { id: 101, date_created: new Date(Date.now() - 60000).toISOString(), total_amount: 42000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { id: 'MLA111', title: 'Termo Demo 1L' }, quantity: 1, unit_price: 42000, sale_fee: 5880 }] },
+      { id: 102, date_created: new Date(Date.now() - 60000).toISOString(), total_amount: 18500, currency_id: 'ARS', status: 'paid', order_items: [{ item: { id: 'MLA222', title: 'Mate Demo' }, quantity: 2, unit_price: 9250, sale_fee: 1295 }] },
+      { id: 103, date_created: new Date(Date.now() - 86400000).toISOString(), total_amount: 20000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { id: 'MLA111', title: 'Termo Demo 1L' }, quantity: 1, unit_price: 20000, sale_fee: 2800 }] },
+      { id: 100, date_created: new Date(Date.now() - 10 * 86400000).toISOString(), total_amount: 20000, currency_id: 'ARS', status: 'paid', order_items: [{ item: { id: 'MLA333', title: 'Termo viejo' }, quantity: 1, unit_price: 20000, sale_fee: 2800 }] },
     ];
     const resultados = todas.filter((o) => o.date_created >= desde && o.date_created <= hasta);
     return res.json({ paging: { total: resultados.length }, results: resultados });
   });
-  app.get('/orders/101/shipments', auth, (_q, res) => res.json({ status: 'shipped', substatus: 'in_transit', tracking_number: 'TRK123', logistic_type: 'fulfillment', receiver_address: { state: { name: 'Buenos Aires' } } }));
-  app.get('/orders/102/shipments', auth, (_q, res) => res.json({ status: 'ready_to_ship', logistic_type: 'self_service', receiver_address: { state: { name: 'Capital Federal' } } }));
-  app.get('/orders/100/shipments', auth, (_q, res) => res.json({ status: 'delivered', logistic_type: 'cross_docking', receiver_address: { state: { name: 'Santa Fe' } } }));
-  app.get('/orders/103/shipments', auth, (_q, res) => res.json({ status: 'delivered', logistic_type: 'cross_docking', receiver_address: { state: { name: 'Córdoba' } } }));
+  app.get('/orders/:id/shipments', auth, (req, res) => envios[req.params.id] ? res.json(envios[req.params.id]) : res.status(404).json({ message: 'shipment not found' }));
   app.get('/users/:uid/items/search', auth, (_q, res) => res.json({ paging: { total: 2 }, results: ['MLA111', 'MLA222'] }));
   app.get('/items', auth, (req, res) => res.json(String(req.query.ids).split(',').map((id) => ({ code: 200, body: { id, title: 'Producto ' + id, price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', permalink: 'https://articulo.mercadolibre.com.ar/' + id, catalog_listing: id === 'MLA111' } }))));
   app.get('/items/:id', auth, (req, res) => res.json({ ...itemMLA111, id: req.params.id, title: 'Producto ' + req.params.id, ...(mercado.items?.[req.params.id] || {}) }));
@@ -140,7 +145,7 @@ export function crearMockMeli() {
   app.post('/seller-promotions/items/:id', auth, (req, res) => req.body?.promotion_id ? res.json({ ok: true }) : res.status(400).json({ message: 'falta promotion_id' }));
   app.get('/trends/MLA', auth, (_q, res) => res.json(mercado.tendencias));
   app.get('/advertising/advertisers', auth, (_q, res) => res.json({ advertisers: [{ advertiser_id: 'ADV1', site_id: 'MLA' }] }));
-  app.get('/advertising/product_ads/campaigns', auth, (_q, res) => res.json({ results: [{ id: 'C1', name: 'Campaña general', status: 'active', budget: 5000, metrics: { cost: 30000, acos: 15, units_quantity: 25 } }] }));
+  app.get('/advertising/product_ads/campaigns', auth, (_q, res) => res.json({ results: campaniasML }));
   app.get('/advertising/product_ads/ads/:id', auth, (req, res) => {
     if (req.params.id !== 'MLA111') return res.status(404).json({ message: 'ad not found' });
     res.json({ metrics: { clicks: 120, prints: 8000, cost: 15000, acos: 12.5, cpc: 125, units_quantity: 10, total_amount: 420000 } });
@@ -414,10 +419,10 @@ async function pruebas() {
   // ───────────── Equipo de trabajadores 24/7 ─────────────
   const tr = await import('../src/trabajadores.js');
   const T = tool('ml_trabajadores');
-  await caso('trabajadores: equipo con 7 nombres, puestos y skills a cargo', async () => {
+  await caso('trabajadores: equipo con 11 nombres, puestos y skills a cargo', async () => {
     const t = await T.run({ accion: 'equipo' });
-    contiene(t, 'Vera', 'Tomás', 'Martina', 'Bruno', 'Lucía', 'Clara', 'Sofía', 'Auditora de publicaciones', 'Agenda comercial', 'cada 15 días', 'cada 1 día', 'Centinela de precios', 'Cazador de rivales', 'calculadora-ml', 'competencia-ml', 'descubrir-ganadores-ml', 'mejorar-publicaciones-ml', 'panel-ventas-ml');
-    if (tr.IDS.length !== 7) throw new Error('el equipo no tiene 7');
+    contiene(t, 'Vera', 'Tomás', 'Martina', 'Bruno', 'Lucía', 'Clara', 'Ramiro', 'Ana', 'Leo', 'Carmen', 'Sofía', 'Analista de rentabilidad', 'Gestora de anuncios', 'Coordinador de logística', 'Contadora', 'cada 2 h', 'Auditora de publicaciones', 'Agenda comercial', 'cada 15 días', 'cada 1 día', 'Centinela de precios', 'Cazador de rivales', 'calculadora-ml', 'competencia-ml', 'descubrir-ganadores-ml', 'mejorar-publicaciones-ml', 'panel-ventas-ml');
+    if (tr.IDS.length !== 11) throw new Error('el equipo no tiene 11');
     const todas = tr.IDS.flatMap((id) => tr.EQUIPO[id].skills.map((x) => x.skill));
     if (new Set(todas).size !== todas.length) throw new Error('una skill está asignada a dos trabajadores');
     for (const sk of todas) if (!fs.existsSync(path.join('skills', sk, 'SKILL.md'))) throw new Error('skill inexistente: ' + sk);
@@ -425,7 +430,7 @@ async function pruebas() {
   await caso('trabajadores: asignar por nombre (con y sin acento) o puesto, tipo deducido', async () => {
     mercado.items = { MLA500: { price: 45000, sold_quantity: 10, available_quantity: 5, status: 'active', title: 'Termo rival A' }, MLA600: { price: 30000, sold_quantity: 100, available_quantity: 3, status: 'active', title: 'Termo rival B' } };
     mercado.busqueda = [{ id: 'MLA901', title: 'Termo líder', price: 35000, seller: { nickname: 'LIDER' } }, { id: 'MLA111', title: 'Mi termo', price: 42000, seller: { nickname: 'TIENDA_DEMO' } }];
-    contiene(await T.run({ accion: 'asignar', trabajador: 'Vera', ref: 'MLA500', mi_item: 'MLA111' }), 'Vera', 'publicacion', 'MLA500', 'MLA111', 'calculadora-ml');
+    contiene(await T.run({ accion: 'asignar', trabajador: 'Vera', ref: 'MLA500', mi_item: 'MLA111' }), 'Vera', 'publicacion', 'MLA500', 'MLA111', 'vigilancia-ml');
     contiene(await T.run({ accion: 'asignar', trabajador: 'tomas', ref: 'MLA600' }), 'Tomás');
     contiene(await T.run({ accion: 'asignar', trabajador: 'ranking', ref: 'termo 1 litro', mi_item: 'MLA111', umbral: 1 }), 'Martina', 'busqueda');
     contiene(await T.run({ accion: 'asignar', trabajador: 'Bruno', ref: 'termo 1 litro' }), 'Bruno');
@@ -820,6 +825,81 @@ async function pruebas() {
     contiene(await T.run({ accion: 'resultados', trabajador: 'Clara' }), 'Agenda comercial', 'Campaña de MercadoLibre', 'Fecha comercial', 'Tu decisión', 'decisión(es) pendiente(s)');
     contiene(await T.run({ accion: 'equipo', trabajador: 'Clara' }), 'cada 1 día', 'agenda-comercial-ml', 'mi-pagina-ml');
     contiene(await T.run({ accion: 'historial', trabajador: 'Clara' }), 'Campañas de ML', 'Decisiones pendientes');
+  });
+
+  // ───────────── Ramiro, Ana, Leo, Carmen y el jefe ─────────────
+  const CER = tool('ml_cerebro');
+  const hist = (id) => tr.alertasRecientes({ trabajador: id }).map((a) => a.texto + ' [' + (a.skill || '') + ']').join('\n');
+  const deTrab = (id, r) => r.alertas.filter((a) => a.trabajador === id).map((a) => a.texto + ' [' + (a.skill || '') + ']').join('\n');
+  await caso('Ramiro: sin costos cargados no inventa — pide cargarlos', async () => {
+    await tr.correrCiclo({ solo: ['rentabilidad'], forzar: true });
+    const t = hist('rentabilidad'); // ya avisó en su primer control (y no repite en la semana)
+    contiene(t, 'no tienen costo cargado', 'MLA222', 'MLA333', 'ml_cerebro', '[cerebro-ml]', '[tienda TIENDA_DEMO]');
+  });
+  await caso('Ramiro: con costos calcula margen real (comisión + ads + impuestos) y avisa la PÉRDIDA', async () => {
+    await CER.run({ accion: 'guardar', item_id: 'MLA111', costo: 40000 });
+    await CER.run({ accion: 'guardar', item_id: 'MLA222', costo: 9000 });
+    await CER.run({ accion: 'guardar', item_id: 'MLA333', costo: 15000 });
+    await CER.run({ accion: 'guardar', impuestos_pct: 10 });
+    const r = await tr.correrCiclo({ solo: ['rentabilidad'], forzar: true });
+    contiene(deTrab('rentabilidad', r), '💸 MLA111', 'te hace PERDER', 'la publicidad se lleva', '[calculadora-ml]');
+    const res = await T.run({ accion: 'resultados', trabajador: 'Ramiro' });
+    contiene(res, 'Analista de rentabilidad', 'MLA111', '🔴', 'Ganancia por unidad', 'con PÉRDIDA');
+    // 42000 − 14% (5880) − ads 15000/10 (1500) − 10% imp (4200) − costo 40000 = −9580
+    contiene(res, '$ -9.580');
+  });
+  await caso('Ana: resumen de la semana, campaña que gasta sin vender y ACOS arriba de lo que aguanta el margen (cruce con Ramiro)', async () => {
+    await CER.run({ accion: 'guardar', item_id: 'MLA111', costo: 30000 });
+    await tr.correrCiclo({ solo: ['rentabilidad'], forzar: true }); // margen chico: aguanta poco ACOS
+    let r = await tr.correrCiclo({ solo: ['anuncios'], forzar: true });
+    contiene(deTrab('anuncios', r), 'ACOS 12.5%', 'tu margen aguanta hasta', '[publicidad-ml]');
+    contiene(hist('anuncios'), 'invertiste $ 30.000'); // el resumen sale en su primer control
+    campaniasML = [{ ...campaniasML[0], metrics: { cost: 30000, acos: null, units_quantity: 0, total_amount: 0 } }];
+    r = await tr.correrCiclo({ solo: ['anuncios'], forzar: true });
+    contiene(deTrab('anuncios', r), '🔥 La campaña «Campaña general» gastó $ 30.000 en 7 días SIN ventas');
+    r = await tr.correrCiclo({ solo: ['anuncios'], forzar: true });
+    if (deTrab('anuncios', r).includes('SIN ventas')) throw new Error('repitió el aviso');
+  });
+  await caso('Leo: lo que hay que despachar (Flex con horario), demorados, devueltos y la tasa de demora', async () => {
+    let r = await tr.correrCiclo({ solo: ['logistica'], forzar: true });
+    const h = hist('logistica'); // lo pendiente lo avisó en su primer control
+    contiene(h, '📦 1 venta(s) para despachar', '#102 Mate Demo', 'Flex', 'despachá antes del', '[logistica-ml]');
+    if (/despachar: #101/.test(h)) throw new Error('pidió despachar una venta FULL (la despacha ML)');
+    envios[101] = { ...envios[101], substatus: 'delayed' };
+    envios[103] = { ...envios[103], status: 'not_delivered' }; // (la orden 100 tiene 10 días: fuera de la ventana de 7 de Leo)
+    demoraRate = 0.06;
+    r = await tr.correrCiclo({ solo: ['logistica'], forzar: true });
+    const t = deTrab('logistica', r);
+    contiene(t, '🚨 Envío demorado: orden #101', 'no se pudo entregar', 'subió de 2.0% a 6.0%');
+    if (t.includes('para despachar')) throw new Error('repitió el despacho ya avisado');
+    const d = await tool('ml_despachos').run({});
+    contiene(d, 'Despachos', 'Devueltos / no entregados', 'Demorados', 'Para despachar (1)', '#102', 'FULL', 'Flex', '6.0%');
+  });
+  await caso('Carmen: números del mes con comisiones reales y aviso de parcial; ml_numeros completo', async () => {
+    const NUM = tool('ml_numeros');
+    contiene(await NUM.run({ mes: 'xx' }), 'mes inválido');
+    const t = await NUM.run({});
+    contiene(t, 'Números de', 'Facturación', 'Comisiones de MercadoLibre', 'Impuestos (10%)', 'Costo de mercadería', 'Resultado neto', 'no reemplaza la contabilidad formal');
+    contiene(await NUM.run({ mes: 'anterior' }), 'Números de');
+    const r = await tr.correrCiclo({ solo: ['contabilidad'], forzar: true });
+    const r2 = await tr.correrCiclo({ solo: ['contabilidad'], forzar: true });
+    if (deTrab('contabilidad', r2).includes('hasta hoy')) throw new Error('repitió el resumen del mes');
+    contiene(await T.run({ accion: 'resultados', trabajador: 'Carmen' }), 'Contadora', 'Facturación', '− Comisiones de MercadoLibre', '= Resultado neto', 'Mes anterior');
+    void r;
+  });
+  await caso('Jefe: reparte el objetivo entre los trabajadores que corresponden y arma el plan en orden', async () => {
+    const J = tool('ml_jefe');
+    const t = await J.run({ objetivo: 'quiero ganar más plata por cada venta' });
+    contiene(t, 'Jefe de equipo', 'ganar más por venta', 'Ramiro', 'Carmen', 'Ana', 'El plan, en orden', '1. ', 'calculadora-ml', '✋ con tu OK', 'dale');
+    for (const n of ['Vera', 'Leo', 'Lucía', 'Sofía']) if (t.includes(`${n} (`)) throw new Error(`metió a ${n} en un objetivo de margen`);
+    const rep = await J.run({ objetivo: 'mejorar la reputación y los envíos', sin_correr: true });
+    contiene(rep, 'Leo', 'logistica-ml', 'sin correrlo ahora');
+    const todo = await J.run({ objetivo: 'xyz' , sin_correr: true });
+    contiene(todo, 'todo el equipo');
+    if (todo.includes('Lucía (')) throw new Error('el jefe disparó la auditoría completa sin que el objetivo lo pida');
+    const pubs = await J.run({ objetivo: 'mis publicaciones están desactualizadas', sin_correr: true });
+    contiene(pubs, 'Lucía', 'mejorar-publicaciones-ml');
+    contiene(await J.run({ objetivo: 'x' }), 'Decime el objetivo');
   });
 
   // ───────────── Base de datos del equipo (SQLite que viene con Node) ─────────────

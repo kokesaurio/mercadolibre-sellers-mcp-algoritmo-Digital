@@ -160,6 +160,15 @@ export function filaDeMedicion(trabajador, tarea, datos) {
     f.extra = JSON.stringify({ total: datos.total, rojas: datos.rojas, amarillas: datos.amarillas, verdes: datos.verdes, sinActualizar: datos.sinActualizar });
   } else if (trabajador === 'agenda') {
     f.extra = JSON.stringify({ campanias: Object.keys(datos.promos || {}).length, fechas: (datos.fechas || []).length, pendientes: datos.pendientes ?? null });
+  } else if (trabajador === 'rentabilidad') {
+    const its = Object.values(datos.items || {});
+    f.extra = JSON.stringify({ calculados: its.filter((x) => !x.sinCosto).length, conPerdida: its.filter((x) => x.semaforo === '🔴').length, sinCosto: datos.sinCosto ?? 0, ganancia30d: datos.gananciaTotal ?? null });
+  } else if (trabajador === 'anuncios') {
+    f.extra = JSON.stringify({ campanias: Object.keys(datos.campanias || {}).length, gasto7d: datos.gasto ?? 0, ventasAds7d: datos.ventas ?? 0 });
+  } else if (trabajador === 'logistica') {
+    f.extra = JSON.stringify({ porDespachar: datos.porDespachar ?? 0, demorados: datos.demorados ?? 0, problemas: datos.problemas ?? 0, demoraPct: datos.demoraRate != null ? Math.round(datos.demoraRate * 1000) / 10 : null });
+  } else if (trabajador === 'contabilidad') {
+    f.extra = JSON.stringify({ facturacionMes: Math.round(datos.mes?.bruto ?? 0), netoMes: Math.round(datos.mes?.neto ?? 0), margenMes: Math.round((datos.mes?.margen ?? 0) * 10) / 10 });
   } else if (trabajador === 'tendencias') {
     const ks = (datos.keywords || []).slice(0, 10);
     Object.assign(f, { lider: ks[0] ?? null, extra: JSON.stringify({ top: ks }) });

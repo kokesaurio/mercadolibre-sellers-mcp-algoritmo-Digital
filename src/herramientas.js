@@ -5,6 +5,7 @@ import { VERSION, chequearActualizacion } from './version.js';
 import { leerCerebro, saberDe, aprender, olvidar } from './cerebro.js';
 import { armarResultados, resultadosEnMarkdown, conectarDrive, desconectarDrive, configDrive, claveDrive, exportarADrive, detectarCarpetaDrive, CARPETA_NOMBRE } from './resultados.js';
 import { auditarItem } from './auditoria.js';
+import { resumenContable, enviosRecientes, inicioDeMes, nombreMes } from './negocio.js';
 import { fechasComerciales, cronogramaML, estadoDecision, diasHasta, tipoLegible, ICONO_DECISION } from './agenda.js';
 import { faltantes, agrupar, preguntasRespondidas, armarDescripcion, INICIO as FAQ_INICIO } from './faq.js';
 import { estadoDB, leerMediciones, precioSinCambiosDesde, backupDB, RETENCION_DIAS, NODE_MINIMO } from './db.js';
@@ -584,6 +585,118 @@ export const TOOLS = [
       return `# Agenda comercial — próximos ${dias} días\n${pend ? `**${pend} ❓ esperan tu decisión: ¿participás?** Respondé por cada una (ml_agenda accion=decidir ref=… participar=true/false). Clara te va a seguir preguntando hasta que decidas.` : 'Todo decidido ✅'}\n\n` + (filas.map((x) => x.linea).join('\n') || 'Sin campañas de MercadoLibre ni fechas comerciales en este período.');
     },
   },
+  {
+    name: 'ml_numeros', title: 'Números del mes (contabilidad)', readOnly: true,
+    description: 'Los números de Carmen, la contadora del equipo: resultado de un mes — facturación, cantidad de ventas, comisiones reales de MercadoLibre, publicidad, impuestos (% guardado en el cerebro), costo de mercadería (costos del cerebro) y envíos a cargo → resultado neto y margen, comparado con el mes anterior. Si faltan costos o impuestos lo marca como parcial y dice qué falta (nunca inventa). mes: "actual" (default, hasta hoy), "anterior" o AAAA-MM.',
+    schema: { ...cuentaParam, mes: z.string().optional().describe('"actual", "anterior" o AAAA-MM') },
+    async run(args) {
+      const c = cliente(args); const id = await sellerId(c);
+      const ahora = Date.now();
+      let desde, hasta;
+      if (!args.mes || args.mes === 'actual') { desde = inicioDeMes(ahora); hasta = ahora; }
+      else if (args.mes === 'anterior') { desde = inicioDeMes(ahora, -1); hasta = inicioDeMes(ahora); }
+      else if (/^\d{4}-\d{2}$/.test(args.mes)) { const [y, m] = args.mes.split('-').map(Number); desde = new Date(y, m - 1, 1).getTime(); hasta = Math.min(new Date(y, m, 1).getTime(), ahora); if (desde > ahora) return 'Ese mes todavía no empezó.'; }
+      else return 'mes inválido: usá "actual", "anterior" o AAAA-MM.';
+      const r = await resumenContable(c, id, desde, hasta);
+      const largo = hasta - desde, prev = await resumenContable(c, id, inicioDeMes(desde, -1), inicioDeMes(desde, -1) + largo, { conAds: false });
+      const d = (n) => (n == null ? '_sin cargar_' : money(Math.round(n)));
+      const vs = (a, b) => (b ? ` (${a >= b ? '↑' : '↓'} ${Math.abs(((a - b) / b) * 100).toFixed(1)}%)` : '');
+      return [`# 🧾 Números de ${nombreMes(desde)}${hasta === ahora ? ' (hasta hoy)' : ''}`, '',
+        '| Concepto | Monto |', '| --- | --- |',
+        `| Facturación (${r.ordenes} ventas · ${r.unidades} u.) | ${d(r.bruto)}${vs(r.bruto, prev.bruto)} |`,
+        `| − Comisiones de MercadoLibre${r.comisionEstimada ? ' (algunas estimadas en 14%)' : ''} | −${d(r.comisiones)} |`,
+        `| − Publicidad (Product Ads) | ${r.ads == null ? '_sin Product Ads_' : '−' + d(r.ads)} |`,
+        `| − Impuestos${r.impuestosPct != null ? ` (${r.impuestosPct}%)` : ''} | ${r.impuestos == null ? '_sin cargar_' : '−' + d(r.impuestos)} |`,
+        `| − Costo de mercadería | −${d(r.costoMercaderia)} |`,
+        `| − Envíos a cargo | −${d(r.envios)} |`,
+        `| **= Resultado neto** | **${d(r.neto)}** (${r.margen.toFixed(1)}%) |`, '',
+        r.parcial ? `⚠️ **Resultado parcial.** ${r.cobertura < 1 ? `${Math.round((1 - r.cobertura) * 100)}% de las unidades vendidas no tienen costo cargado (${r.sinCosto.slice(0, 5).join(', ')}${r.sinCosto.length > 5 ? '…' : ''}). ` : ''}${r.impuestosPct == null ? 'Falta tu % de impuestos. ' : ''}Cargalos una vez con ml_cerebro y el neto queda exacto.` : '✅ Todos los costos e impuestos cargados: el neto es completo.',
+        r.top.length ? `\n**Lo que más vendiste:** ${r.top.map((x) => `${x.titulo} (${x.u} u.)`).join(' · ')}` : '',
+        '\n_Es un resultado de gestión para decidir, no reemplaza la contabilidad formal: pasáselo a tu contador._'].join('\n');
+    },
+  },
+  {
+    name: 'ml_despachos', title: 'Despachos y envíos (logística)', readOnly: true,
+    description: 'La lista de Leo, el coordinador de logística del equipo: envíos de las ventas de los últimos días — qué tenés que despachar y hasta cuándo (FULL lo despacha MercadoLibre), envíos demorados, no entregados o devueltos, por tipo de envío (FULL/Flex/Colecta) y destino, más tu tasa de despachos con demora de la reputación.',
+    schema: { ...cuentaParam, dias: z.number().optional().describe('Días hacia atrás (default 7, máx 30)') },
+    async run(args) {
+      const c = cliente(args); const me = await c.get('/users/me');
+      const dias = Math.min(Math.max(1, Math.round(args.dias ?? 7)), 30);
+      const es = await enviosRecientes(c, me.id, dias);
+      if (!es.length) return `Sin ventas con envío en los últimos ${dias} días.`;
+      const h = (ts) => new Date(ts).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const linea = (e) => `- #${e.orden} · ${e.titulo} · ${e.tipo} · ${e.estado}${e.subestado ? '/' + e.subestado : ''}${e.limiteDespacho ? ` · despachar antes del ${h(e.limiteDespacho)}` : ''}${e.provincia ? ` · a ${e.provincia}` : ''}`;
+      const grupo = (titulo, lista) => (lista.length ? `## ${titulo} (${lista.length})\n` + lista.map(linea).join('\n') : '');
+      const tipos = {}; for (const e of es) tipos[e.tipo] = (tipos[e.tipo] || 0) + 1;
+      const rate = me.seller_reputation?.metrics?.delayed_handling_time?.rate;
+      return [`# 🚚 Despachos — últimos ${dias} días (${es.length} envíos)`,
+        grupo('↩️ Devueltos / no entregados', es.filter((e) => e.problema)),
+        grupo('🚨 Demorados', es.filter((e) => e.demorado && !e.problema)),
+        grupo('📦 Para despachar', es.filter((e) => e.porDespachar && !e.demorado).sort((a, b) => (a.limiteDespacho || 9e15) - (b.limiteDespacho || 9e15))),
+        `**Por tipo de envío:** ${Object.entries(tipos).map(([k, v]) => `${k} ${v}`).join(' · ')}`,
+        rate != null ? `**Despachos con demora (reputación):** ${(rate * 100).toFixed(1)}%` : ''].filter(Boolean).join('\n\n');
+    },
+  },
+  {
+    name: 'ml_jefe', title: 'Jefe de equipo (le das un objetivo y reparte el trabajo)', readOnly: true,
+    description: 'El jefe del equipo de trabajadores: le das un OBJETIVO en una frase ("vender más este mes", "¿por qué gano poco?", "preparame para el CyberMonday", "mejorar la reputación") y él elige qué trabajadores tienen que ver, los pone a trabajar ahora mismo, junta lo que encontraron y devuelve el plan en orden: cada paso con el trabajador responsable, lo que encontró y la skill para hacerlo. Lo que modifica la tienda queda marcado para hacerlo con tu OK. Sin objetivo claro, trabaja con todo el equipo.',
+    schema: { ...cuentaParam, objetivo: z.string().describe('El objetivo en tus palabras'), sin_correr: z.boolean().optional().describe('true = armar el plan con lo último que sabe el equipo, sin hacerlo trabajar ahora') },
+    async run(args) {
+      const obj = sinAcento(args.objetivo || '');
+      if (obj.length < 3) return 'Decime el objetivo en una frase (ej: "vender más este mes", "¿por qué gano poco?", "preparame para el CyberMonday").';
+      const REGLAS = [
+        [/precio|barat|caro|competen|rival|competidor/, ['precios', 'rivales', 'ranking'], 'competencia'],
+        [/vender mas|mas ventas|ventas|facturar|crecer|escalar|vendo poco|no vendo/, ['ventas', 'ranking', 'anuncios', 'auditor', 'agenda', 'tendencias'], 'vender más'],
+        [/margen|ganancia|ganar|gano|rentab|plata|pierdo|perd|cost/, ['rentabilidad', 'contabilidad', 'anuncios'], 'ganar más por venta'],
+        [/publicidad|\bads\b|anuncio|acos|product ads|pauta/, ['anuncios', 'rentabilidad'], 'publicidad'],
+        [/envi|despach|logistic|demora|reputacion|reclamo|color|termometro|full|flex/, ['logistica'], 'logística y reputación'],
+        [/numero|contab|cierre|impuesto|balance|resultado|mes pasado|este mes/, ['contabilidad', 'rentabilidad'], 'números'],
+        [/publicacion|foto|descripcion|auditor|desactualiz|posicion|ranking|puesto|aparecer|titulo|pregunta/, ['auditor', 'ranking'], 'publicaciones'],
+        [/promo|hot ?sale|cyber|black|fecha|navidad|reyes|dia de la madre|dia del padre|evento|cronograma|mi pagina/, ['agenda', 'rentabilidad', 'anuncios'], 'fechas y promociones'],
+        [/tendencia|que vender|nuevo producto|oportunidad|nicho|ganador/, ['tendencias', 'rivales'], 'oportunidades'],
+      ];
+      const elegidos = new Set(), temas = [];
+      for (const [re, ids, tema] of REGLAS) if (re.test(obj)) { ids.forEach((i) => elegidos.add(i)); temas.push(tema); }
+      const todos = !elegidos.size;
+      const equipo = todos ? IDS.filter((i) => i !== 'auditor') : IDS.filter((i) => elegidos.has(i)); // Lucía (auditoría completa) solo si el objetivo es de publicaciones
+      let corrida = null;
+      if (!args.sin_correr) corrida = await correrCiclo({ solo: equipo, forzar: true });
+      const res = armarResultados();
+      const ORDEN = ['logistica', 'rentabilidad', 'anuncios', 'agenda', 'auditor', 'precios', 'ranking', 'ventas', 'rivales', 'tendencias', 'contabilidad'];
+      const ACCION = {
+        logistica: ['despachar lo pendiente y resolver demoras/devoluciones', 'logistica-ml', true],
+        rentabilidad: ['corregir precio, costo o publicidad de los productos que dejan poco o pierden', 'calculadora-ml', true],
+        anuncios: ['bajar o pausar lo que gasta sin vender y empujar lo que tiene margen', 'publicidad-ml', true],
+        agenda: ['decidir si participás en lo que viene y preparar stock, precio y Mi página', 'agenda-comercial-ml', true],
+        auditor: ['arreglar las publicaciones en rojo, las peores primero', 'mejorar-publicaciones-ml', true],
+        precios: ['revisar dónde un rival quedó más barato y si conviene responder (validando margen)', 'calculadora-ml', true],
+        ranking: ['mejorar las publicaciones que perdieron puesto en tus búsquedas', 'imagenes-ml', true],
+        ventas: ['aprovechar los rivales sin stock y comparar su ritmo con el tuyo', 'panel-ventas-ml', false],
+        rivales: ['analizar a los rivales nuevos y sumarlos a la vigilancia', 'competencia-ml', false],
+        tendencias: ['validar las búsquedas en alza como productos para vender', 'descubrir-ganadores-ml', false],
+        contabilidad: ['cerrar los números del mes y completar costos/impuestos que falten', 'contabilidad-ml', false],
+      };
+      const pasos = [];
+      for (const id of ORDEN.filter((i) => equipo.includes(i))) {
+        const r = res[id], e = EQUIPO[id];
+        const nuevas = (corrida?.alertas || []).filter((a) => a.trabajador === id);
+        const urgentes = nuevas.filter((a) => a.nivel === 'alta');
+        const sinNada = !r?.filas?.length && !nuevas.length;
+        const [accion, skill, escribe] = ACCION[id];
+        pasos.push({ id, peso: urgentes.length ? 0 : nuevas.length ? 1 : sinNada ? 3 : 2,
+          texto: `**${e.emoji} ${e.nombre} (${e.puesto})** — ${r?.destacado || (sinNada ? 'sin datos todavía (necesita tareas, costos o historial)' : 'sin novedades')}` +
+            (urgentes.length ? `\n   🔴 ${urgentes.slice(0, 3).map((a) => a.texto.replace(/\*\*/g, '')).join('\n   🔴 ')}` : '') +
+            `\n   → **Siguiente paso:** ${accion} · skill \`${skill}\`${escribe ? ' · ✋ con tu OK antes de tocar la tienda' : ''}` });
+      }
+      pasos.sort((a, b) => a.peso - b.peso);
+      if (corrida?.alertas?.length) leerBandeja({ marcar: true });
+      return [`# 🎩 Jefe de equipo — objetivo: «${args.objetivo.trim()}»`,
+        todos ? `No reconocí un tema puntual: trabajó **todo el equipo** (${equipo.length}).` : `Lo repartí entre **${equipo.length} trabajador(es)** según el objetivo (${temas.join(', ')}).`,
+        corrida ? `Trabajaron ahora: ${corrida.corridos.map((i) => EQUIPO[i].nombre).join(', ') || 'nadie (sin tareas)'}${corrida.errores.length ? ` · ⚠️ ${corrida.errores.join(' · ')}` : ''}.` : 'Plan armado con lo último que sabía el equipo (sin correrlo ahora).',
+        '', '## El plan, en orden', ...pasos.map((p, i) => `${i + 1}. ${p.texto}`),
+        '', 'Decime "dale" y arranco por el paso 1 (con la skill indicada), o elegí el número del paso.'].join('\n');
+    },
+  },
   // ─────────────────────────────── Cerebro ───────────────────────────────
   {
     name: 'ml_cerebro', title: 'El cerebro del conector (memoria del negocio)', readOnly: true,
@@ -1130,6 +1243,12 @@ export const TOOLS = [
           } else if (id === 'rivales') {
             cab = ['Día', 'Vendedores distintos en el top'];
             fila = (m) => [dia(m.t), m.extra?.vendedores ?? '—'];
+          } else if (['rentabilidad', 'anuncios', 'logistica', 'contabilidad'].includes(id)) {
+            const NOMBRES = { calculados: 'Productos calculados', conPerdida: 'Con pérdida', sinCosto: 'Sin costo cargado', ganancia30d: 'Ganancia 30 días', campanias: 'Campañas', gasto7d: 'Invertido 7 días', ventasAds7d: 'Ventas por ads 7 días', porDespachar: 'Por despachar', demorados: 'Demorados', problemas: 'Devueltos/no entregados', demoraPct: '% despachos con demora', facturacionMes: 'Facturación del mes', netoMes: 'Neto del mes', margenMes: 'Margen %' };
+            const claves = Object.keys(ultimo.extra || {});
+            const plata = /ganancia|gasto|ventas|facturacion|neto/i;
+            cab = ['Día', ...claves.map((k) => NOMBRES[k] || k)];
+            fila = (m) => [dia(m.t), ...claves.map((k) => (m.extra?.[k] == null ? '—' : plata.test(k) ? din(m.extra[k]) : m.extra[k]))];
           } else {
             cab = ['Día', 'Top 3 de tendencias'];
             fila = (m) => [dia(m.t), (m.extra?.top || []).slice(0, 3).map((x) => `"${x}"`).join(', ')];

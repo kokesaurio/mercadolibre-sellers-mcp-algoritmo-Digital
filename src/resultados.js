@@ -125,6 +125,61 @@ export function armarResultados(d = leerEquipo()) {
       destacado = filas.length ? `${pend} decisión(es) pendiente(s): ¿participás? · próximo: ${filas[0][1]} (${filas[0][0]})` : '';
     }
 
+    if (id === 'rentabilidad') {
+      cabecera = ['Publicación', 'Título', 'Precio', 'Vendidas 30 días', 'Ganancia por unidad', 'Margen %', 'Semáforo', 'ACOS máximo %', 'Ganancia 30 días'];
+      let total = 0, rojos = 0, sin = 0;
+      for (const t of tareas) {
+        const s = snap(t); if (!s) continue;
+        const its = Object.entries(s.datos.items || {}).sort((x, y) => (x[1].sinCosto ? 1e9 : x[1].margen) - (y[1].sinCosto ? 1e9 : y[1].margen));
+        for (const [itemId, x] of its) {
+          if (x.sinCosto) { sin++; filas.push([itemId, x.titulo, x.precio, x.u, 'sin costo cargado', '', '🧠', '', '']); continue; }
+          total += x.gananciaMes; if (x.semaforo === '🔴') rojos++;
+          filas.push([itemId, x.titulo, x.precio, x.u, x.ganancia, x.margen, x.semaforo, x.acosMax, x.gananciaMes]);
+        }
+      }
+      destacado = filas.length ? `ganancia neta estimada 30 días: $ ${Math.round(total).toLocaleString('es-AR')}${rojos ? ` · ${rojos} producto(s) con PÉRDIDA` : ''}${sin ? ` · ${sin} sin costo cargado (cargalos con ml_cerebro)` : ''}` : '';
+    }
+
+    if (id === 'anuncios') {
+      cabecera = ['Tipo', 'Nombre', 'Estado', 'Invertido 7 días', 'Ventas por ads', 'ACOS %', 'ACOS máximo (margen) %', 'Unidades'];
+      let gasto = 0, ventas = 0, malos = 0;
+      for (const t of tareas) {
+        const s = snap(t); if (!s) continue;
+        if (s.datos.sinAds) { filas.push(['—', 'La cuenta no tiene Product Ads activo', '', '', '', '', '', '']); continue; }
+        for (const k of Object.values(s.datos.campanias || {})) { gasto += k.cost; ventas += k.ventas; filas.push(['Campaña', k.nombre, k.estado, k.cost, k.ventas, k.acos, '', k.units]); }
+        for (const [itemId, x] of Object.entries(s.datos.items || {})) { if (x.acos > x.acosMax) malos++; filas.push(['Producto', `${itemId} ${x.titulo}`, x.acos > x.acosMax ? '🔴 pierde plata' : '🟢', x.cost, '', x.acos, x.acosMax, x.units]); }
+      }
+      destacado = filas.length ? `7 días: invertiste $ ${Math.round(gasto).toLocaleString('es-AR')} y vendiste $ ${Math.round(ventas).toLocaleString('es-AR')} por ads${ventas ? ` (ACOS ${(gasto / ventas * 100).toFixed(1)}%)` : ''}${malos ? ` · ${malos} producto(s) con ACOS arriba de lo que aguanta su margen` : ''}` : '';
+    }
+
+    if (id === 'logistica') {
+      cabecera = ['Orden', 'Producto', 'Envío', 'Estado', 'Despachar antes de', 'Destino', 'Atención'];
+      let porD = 0, dem = 0, prob = 0;
+      for (const t of tareas) {
+        const s = snap(t); if (!s) continue;
+        const peso = (e) => (e.problema ? 0 : e.demorado ? 1 : e.porDespachar ? 2 : 3);
+        for (const e of Object.values(s.datos.envios || {}).sort((x, y) => peso(x) - peso(y) || (x.limiteDespacho || 9e15) - (y.limiteDespacho || 9e15)).slice(0, 40)) {
+          if (e.porDespachar) porD++; if (e.demorado) dem++; if (e.problema) prob++;
+          filas.push([e.orden, e.titulo, e.tipo, `${e.estado}${e.subestado ? '/' + e.subestado : ''}`, e.limiteDespacho ? fecha(e.limiteDespacho) : '—', e.provincia || '—', e.problema ? '↩️ ' + e.problema : e.demorado ? '🚨 demorado' : e.porDespachar ? '📦 despachar' : '✅']);
+        }
+      }
+      destacado = filas.length ? `${porD} para despachar · ${dem} demorado(s) · ${prob} con problema (devuelto/no entregado)` : '';
+    }
+
+    if (id === 'contabilidad') {
+      cabecera = ['Concepto', 'Mes actual', 'Mes anterior (mismo período)'];
+      const s = tareas.map(snap).find(Boolean);
+      if (s) {
+        const m = s.datos.mes, a = s.datos.comparado || {};
+        const r = (n) => (n == null ? 'sin cargar' : '$ ' + Math.round(n).toLocaleString('es-AR'));
+        filas.push(['Facturación', r(m.bruto), r(a.bruto)], ['Ventas (órdenes)', m.ordenes, a.ordenes], ['Unidades', m.unidades, a.unidades],
+          ['− Comisiones de MercadoLibre' + (m.comisionEstimada ? ' (estimadas)' : ''), r(m.comisiones), r(a.comisiones)], ['− Publicidad', r(m.ads), '—'],
+          ['− Impuestos' + (m.impuestosPct != null ? ` (${m.impuestosPct}%)` : ''), r(m.impuestos), r(a.impuestos)], ['− Costo de mercadería', r(m.costoMercaderia), r(a.costoMercaderia)],
+          ['− Envíos a cargo', r(m.envios), r(a.envios)], ['= Resultado neto' + (m.parcial ? ' (parcial)' : ''), r(m.neto), r(a.neto)], ['Margen neto %', Math.round(m.margen * 10) / 10, a.bruto ? Math.round(a.margen * 10) / 10 : '—']);
+        destacado = `${m.nombre}: neto ≈ $ ${Math.round(m.neto).toLocaleString('es-AR')} sobre $ ${Math.round(m.bruto).toLocaleString('es-AR')} facturados${m.parcial ? ' (parcial: faltan costos o impuestos en el cerebro)' : ''}`;
+      }
+    }
+
     if (id === 'tendencias') {
       cabecera = ['Sitio / categoría', 'Puesto', 'Keyword', 'Último control'];
       for (const t of tareas) {
@@ -140,7 +195,7 @@ export function armarResultados(d = leerEquipo()) {
 }
 
 export function resultadosEnMarkdown(res, solo) {
-  const celda = (v, i, cab) => v == null || v === '' ? '—' : typeof v === 'number' && /precio|facturaci/i.test(cab[i]) ? dinero(v) : String(v).replace(/\|/g, '/');
+  const celda = (v, i, cab) => v == null || v === '' ? '—' : typeof v === 'number' && /precio|facturaci|ganancia|invertido|ventas por ads/i.test(cab[i]) ? dinero(v) : String(v).replace(/\|/g, '/');
   return (solo ? [solo] : IDS).map((id) => {
     const r = res[id], e = EQUIPO[id];
     const tabla = r.filas.length
