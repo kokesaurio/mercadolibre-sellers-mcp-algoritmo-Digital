@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { MeliClient, MeliError, listarCuentas, urlDeAutorizacion, canjearCode, borrarCuenta, fijarPredeterminada } from './meli.js';
 import { VERSION, chequearActualizacion } from './version.js';
-import { leerCerebro, saberDe, aprender, olvidar } from './cerebro.js';
+import { leerCerebro, saberDe, aprender, olvidar, normalizarSku, skuDeItem, vincularSku, costoDeSku, publicacionesDeSku } from './cerebro.js';
 import { armarResultados, resultadosEnMarkdown, conectarDrive, desconectarDrive, configDrive, claveDrive, exportarADrive, detectarCarpetaDrive, CARPETA_NOMBRE } from './resultados.js';
 import { auditarItem } from './auditoria.js';
 import { generarTablero, abrirEnNavegador } from './tablero.js';
@@ -255,7 +255,7 @@ export const TOOLS = [
 
   {
     name: 'ml_crear_publicacion', title: 'Crear publicación', readOnly: false,
-    description: 'CREA una publicación real en la tienda. Con `copiar_de` clona una publicación existente (título, categoría, atributos, fotos, descripción) y permite pisar título/precio/stock — ideal para duplicar entre tus propias cuentas. Usar solo con confirmación explícita del usuario.',
+    description: 'CREA una publicación real en la tienda. Con `copiar_de` clona una publicación existente (título, categoría, atributos, fotos, descripción) y permite pisar título/precio/stock — ideal para duplicar entre tus propias cuentas. Usar solo con confirmación explícita del usuario. COSTO POR SKU: si la publicación tiene SKU (parámetro sku, o el que trae copiar_de) y ese SKU ya tiene costo en el cerebro, la nueva publicación usa ese costo sola. Si no hay costo para ese SKU, la herramienta NO publica y pide el costo: preguntárselo al vendedor y volver a llamar con costo=… (o sin_costo=true si no lo quiere cargar).',
     schema: { ...cuentaParam,
       copiar_de: z.string().optional().describe('item_id a clonar (ej MLA123...). Solo copiar fotos/textos si son propios'),
       titulo: z.string().optional().describe('Título (≤60 caracteres). Obligatorio si no hay copiar_de'),
@@ -263,12 +263,16 @@ export const TOOLS = [
       categoria: z.string().optional().describe('ID de categoría ML (obligatorio sin copiar_de)'),
       descripcion: z.string().optional(), condicion: z.enum(['new', 'used']).optional(),
       tipo: z.string().optional().describe('listing_type_id, ej gold_special (Clásica)'),
-      imagenes: z.array(z.string()).optional().describe('URLs de fotos propias') },
+      imagenes: z.array(z.string()).optional().describe('URLs de fotos propias'),
+      sku: z.string().max(60).optional().describe('SKU del producto (se carga en la publicación). Las publicaciones con el mismo SKU comparten el costo'),
+      costo: z.number().min(0).optional().describe('Costo del producto (lo que te sale a vos). Solo si el SKU no tiene costo guardado o el vendedor lo quiere cambiar'),
+      sin_costo: z.boolean().optional().describe('true = publicar sin cargar costo (el vendedor no lo quiere dar ahora)') },
     async run(args) {
       const c = cliente(args);
-      let base = {}, descripcionOrigen = null;
+      let base = {}, descripcionOrigen = null, o = null;
+      if (args.sku != null && !normalizarSku(args.sku)) return 'Ese SKU no es válido (hasta 60 caracteres, sin caracteres de control).';
       if (args.copiar_de) {
-        const o = await c.get(`/items/${args.copiar_de}`);
+        o = await c.get(`/items/${args.copiar_de}`);
         try { descripcionOrigen = (await c.get(`/items/${args.copiar_de}/description`)).plain_text; } catch {}
         base = {
           title: o.title, category_id: o.category_id, price: o.price, currency_id: o.currency_id,
@@ -289,6 +293,13 @@ export const TOOLS = [
         ...(args.imagenes?.length ? { pictures: args.imagenes.map((u) => ({ source: u })) } : {}),
       };
       if (!cuerpo.title || !cuerpo.category_id) return 'Falta título o categoría: pasá titulo y categoria, o usá copiar_de con una publicación existente.';
+      if (args.sku != null) cuerpo.attributes = [...(cuerpo.attributes || []).filter((a) => a.id !== 'SELLER_SKU'), { id: 'SELLER_SKU', value_name: args.sku.replace(/\s+/g, ' ').trim() }];
+      // 💰 Costo por SKU: el mismo producto en otra publicación ya nos dice cuánto cuesta
+      const sku = normalizarSku(args.sku) || skuDeItem(o);
+      const costoSku = sku ? costoDeSku(sku) : null;
+      if (args.costo == null && costoSku == null && !args.sin_costo) {
+        return `✋ Antes de publicar: **¿cuánto te cuesta este producto?** (lo que te sale a vos, con IVA si corresponde)\n\n${sku ? `El SKU **${sku}** todavía no tiene costo cargado. Lo guardo en el SKU y lo van a usar todas las publicaciones con ese SKU, así no te lo vuelvo a preguntar.` : 'La publicación no tiene SKU: pasame también el SKU si querés que el costo se comparta con otras publicaciones del mismo producto.'}\n\nDecime el costo y la publico (o decime "publicala sin costo").`;
+      }
       if (cuerpo.currency_id == null) cuerpo.currency_id = 'ARS';
       if (cuerpo.condition == null) cuerpo.condition = 'new';
       if (cuerpo.listing_type_id == null) cuerpo.listing_type_id = 'gold_special';
@@ -296,7 +307,18 @@ export const TOOLS = [
       const nuevo = await c.post('/items', cuerpo);
       const texto = args.descripcion ?? descripcionOrigen;
       if (texto) { try { await c.post(`/items/${nuevo.id}/description`, { plain_text: texto }); } catch {} }
-      return `✅ Publicación creada: **${nuevo.id}** — ${nuevo.title ?? cuerpo.title} a ${money(nuevo.price ?? cuerpo.price, cuerpo.currency_id)}\n${nuevo.permalink ?? ''}\nQueda en estado ${nuevo.status ?? 'active'}: revisala en tu panel de MercadoLibre.`;
+      let lineaCosto = '';
+      if (nuevo.id) {
+        if (args.costo != null) {
+          aprender(nuevo.id, { costo: args.costo }, { sku });
+          lineaCosto = sku ? (costoSku != null && costoSku !== args.costo ? `💰 Costo del SKU **${sku}** actualizado de ${money(costoSku)} a ${money(args.costo)}: vale para todas sus publicaciones.` : `💰 Costo ${money(args.costo)} guardado en el SKU **${sku}**: vale para todas sus publicaciones.`) : `💰 Costo ${money(args.costo)} guardado para esta publicación.`;
+        } else if (costoSku != null) {
+          vincularSku(nuevo.id, sku);
+          const de = leerCerebro().skus?.[sku]?.de;
+          lineaCosto = `💰 Costo ${money(costoSku)} tomado del SKU **${sku}**${de && de !== sku ? ` (el mismo producto que ${de})` : ''}: ya cuenta para la rentabilidad y los números.`;
+        } else lineaCosto = '⚠️ Publicada sin costo cargado: los números de este producto van a salir parciales hasta que me lo digas.';
+      }
+      return `✅ Publicación creada: **${nuevo.id}** — ${nuevo.title ?? cuerpo.title} a ${money(nuevo.price ?? cuerpo.price, cuerpo.currency_id)}\n${nuevo.permalink ?? ''}\nQueda en estado ${nuevo.status ?? 'active'}: revisala en tu panel de MercadoLibre.${lineaCosto ? '\n' + lineaCosto : ''}`;
     },
   },
   // ───────────────────────────── Preguntas ─────────────────────────────
@@ -741,8 +763,8 @@ export const TOOLS = [
   // ─────────────────────────────── Cerebro ───────────────────────────────
   {
     name: 'ml_cerebro', title: 'El cerebro del conector (memoria del negocio)', readOnly: true,
-    description: 'La base de datos local del negocio: guarda lo que el vendedor le enseña (costo de cada producto, % de impuestos, costo de envío, medidas, qué incluye, notas) y las demás herramientas lo usan solas — la calculadora de rentabilidad deja de preguntar lo que ya sabe. Todo queda en un archivo local de la máquina del vendedor, nunca sale de ahí. Acciones: guardar, ver, olvidar. Para datos del negocio entero (ej impuestos de todas las ventas), guardar sin item_id.',
-    schema: {
+    description: 'La base de datos local del negocio: guarda lo que el vendedor le enseña (costo de cada producto, % de impuestos, costo de envío, medidas, qué incluye, notas) y las demás herramientas lo usan solas — la calculadora de rentabilidad deja de preguntar lo que ya sabe. EL COSTO VA POR SKU: si la publicación tiene SKU, el costo queda guardado en el SKU y lo usan todas las publicaciones con ese mismo SKU (también las nuevas). Se puede guardar directo por SKU (item_id="TER-1L"). Todo queda en un archivo local de la máquina del vendedor, nunca sale de ahí. Acciones: guardar, ver, olvidar. Para datos del negocio entero (ej impuestos de todas las ventas), guardar sin item_id.',
+    schema: { ...cuentaParam,
       accion: z.enum(['guardar', 'ver', 'olvidar']).describe('guardar conocimiento, ver lo que sabe, u olvidar un producto'),
       item_id: z.string().optional().describe('Producto (MLA...) o SKU. Sin item_id, el dato es del negocio entero'),
       costo: z.number().min(0).optional().describe('Costo del producto'),
@@ -757,9 +779,18 @@ export const TOOLS = [
       if (args.accion === 'guardar') {
         const { accion, item_id, ...datos } = args;
         if (!Object.values(datos).some((v) => v !== undefined)) return 'Decime qué guardar: costo, impuestos_pct, costo_envio, medidas, incluye o una nota.';
-        aprender(item_id || null, datos);
+        delete datos.cuenta;
+        // ¿Es una publicación (MLA123…) o un SKU? A la publicación le buscamos su SKU para compartir el costo.
+        const esItem = item_id && /^M[A-Z]{2}\d+$/i.test(item_id.trim());
+        let sku = null;
+        if (item_id && !esItem) { sku = normalizarSku(item_id); if (!sku) return 'Ese SKU no es válido (hasta 60 caracteres, sin caracteres de control).'; }
+        if (esItem) { try { sku = skuDeItem(await cliente(args).get(`/items/${item_id.trim()}`)); } catch { sku = leerCerebro().productos?.[item_id]?.sku || null; } }
+        const id = esItem ? item_id.trim().toUpperCase() : sku;
+        aprender(id || null, datos, { sku });
         const campos = Object.entries(datos).filter(([, v]) => v !== undefined).map(([k]) => k).join(', ');
-        return `🧠 Guardado en el cerebro${item_id ? ` de **${item_id}**` : ' del **negocio** (vale para todos los productos que no tengan el dato propio)'}: ${campos}. Queda en tu máquina y las herramientas lo usan solas (la calculadora ya no te lo vuelve a preguntar).`;
+        const otras = sku && datos.costo != null ? publicacionesDeSku(sku).filter((x) => x !== id) : [];
+        const lineaSku = sku && datos.costo != null ? `\n\n🏷️ El costo quedó en el **SKU ${sku}**: lo usan todas las publicaciones con ese SKU${otras.length ? ` (ya van ${otras.length + (esItem ? 1 : 0)}: ${[...(esItem ? [id] : []), ...otras].slice(0, 6).join(', ')})` : ''} y las que crees con ese SKU.` : esItem && datos.costo != null ? '\n\nEsta publicación no tiene SKU: el costo vale solo para ella. Si le cargás un SKU en MercadoLibre, el costo se comparte con las demás publicaciones del mismo producto.' : '';
+        return `🧠 Guardado en el cerebro${id ? ` de **${esItem ? id : 'SKU ' + sku}**` : ' del **negocio** (vale para todos los productos que no tengan el dato propio)'}: ${campos}. Queda en tu máquina y las herramientas lo usan solas (la calculadora ya no te lo vuelve a preguntar).${lineaSku}`;
       }
       if (args.accion === 'olvidar') {
         if (!args.item_id) return 'Indicá el item_id del producto a olvidar.';
@@ -767,9 +798,13 @@ export const TOOLS = [
       }
       const d = leerCerebro();
       if (args.item_id) {
-        const p = saberDe(args.item_id);
+        const pr = Object.prototype.hasOwnProperty.call(d.productos || {}, args.item_id) ? d.productos[args.item_id] : null;
+        const esSku = !/^M[A-Z]{2}\d+$/i.test(args.item_id.trim()) && !(pr && pr.sku !== normalizarSku(args.item_id));
+        const p = esSku ? saberDe(null, args.item_id) : saberDe(args.item_id);
         const lineas = [];
-        if (p.costo != null) lineas.push(`- Costo: ${dinero(p.costo)}`);
+        if (p.sku && !esSku) lineas.push(`- SKU: ${p.sku}`);
+        if (p.costo != null) lineas.push(`- Costo: ${dinero(p.costo)}${p.costoDelSku ? ` (del SKU ${p.costoDelSku.sku}${p.costoDelSku.de && p.costoDelSku.de !== args.item_id && p.costoDelSku.de !== p.costoDelSku.sku ? `, cargado en ${p.costoDelSku.de}` : ''})` : ''}`);
+        if (esSku && p.sku) { const pubs = publicacionesDeSku(p.sku); if (pubs.length) lineas.push(`- Publicaciones con este SKU: ${pubs.join(', ')}`); }
         if (p.impuestos_pct != null) lineas.push(`- Impuestos: ${p.impuestos_pct}%${d.productos[args.item_id]?.impuestos_pct == null ? ' (heredado del negocio)' : ''}`);
         if (p.costo_envio != null) lineas.push(`- Envío por unidad: ${dinero(p.costo_envio)}`);
         if (p.medidas) lineas.push(`- Medidas: ${p.medidas}`);
@@ -785,8 +820,11 @@ export const TOOLS = [
       return `# 🧠 El cerebro del conector\n\n## Negocio\n` + (neg.length ? neg.join('\n') : '- (nada guardado todavía)') +
         `\n\n## Productos con datos (${prods.length})\n` + (prods.length ? prods.map((id) => {
           const p = d.productos[id];
-          return `- **${id}**: ${[p.costo != null ? 'costo ' + dinero(p.costo) : '', p.medidas ? 'medidas ✔' : '', p.incluye ? 'incluye ✔' : '', (p.notas?.length || 0) ? p.notas.length + ' nota(s)' : ''].filter(Boolean).join(' · ') || 'solo creado'}`;
-        }).join('\n') : '- (ninguno)') +
+          if (p.sku === id) return null; // los SKU se listan aparte
+          const cs = p.sku ? costoDeSku(p.sku) : null;
+          return `- **${id}**: ${[p.sku ? `SKU ${p.sku}` : '', p.costo != null ? 'costo ' + dinero(p.costo) : cs != null ? `costo ${dinero(cs)} (del SKU)` : '', p.medidas ? 'medidas ✔' : '', p.incluye ? 'incluye ✔' : '', (p.notas?.length || 0) ? p.notas.length + ' nota(s)' : ''].filter(Boolean).join(' · ') || 'solo creado'}`;
+        }).filter(Boolean).join('\n') : '- (ninguno)') +
+        (Object.keys(d.skus || {}).length ? `\n\n## Costos por SKU (${Object.keys(d.skus).length})\n` + Object.entries(d.skus).map(([k, x]) => { const n = publicacionesDeSku(k).length; return `- **${k}**: costo ${dinero(x.costo)}${n ? ` · ${n} publicación(es)` : ''}`; }).join('\n') : '') +
         `\n\nTodo esto vive en tu máquina (cerebro.json) y nunca sale de ahí.`;
     },
   },
@@ -847,21 +885,22 @@ export const TOOLS = [
     async run(args) {
       const c = cliente(args);
       const dinero = (n) => '$ ' + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 });
-      let precio = args.precio, tipo = 'gold_special', titulo = null;
+      let precio = args.precio, tipo = 'gold_special', titulo = null, sku = null;
       if (args.item_id) {
         const b = await c.get(`/items/${args.item_id}`);
         precio = precio ?? b.price; tipo = b.listing_type_id || tipo; titulo = b.title;
+        sku = skuDeItem(b); if (sku) vincularSku(args.item_id, sku);
       }
-      // 🧠 El cerebro completa lo que el usuario no pasó, y aprende lo que sí pasó
-      const sabido = args.item_id ? saberDe(args.item_id) : saberDe('__negocio__');
+      // 🧠 El cerebro completa lo que el usuario no pasó, y aprende lo que sí pasó (el costo, por SKU)
+      const sabido = args.item_id ? saberDe(args.item_id, sku) : saberDe('__negocio__');
       const memoria = [];
       let costoFinal = args.costo, impuestosFinal = args.impuestos_pct, envioFinal = args.costo_envio;
-      if (costoFinal == null && sabido.costo != null) { costoFinal = sabido.costo; memoria.push(`costo ${'$ ' + Number(sabido.costo).toLocaleString('es-AR')} guardado`); }
+      if (costoFinal == null && sabido.costo != null) { costoFinal = sabido.costo; memoria.push(`costo ${'$ ' + Number(sabido.costo).toLocaleString('es-AR')} ${sabido.costoDelSku ? `del SKU ${sabido.costoDelSku.sku}${sabido.costoDelSku.de && sabido.costoDelSku.de !== args.item_id && sabido.costoDelSku.de !== sabido.costoDelSku.sku ? ` (cargado en ${sabido.costoDelSku.de})` : ''}` : 'guardado'}`); }
       if (impuestosFinal == null && sabido.impuestos_pct != null) { impuestosFinal = sabido.impuestos_pct; memoria.push(`impuestos ${sabido.impuestos_pct}% guardados`); }
       if (envioFinal == null && sabido.costo_envio != null) { envioFinal = sabido.costo_envio; memoria.push(`envío ${'$ ' + Number(sabido.costo_envio).toLocaleString('es-AR')} guardado`); }
       const faltan = [];
       if (!precio) faltan.push('el **precio de venta** (o pasame el item_id y lo traigo)');
-      if (costoFinal == null) faltan.push('el **costo del producto** (lo que te sale a vos, con IVA si corresponde)');
+      if (costoFinal == null) faltan.push(`el **costo del producto** (lo que te sale a vos, con IVA si corresponde)${sku ? ` — lo guardo en el SKU ${sku} y vale para todas sus publicaciones` : ''}`);
       if (impuestosFinal == null) faltan.push('el **% de impuestos** sobre la venta (IIBB + monotributo o IVA según tu situación — si no lo sabés, tu contador lo tiene en 1 minuto)');
       if (faltan.length) return 'Para calcular la rentabilidad real me falta:\n- ' + faltan.join('\n- ') + '\n\nCon esos datos te doy el desglose peso por peso (y los guardo en el cerebro para no volver a preguntarlos).';
       // Aprender lo que vino nuevo
@@ -869,7 +908,7 @@ export const TOOLS = [
       if (args.costo != null && args.costo !== sabido.costo) aprendido.costo = args.costo;
       if (args.impuestos_pct != null && args.impuestos_pct !== sabido.impuestos_pct) aprendido.impuestos_pct = args.impuestos_pct;
       if (args.costo_envio != null && args.costo_envio !== sabido.costo_envio) aprendido.costo_envio = args.costo_envio;
-      if (Object.keys(aprendido).length) aprender(args.item_id || null, aprendido);
+      if (Object.keys(aprendido).length) aprender(args.item_id || null, aprendido, { sku });
       const sitio = (await c.get('/users/me')).site_id || 'MLA';
       let pct = 14, fijo = 0;
       try {

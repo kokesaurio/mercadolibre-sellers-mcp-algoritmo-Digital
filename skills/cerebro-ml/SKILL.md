@@ -1,6 +1,6 @@
 ---
 name: cerebro-ml
-description: El cerebro del conector de MercadoLibre — la base de datos local donde Claude guarda lo que el vendedor le enseña (costo de cada producto, % de impuestos, costo de envío, medidas, qué incluye, notas del negocio) para no volver a preguntarlo: la calculadora de rentabilidad y las demás skills lo usan solas. Usar cuando digan "acordate que...", "el costo de este producto es...", "mis impuestos son...", "¿qué sabés de este producto?", "¿qué tenés guardado?" o quieran enseñarle datos del negocio a Claude.
+description: El cerebro del conector de MercadoLibre — la base de datos local donde Claude guarda lo que el vendedor le enseña (costo de cada producto, % de impuestos, costo de envío, medidas, qué incluye, notas del negocio) para no volver a preguntarlo: la calculadora de rentabilidad y las demás skills lo usan solas. Usar cuando digan "acordate que...", "el costo de este producto es...", "mis impuestos son...", "¿qué sabés de este producto?", "¿qué tenés guardado?", "el costo del SKU …" o quieran enseñarle datos del negocio a Claude. El costo se guarda por SKU: todas las publicaciones con el mismo SKU lo comparten.
 ---
 
 # El cerebro del conector
@@ -23,6 +23,19 @@ Cuando el vendedor suelta un dato del negocio, guardarlo en el momento con
   Los productos heredan estos defaults salvo que tengan el dato propio.
 Confirmar en una línea QUÉ quedó guardado. Solo datos que el vendedor dijo:
 el cerebro nunca guarda estimaciones ni inventos.
+
+## El costo va por SKU
+- Si la publicación tiene SKU, `ml_cerebro guardar item_id=MLA… costo=…` guarda el
+  costo **en el SKU**: lo usan todas las publicaciones con ese SKU, las que ya existen
+  y las que se creen después. Cambiarlo en una lo cambia en todas (avisarlo).
+- También se puede guardar directo por SKU: `item_id="TER-1L" costo=8000`.
+- El SKU se compara sin importar mayúsculas ni espacios ("ter-1l" = "TER-1L").
+- Con variantes, se usa el SKU solo si todas comparten uno; si tienen SKUs
+  distintos, el costo va por publicación.
+- **Al crear una publicación** (`ml_crear_publicacion`): si su SKU ya tiene costo, se
+  usa solo y se avisa en una línea; si no, la herramienta no publica y pide el costo
+  → preguntárselo al vendedor y volver a llamar con `costo=…` (o `sin_costo=true` si
+  no lo quiere dar). Nunca inventar un costo.
 
 ## Cómo se usa (las herramientas lo hacen solas)
 - `ml_rentabilidad` completa costo/impuestos/envío desde el cerebro y marca

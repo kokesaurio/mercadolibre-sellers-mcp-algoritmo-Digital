@@ -257,7 +257,8 @@ async function pruebas() {
     if (d2.cuentas['777'].refresh_token !== 'REFRESH-2') throw new Error('no rotó el refresh token');
   });
   await caso('ml_crear_publicacion clona con copiar_de y pisa precio (escritura)', async () => {
-    const t = await tool('ml_crear_publicacion').run({ copiar_de: 'MLA111', precio: 45000, titulo: 'Producto MLA111 copia' });
+    const t = await tool('ml_crear_publicacion').run({ copiar_de: 'MLA111', precio: 45000, titulo: 'Producto MLA111 copia', sin_costo: true });
+    contiene(t, 'Publicada sin costo cargado');
     contiene(t, 'MLA999', '45.000');
     if (!ultimoItemCreado.pictures || ultimoItemCreado.category_id == null) throw new Error('no clonó fotos/categoría del origen');
     if (ultimoItemCreado.price !== 45000) throw new Error('no aplicó el precio nuevo');
@@ -348,6 +349,58 @@ async function pruebas() {
     contiene(await tool('ml_rentabilidad').run({ item_id: 'MLA999X' , precio: 10000, costo: 4000, impuestos_pct: 10 }), 'guardados en el cerebro');
     contiene(await tool('ml_cerebro').run({ accion: 'ver', item_id: 'MLA999X' }), '4.000');
     contiene(await tool('ml_cerebro').run({ accion: 'olvidar', item_id: 'MLA999X' }), 'Olvidado');
+  });
+  await caso('costo por SKU: la publicación nueva con el mismo SKU usa ese costo; sin costo, pregunta antes de publicar', async () => {
+    const CP = tool('ml_crear_publicacion'), CER = tool('ml_cerebro'), REN = tool('ml_rentabilidad');
+    const cer = await import('../src/cerebro.js');
+    mercado.items = { ...(mercado.items || {}),
+      MLA444: { attributes: [{ id: 'SELLER_SKU', value_name: 'ter-1l' }], category_id: 'MLA1', pictures: [] },
+      MLA555: { attributes: [], variations: [{ attributes: [{ id: 'SELLER_SKU', value_name: 'TER-1L ' }] }, { seller_custom_field: 'ter-1l' }] },
+      MLA556: { attributes: [], variations: [{ seller_custom_field: 'A' }, { seller_custom_field: 'B' }] } };
+    // Sin costo para el SKU: NO publica, pregunta
+    ultimoItemCreado = null;
+    const q = await CP.run({ titulo: 'Termo 1L negro', categoria: 'MLA1', precio: 30000, sku: 'TER-1L' });
+    contiene(q, '¿cuánto te cuesta este producto?', 'SKU **TER-1L**', 'todas las publicaciones con ese SKU');
+    if (ultimoItemCreado) throw new Error('publicó sin tener el costo');
+    contiene(await CP.run({ titulo: 'Termo sin sku', categoria: 'MLA1', precio: 1000 }), '¿cuánto te cuesta', 'no tiene SKU');
+    // Con costo: publica, carga el SKU en la publicación y lo guarda en el SKU
+    const a = await CP.run({ titulo: 'Termo 1L negro', categoria: 'MLA1', precio: 30000, sku: 'TER-1L', costo: 8000 });
+    contiene(a, '✅ Publicación creada', 'Costo $ 8.000 guardado en el SKU **TER-1L**');
+    if (!ultimoItemCreado.attributes?.some((x) => x.id === 'SELLER_SKU' && x.value_name === 'TER-1L')) throw new Error('no cargó el SKU en la publicación');
+    // Mismo SKU (otra forma de escribirlo): usa el costo solo, sin preguntar
+    contiene(await CP.run({ titulo: 'Termo 1L rojo', categoria: 'MLA1', precio: 31000, sku: ' ter-1l ' }), '✅ Publicación creada', 'Costo $ 8.000 tomado del SKU **TER-1L**');
+    // Copiando una publicación que tiene ese SKU, también
+    contiene(await CP.run({ copiar_de: 'MLA444', titulo: 'Termo 1L copia' }), 'tomado del SKU **TER-1L**');
+    // Otro SKU sin costo: pregunta
+    contiene(await CP.run({ titulo: 'Mate', categoria: 'MLA1', precio: 9000, sku: 'MATE-9' }), '¿cuánto te cuesta', 'MATE-9');
+    // SKU peligrosos o inválidos
+    for (const malo of ['__proto__', 'x\u0007y', 'z'.repeat(61)]) contiene(await CP.run({ titulo: 'x', categoria: 'MLA1', sku: malo, sin_costo: true }), 'SKU no es válido');
+    if (({}).costo !== undefined || Object.prototype.costo !== undefined) throw new Error('contaminó el prototipo');
+    // La calculadora de otra publicación con el mismo SKU (en variantes) usa ese costo
+    itemMLA111.price = 42000;
+    contiene(await REN.run({ item_id: 'MLA555' }), 'costo $ 8.000 del SKU TER-1L');
+    // Variantes con SKUs distintos: no adivina
+    contiene(await REN.run({ item_id: 'MLA556' }), 'Para calcular la rentabilidad real me falta', 'costo del producto');
+    // Cambiar el costo en una publicación lo cambia para todas las del SKU
+    contiene(await CER.run({ accion: 'guardar', item_id: 'MLA444', costo: 9000 }), 'SKU TER-1L', 'todas las publicaciones con ese SKU');
+    contiene(await REN.run({ item_id: 'MLA555' }), 'costo $ 9.000 del SKU TER-1L', 'cargado en MLA444');
+    contiene(await CER.run({ accion: 'ver', item_id: 'MLA555' }), 'SKU: TER-1L', 'Costo: $ 9.000 (del SKU TER-1L, cargado en MLA444)');
+    // Guardar directo por SKU y ver la lista
+    contiene(await CER.run({ accion: 'guardar', item_id: 'mate-9', costo: 3500 }), 'SKU MATE-9');
+    contiene(await CP.run({ titulo: 'Mate', categoria: 'MLA1', precio: 9000, sku: 'MATE-9' }), 'tomado del SKU **MATE-9**');
+    contiene(await CER.run({ accion: 'ver' }), 'Costos por SKU', '**TER-1L**: costo $ 9.000', '**MATE-9**: costo $ 3.500');
+    // Contabilidad: las ventas traen el SKU de la orden y toman el costo del SKU aunque la publicación sea nueva
+    const ng = await import('../src/negocio.js');
+    const [v] = ng.ventasPorItem([{ order_items: [{ item: { id: 'MLA777', title: 'Termo nuevo', seller_sku: 'Ter-1L' }, quantity: 2, unit_price: 30000 }] }]);
+    if (v.sku !== 'TER-1L') throw new Error('la venta no trajo el SKU: ' + v.sku);
+    const sb = cer.saberDe('MLA777', v.sku);
+    if (sb.costo !== 9000 || sb.costoDelSku?.sku !== 'TER-1L') throw new Error('no tomó el costo del SKU para la venta: ' + JSON.stringify(sb));
+    // Una publicación que ya tenía costo le pasa el costo a su SKU la primera vez que se lo ve
+    cer.vincularSku('MLA111', 'TERMO-A');
+    if (cer.costoDeSku('TERMO-A') !== 20000) throw new Error('el SKU no heredó el costo que ya tenía la publicación');
+    // Olvidar un SKU
+    contiene(await CER.run({ accion: 'olvidar', item_id: 'MATE-9' }), 'Olvidado');
+    if (cer.costoDeSku('MATE-9') != null) throw new Error('no olvidó el SKU');
   });
   await caso('ml_publicidad en vivo: detalle del anuncio y campañas', async () => {
     const t = await tool('ml_publicidad').run({ item_id: 'MLA111', dias: 30 });

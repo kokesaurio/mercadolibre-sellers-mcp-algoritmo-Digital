@@ -3,7 +3,7 @@
 // los costos e impuestos que el vendedor guardó en el cerebro. Lo que no se sabe, no se inventa:
 // se informa como "sin costo cargado" y el resultado se marca como parcial.
 
-import { saberDe } from './cerebro.js';
+import { saberDe, skuDeOrden } from './cerebro.js';
 
 const DIA = 86400000;
 const iso = (d) => new Date(d).toISOString();
@@ -64,7 +64,8 @@ export function ventasPorItem(ordenes) {
   const m = new Map();
   for (const o of ordenes) for (const it of o.order_items || []) {
     const id = it.item?.id || it.item?.title || '¿?';
-    const x = m.get(id) || { id: it.item?.id || null, titulo: it.item?.title || id, u: 0, plata: 0, comision: 0, comisionReal: true };
+    const x = m.get(id) || { id: it.item?.id || null, titulo: it.item?.title || id, sku: skuDeOrden(it), u: 0, plata: 0, comision: 0, comisionReal: true };
+    if (!x.sku) x.sku = skuDeOrden(it);
     const q = it.quantity ?? 1;
     x.u += q; x.plata += (it.unit_price ?? 0) * q;
     if (it.sale_fee != null) x.comision += it.sale_fee * q; else x.comisionReal = false;
@@ -153,7 +154,7 @@ export async function resumenContable(c, sellerId, desde, hasta = Date.now(), { 
   for (const x of items) {
     bruto += x.plata; unidades += x.u;
     if (x.comisionReal && x.comision) comisiones += x.comision; else { comisiones += x.plata * 0.14; comisionEstimada = true; }
-    const sabido = x.id ? saberDe(x.id) : negocio;
+    const sabido = x.id ? saberDe(x.id, x.sku) : negocio;
     if (sabido.costo != null) costoMercaderia += sabido.costo * x.u; else { uSinCosto += x.u; sinCosto.push(x.titulo); }
     if (sabido.costo_envio != null) envios += sabido.costo_envio * x.u;
   }

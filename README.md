@@ -295,9 +295,9 @@ Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando
 | ml_faq_descripcion ✏️ | **Las preguntas de tus compradores → preguntas frecuentes en la descripción**, con TUS respuestas reales: agrupa las repetidas, descarta stock/precio/envíos y cualquier dato de contacto, no repite lo que ya está y actualiza el bloque sin duplicar. Primero muestra la propuesta; aplica con tu OK (una o todas las que marcó Lucía) |
 | ml_visitas | Tráfico de una publicación |
 | ml_actualizar_publicacion ✏️ | Cambiar precio, stock o pausar/activar |
-| ml_crear_publicacion ✏️ | Crear una publicación nueva, o clonar una existente (`copiar_de`) — ideal para duplicar entre tus tiendas |
+| ml_crear_publicacion ✏️ | Crear una publicación nueva, o clonar una existente (`copiar_de`) — ideal para duplicar entre tus tiendas. Si el SKU ya tiene costo lo usa; si no, te pregunta el costo antes de publicar |
 | ml_preguntas / ml_responder_pregunta ✏️ | Ver y responder preguntas de compradores |
-| ml_cerebro 🧠 | La memoria del negocio: guarda costos, impuestos, envío, medidas y notas por producto o del negocio entero (local, en tu máquina) — y las demás herramientas lo usan solas |
+| ml_cerebro 🧠 | La memoria del negocio: guarda costos, impuestos, envío, medidas y notas por producto o del negocio entero (local, en tu máquina) — y las demás herramientas lo usan solas. **El costo va por SKU**: lo comparten todas las publicaciones del mismo producto |
 | ml_publicidad | Product Ads EN VIVO: inversión, impresiones, clics, CPC, ACOS y ventas por ads de una publicación o de todas las campañas |
 | ml_rentabilidad | La calculadora real: precio − comisión real de ML − publicidad por unidad (en vivo) − impuestos − envío − costo = ganancia neta, margen y ACOS máximo que aguanta. Usa el 🧠 cerebro: lo que le enseñaste no te lo vuelve a preguntar, y lo nuevo lo aprende solo |
 | ml_comisiones | Cuánto cobra ML por vender a un precio dado |

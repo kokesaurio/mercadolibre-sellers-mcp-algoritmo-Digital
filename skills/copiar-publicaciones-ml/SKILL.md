@@ -29,9 +29,14 @@ repo o el premium con CRM). Si no están, indicá instalarlo según el README y 
    Modelo + atributo clave, sin adjetivos vacíos), precio (si es entre
    cuentas, mismo precio salvo pedido contrario; si es referencia,
    validá margen con `ml_comisiones`), stock inicial.
+   **Costo por SKU:** si la publicación tiene SKU y ese SKU ya tiene costo en el
+   cerebro, mostrarlo en el borrador ("costo $ 8.000, del SKU TER-1L") y usarlo.
+   Si no tiene, preguntar el costo en el mismo borrador (una sola pregunta).
 4. Confirmación explícita del usuario con el borrador a la vista.
 5. Crear con `ml_crear_publicacion` (caso 1: `copiar_de` + overrides;
-   caso 2: campos nuevos + `imagenes` del usuario). Devolver el link.
+   caso 2: campos nuevos + `imagenes` del usuario; `sku` si lo tiene, y `costo` si
+   el SKU no tenía). Si la herramienta responde pidiendo el costo, preguntarlo y
+   volver a llamar con `costo=…` (o `sin_costo=true` si no lo quiere dar). Devolver el link.
 6. Ofrecer el siguiente paso: revisarla con la skill
    `revisar-publicaciones-aldi` antes de meterle tráfico.
 

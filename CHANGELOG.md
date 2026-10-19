@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.26.0
+- **🏷️ El costo va por SKU**: el costo se guarda en el SKU y lo comparten todas las publicaciones del mismo producto. Al **crear una publicación** con un SKU que ya tiene costo, lo usa solo; si el SKU no tiene costo, **no publica y te lo pregunta** (o publicás con `sin_costo=true`). `ml_crear_publicacion` suma `sku` (lo carga en la publicación) y `costo`.
+- La calculadora, Ramiro, Carmen y el catálogo toman el costo por SKU (de la publicación, de sus variantes o de la orden), así una publicación nueva del mismo producto ya no sale "sin costo cargado". Cambiar el costo en una publicación lo cambia en todas las del SKU.
+- `ml_cerebro` guarda directo por SKU (`item_id="TER-1L"`), muestra el SKU de cada publicación y la lista de costos por SKU. Una publicación que ya tenía costo se lo pasa a su SKU. SKU sin distinguir mayúsculas ni espacios, máximo 60 caracteres y protegido contra claves peligrosas. Suite: 131 pruebas.
+
 ## 1.25.0
 - **🎩 Ponele nombre al jefe**: "el jefe se llama Don Ramón" → `ml_jefe nombre="Don Ramón"` (opcional `emoji="👑"`; `nombre=""` lo vuelve a "El jefe"). El nombre aparece en el plan, en la lista del equipo y en el tablero, donde el jefe tiene su tarjeta arriba del equipo y un paso nuevo en el tutorial.
 - Seguro: hasta 30 letras, solo letras, números, espacios, punto, apóstrofo y guion; no puede repetir el nombre de un trabajador; el emoji tiene que ser un emoji. Un nombre rechazado no pisa el anterior. Suite: 130 pruebas.

@@ -17,7 +17,7 @@ import os from 'node:os';
 import { MeliClient, listarCuentas } from './meli.js';
 import { auditarItem, idsDeTienda } from './auditoria.js';
 import { fechasComerciales, cronogramaML, estadoDecision, diasHasta, tipoLegible } from './agenda.js';
-import { saberDe } from './cerebro.js';
+import { saberDe, skuDeItem, vincularSku } from './cerebro.js';
 import { stockDias, preguntasPendientes, mensajesSinLeer, reclamosAbiertos, reputacionDe, opinionesDe, estadoCatalogo, ESTADO_CATALOGO, moderadas, traducirSub, precioProveedor, COLOR } from './postventa.js';
 import { rentabilidadDe, comisionML, adsDeItem, ordenesPagas, ventasPorItem, campanias, enviosRecientes, resumenContable, inicioDeMes, nombreMes, ventasDiarias, adsDelDia, diaLocal } from './negocio.js';
 import { leerVigilancia, claveDe, tomarSnapshot, compararSnapshots } from './vigilancia.js';
@@ -529,8 +529,9 @@ const OFICIOS = {
       const items = {}, cache = new Map();
       for (const x of vendidos) {
         let b; try { b = await c.get(`/items/${x.id}`); } catch { continue; }
-        const sabido = saberDe(x.id);
-        const base = { titulo: b.title || x.titulo, precio: b.price, u: x.u };
+        const sku = skuDeItem(b) || x.sku; if (sku) vincularSku(x.id, sku);
+        const sabido = saberDe(x.id, sku);
+        const base = { titulo: b.title || x.titulo, precio: b.price, u: x.u, ...(sku ? { sku } : {}) };
         if (sabido.costo == null) { items[x.id] = { ...base, sinCosto: true }; continue; }
         const fee = await comisionML(c, sitio, b.price, b.listing_type_id || 'gold_special', cache);
         let adsU = 0; try { const a = await adsDeItem(c, x.id, 30); if (a) adsU = a.units > 0 ? a.cost / a.units : a.cost / Math.max(x.u, 1); } catch {}
@@ -552,8 +553,8 @@ const OFICIOS = {
         else if (a && !a.sinCosto && a.margen - x.margen >= 5) out.push({ nivel: 'media', skill: 'calculadora-ml', texto: `📉 El margen de ${id} «${x.titulo}» bajó de ${a.margen}% a ${x.margen}% (${a.precio !== x.precio ? `precio ${din(a.precio)} → ${din(x.precio)}` : 'por comisión o publicidad'})` });
       }
       if (n.sinCosto && unaVez('sincosto:' + semana + ':' + n.sinCosto)) {
-        const ej = Object.entries(n.items).filter(([, x]) => x.sinCosto).slice(0, 4).map(([id, x]) => `${id} «${x.titulo}»`).join(', ');
-        out.push({ nivel: 'media', skill: 'cerebro-ml', texto: `🧠 ${n.sinCosto} producto(s) que vendiste no tienen costo cargado, así que no puedo decirte si ganás plata con ellos: ${ej}${n.sinCosto > 4 ? '…' : ''}. Cargalos con ml_cerebro (una sola vez).` });
+        const ej = Object.entries(n.items).filter(([, x]) => x.sinCosto).slice(0, 4).map(([id, x]) => `${id} «${x.titulo}»${x.sku ? ` (SKU ${x.sku})` : ''}`).join(', ');
+        out.push({ nivel: 'media', skill: 'cerebro-ml', texto: `🧠 ${n.sinCosto} producto(s) que vendiste no tienen costo cargado, así que no puedo decirte si ganás plata con ellos: ${ej}${n.sinCosto > 4 ? '…' : ''}. Cargalos con ml_cerebro (una sola vez: con SKU, el costo vale para todas sus publicaciones).` });
       }
       if (n.faltaImpuestos && unaVez('impuestos:' + semana)) out.push({ nivel: 'media', skill: 'cerebro-ml', texto: '🧠 No tengo cargado tu % de impuestos sobre las ventas: estoy calculando márgenes SIN impuestos (te dan más altos de lo real). Pasámelo y lo guardo con ml_cerebro.' });
       if (!v && Object.keys(n.items).length) {
