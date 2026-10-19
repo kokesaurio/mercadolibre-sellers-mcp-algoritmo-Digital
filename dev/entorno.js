@@ -1129,6 +1129,34 @@ async function pruebas() {
     if (/ExperimentalWarning/.test(err)) throw new Error('imprimió ExperimentalWarning');
   });
 
+  // ───────────── El tablero del día ─────────────
+  await caso('tablero: se arma con lo de los 18 trabajadores, archivo privado y se regenera solo', async () => {
+    mercado.items.MLA500 = { ...(mercado.items.MLA500 || {}), title: '</script><img src=x onerror=alert(1)>Termo trucho' };
+    await tr.correrCiclo({ solo: ['precios'], forzar: true });
+    const t = await tool('ml_tablero').run({});
+    contiene(t, 'Tablero del día listo', 'file://', 'tablero.html', 'funcionando', 'para atender', 'tutorial');
+    const ruta = path.join(dirTemp, 'tablero.html');
+    if ((fs.statSync(ruta).mode & 0o777) !== 0o600) throw new Error('el tablero no es privado (0600)');
+    const html = fs.readFileSync(ruta, 'utf8');
+    if (html.includes('</script><img')) throw new Error('un texto de un rival puede romper la página (XSS)');
+    const m = html.match(/<script id="datos" type="application\/json">([\s\S]*?)<\/script>/);
+    const datos = JSON.parse(m[1]);
+    if (datos.equipo.length !== 18) throw new Error('faltan trabajadores en el tablero');
+    if (!datos.frase || !datos.numeros.length) throw new Error('sin frase o números');
+    if (!JSON.stringify(datos).includes('<img src=x')) throw new Error('perdió el texto (tenía que quedar como texto, escapado)');
+    if (!datos.atencion.some((x) => x.quien === 'stock') || !datos.funciona.length) throw new Error('no armó funciona/atención');
+    if (process.env.TABLERO_COPIA) fs.copyFileSync(ruta, process.env.TABLERO_COPIA);
+    const antes = fs.statSync(ruta).mtimeMs;
+    await esperar(20);
+    await tr.correrCiclo({ solo: ['atencion'], forzar: true });
+    if (fs.statSync(ruta).mtimeMs === antes) throw new Error('no se regeneró después del control');
+  });
+  await caso('tablero: la plantilla sola abre en modo demo y la página no usa innerHTML', async () => {
+    const plantilla = fs.readFileSync('panel/tablero.html', 'utf8');
+    contiene(plantilla, '/*__DATOS_DEL_TABLERO__*/null', 'datos de ejemplo', 'Ver tutorial', 'prefers-reduced-motion');
+    if (/innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(/.test(plantilla)) throw new Error('la página arma HTML con texto (riesgo XSS)');
+  });
+
   await caso('instalador: crea el config de Claude desde cero', async () => {
     const dirCfg = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-cfg-'));
     process.env.CLAUDE_CONFIG_DIR = dirCfg;

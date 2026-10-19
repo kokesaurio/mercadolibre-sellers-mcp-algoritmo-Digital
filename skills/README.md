@@ -1,4 +1,4 @@
-# Guía de uso — las 30 skills del conector
+# Guía de uso — las 31 skills del conector
 
 Skills listas para Claude que convierten el [conector de MercadoLibre de
 Algoritmo Digital](../README.md) en flujos de trabajo completos. **Cómo
@@ -16,6 +16,10 @@ skill**. Claude las usa solo cuando corresponde.
 > ninguna herramienta te lo vuelve a preguntar.
 
 ## Cómo usar cada una
+
+### 📋 [tablero-ml](tablero-ml/) — el parte del día, visual
+**Pedilo así:** "abrí el tablero" · "mostrame el día" · "¿cómo venimos?"
+**Qué hace:** abre en tu navegador una página con lo que está funcionando, lo que necesita atención (con la skill para resolver cada cosa), tus números, los 18 trabajadores, lo que viene, la evolución de 30 días y la bitácora. Se actualiza sola y trae tutorial guiado.
 
 ### 🚀 [setup-ml](setup-ml/) — puesta en marcha
 **Pedilo así:** "setup" · "configurame todo" · "ayudame a arrancar"

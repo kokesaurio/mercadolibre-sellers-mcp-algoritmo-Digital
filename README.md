@@ -152,6 +152,12 @@ En un chat nuevo decile a Claude: **"conectá mi cuenta de MercadoLibre"** — o
 
 ¿Seguís trabado? [Escribinos por WhatsApp](https://wa.me/5491177166060?text=Hola!%20Vengo%20del%20conector%20MCP%20de%20MercadoLibre%20(instalaci%C3%B3n)...) y te ayudamos.
 
+## 📋 El tablero del día
+
+Todo lo que encuentra el equipo, **en una página que se ve linda y se entiende de un vistazo**: la frase del día ("En octubre facturaste $… y te quedan $… limpios. Hoy hay 2 cosas urgentes…"), **lo que está funcionando** y **lo que necesita atención** (urgente primero, cada cosa con la skill que la resuelve), tus números, la planilla de los 18 trabajadores (tocás uno y ves su tabla), lo que viene, la evolución de 30 días y la bitácora filtrable.
+
+Decile a Claude **"abrí el tablero"** (`ml_tablero`). Es una página local, privada y sin servidor: funciona sin internet, se actualiza sola con cada control del equipo, tiene modo oscuro, se ve bien en el celular y la primera vez arranca con un **tutorial guiado**. Mirala con datos de ejemplo en [panel/tablero.html](panel/tablero.html).
+
 ## 👷 El equipo de trabajadores 24/7
 
 Dieciocho trabajadores con nombre que **vigilan solos y constantemente** a tus seguidos — no hace falta que se lo pidas cada vez. Cada uno tiene su oficio, su frecuencia y **sus skills a cargo**: cuando encuentra algo, la alerta trae la skill exacta para resolverlo.
@@ -204,9 +210,9 @@ Dieciocho trabajadores con nombre que **vigilan solos y constantemente** a tus s
 - **Carpeta de Google Drive para escritorio**: se detecta sola y se crea *MercadoLibre - Equipo de trabajadores* con Alertas.csv, Historial.csv (90 días), un CSV por trabajador y un resumen.
 - Seguro: la planilla rechaza envíos sin tu clave, y ningún texto de un rival (ej. un título con `=IMPORTXML(...)`) se guarda como fórmula.
 
-## Las 30 skills — tu equipo de trabajo
+## Las 31 skills — tu equipo de trabajo
 
-El conector trae [**30 skills listas**](skills/) con [guía de uso de cada una](skills/README.md). Se suben una vez en Claude (**Configuración → Capacidades → Skills → Cargar skill**) y convierten las herramientas en flujos completos: vos pedís en una frase, la skill sabe el procedimiento.
+El conector trae [**31 skills listas**](skills/) con [guía de uso de cada una](skills/README.md). Se suben una vez en Claude (**Configuración → Capacidades → Skills → Cargar skill**) y convierten las herramientas en flujos completos: vos pedís en una frase, la skill sabe el procedimiento.
 
 > 🚀 **Empezá por acá:** subí [setup-ml](skills/setup-ml/) y decile a Claude **"setup"** — conecta tus cuentas, arma la vigilancia inicial y te entrega tu primera foto del negocio con las 3 acciones más urgentes.
 
@@ -226,6 +232,7 @@ El conector trae [**30 skills listas**](skills/) con [guía de uso de cada una](
 | [faq-descripcion-ml](skills/faq-descripcion-ml/) | *"me preguntan siempre lo mismo"* — las preguntas repetidas de tus compradores pasan a la descripción como preguntas frecuentes, con tus respuestas reales (Lucía te avisa cuáles faltan) |
 | [agenda-comercial-ml](skills/agenda-comercial-ml/) | *"¿qué fechas vienen?"* — el cronograma de ML y las fechas cruciales; te pregunta si participás en cada una y arma la participación validada por margen |
 | [mi-pagina-ml](skills/mi-pagina-ml/) | *"actualizá Mi página"* — banner del evento y tus productos destacados, aplicado en tu navegador con tu OK (y sacarlo cuando termina) |
+| [tablero-ml](skills/tablero-ml/) | *"abrí el tablero"* — el parte del día visual: lo que funciona, lo que necesita atención y tus números de un vistazo |
 | [jefe-de-equipo-ml](skills/jefe-de-equipo-ml/) | *"quiero vender más este mes"* — le das un objetivo y reparte el trabajo entre los 11 trabajadores, con el plan en orden |
 | [logistica-ml](skills/logistica-ml/) | *"¿qué tengo que despachar?"* — despachos del día con horario, demorados, devoluciones y cuidado de la reputación |
 | [contabilidad-ml](skills/contabilidad-ml/) | *"¿cuánto gané este mes?"* — el resultado neto del mes y el cierre mensual para vos o tu contador |
@@ -272,7 +279,7 @@ La skill imagenes-ml genera el **set fijo de 4** — beneficio (foto 2), caracte
 
 Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando: `python3 plantillas/generar.py --plantilla medidas --datos datos.json --foto tu-foto.png --salida foto-5-medidas.png`. El método completo (orden de publicación foto 2→10, solo datos confirmados, revisión pieza por pieza) está grabado en la skill.
 
-## Herramientas (39)
+## Herramientas (40)
 
 | Herramienta | Qué hace |
 | --- | --- |
@@ -297,6 +304,7 @@ Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando
 | ml_reputacion | Color, reclamos, demoras y cancelaciones |
 | ml_promociones / ml_aceptar_promocion ✏️ | Promociones ofrecidas y aceptación por ítem |
 | ml_agenda 🗓️ | **La agenda comercial**: fechas cruciales del año (calculadas solas cada año, por país) + el cronograma de campañas de MercadoLibre con cierre de inscripción y candidatas. Guarda tu decisión de participar o no (Clara te sigue preguntando hasta que decidas), fechas propias, y arma el **kit para actualizar Mi página** (banner y destacados del evento) |
+| ml_tablero 📋 | **El tablero del día**: arma (y con `abrir=true` abre en tu navegador) la página visual con lo que funciona, lo que necesita atención, tus números, el equipo, lo que viene, la evolución y la bitácora; se actualiza sola |
 | ml_jefe 🎩 | **El jefe de equipo**: le das un objetivo en una frase y reparte el trabajo entre los trabajadores que corresponden, los hace trabajar ya y te devuelve el plan en orden con responsable y skill por paso |
 | ml_numeros 🧾 | Los **números del mes** de Carmen: facturación, comisiones reales de ML, publicidad, impuestos, mercadería, envíos → resultado neto y margen, contra el mes anterior (marca "parcial" si faltan costos) |
 | ml_despachos 🚚 | La lista de Leo: **qué despachar y hasta cuándo**, demorados, devueltos/no entregados, por tipo de envío, y tu % de despachos con demora |

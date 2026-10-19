@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parte del día</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --tiza: #F1F3F6; --hoja: #FFFFFF; --tinta: #17202B; --tinta-2: #4A5563; --filete: #D7DCE3;
+    --senal: #2457D6; --verde: #107A57; --ambar: #B86E00; --rojo: #C02A35;
+    --verde-suave: #E3F2EC; --ambar-suave: #FBF0DD; --rojo-suave: #F8E3E5; --senal-suave: #E5ECFB;
+    --display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+    --texto: 'Public Sans', 'Segoe UI', system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) {
+    --tiza: #0F1A1E; --hoja: #15232A; --tinta: #E8EEF0; --tinta-2: #A7B6BC; --filete: #26383F;
+    --senal: #7FA3FF; --verde: #4CC79A; --ambar: #F0B04F; --rojo: #FF7A82;
+    --verde-suave: #143329; --ambar-suave: #3A2C12; --rojo-suave: #3D1C20; --senal-suave: #1A2A4A; } }
+  :root[data-tema="oscuro"] {
+    --tiza: #0F1A1E; --hoja: #15232A; --tinta: #E8EEF0; --tinta-2: #A7B6BC; --filete: #26383F;
+    --senal: #7FA3FF; --verde: #4CC79A; --ambar: #F0B04F; --rojo: #FF7A82;
+    --verde-suave: #143329; --ambar-suave: #3A2C12; --rojo-suave: #3D1C20; --senal-suave: #1A2A4A; }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--tiza); color: var(--tinta); font: 400 16px/1.55 var(--texto); }
+  .pagina { max-width: 1180px; margin: 0 auto; padding: 28px 24px 80px; }
+  a { color: var(--senal); }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--senal); outline-offset: 2px; border-radius: 4px; }
+
+  /* Cabecera */
+  .cabecera { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .sello { font: 600 15px/1.2 var(--display); color: var(--tinta-2); }
+  .sello strong { color: var(--tinta); font-weight: 800; }
+  .acciones { display: flex; gap: 8px; }
+  .boton { background: transparent; border: 1px solid var(--filete); padding: 7px 14px; border-radius: 999px; cursor: pointer; font-size: 14px; }
+  .boton:hover { border-color: var(--tinta-2); }
+  .boton.principal { background: var(--senal); border-color: var(--senal); color: #fff; }
+
+  /* La frase */
+  .frase { font: 600 clamp(28px, 4.2vw, 50px)/1.12 var(--display); letter-spacing: -0.02em; margin: 34px 0 12px; max-width: 26ch; }
+  .frase-pie { color: var(--tinta-2); margin: 0 0 36px; font-size: 15px; }
+  @media (prefers-reduced-motion: no-preference) { .frase { animation: entra 700ms cubic-bezier(.2,.7,.2,1) both; } }
+  @keyframes entra { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+  /* Dos columnas */
+  .balance { display: grid; grid-template-columns: 1fr 1.25fr; gap: 0; border-top: 2px solid var(--tinta); }
+  .columna { padding: 20px 28px 26px 0; }
+  .columna + .columna { padding: 20px 0 26px 28px; border-left: 1px solid var(--filete); }
+  h2 { font: 800 21px/1.2 var(--display); margin: 0 0 14px; letter-spacing: -0.01em; }
+  .lista { list-style: none; margin: 0; padding: 0; }
+  .lista li { display: grid; grid-template-columns: 30px 1fr; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--filete); }
+  .lista li:last-child { border-bottom: 0; }
+  .quien { font-size: 19px; line-height: 1.3; }
+  .lista .que { font-size: 15px; }
+  .lista .por { display: block; color: var(--tinta-2); font-size: 13px; }
+  .marca { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
+  .alta .marca { background: var(--rojo); } .media .marca { background: var(--ambar); } .baja .marca { background: var(--tinta-2); }
+  .skill { color: var(--senal); font-size: 13px; }
+  .vacio { color: var(--tinta-2); font-size: 15px; padding: 8px 0; }
+
+  /* Números */
+  .numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); border-top: 1px solid var(--filete); border-bottom: 1px solid var(--filete); margin: 8px 0 44px; }
+  .numero { padding: 18px 18px 16px 0; }
+  .numero + .numero { padding-left: 18px; border-left: 1px solid var(--filete); }
+  .numero .t { font-size: 13px; color: var(--tinta-2); }
+  .numero .v { font: 800 clamp(22px, 2.3vw, 30px)/1.1 var(--display); white-space: nowrap; margin: 4px 0 2px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .numero .d { font-size: 13px; color: var(--tinta-2); }
+  .numero.verde .v { color: var(--verde); } .numero.ambar .v { color: var(--ambar); } .numero.rojo .v { color: var(--rojo); }
+
+  /* Planilla del equipo */
+  .bloque { margin: 0 0 44px; }
+  .bloque-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .bloque-cab p { margin: 0; color: var(--tinta-2); font-size: 14px; }
+  .planilla { width: 100%; border-collapse: collapse; background: var(--hoja); border-radius: 10px; overflow: hidden; }
+  .planilla th { text-align: left; font: 600 13px/1.3 var(--texto); color: var(--tinta-2); padding: 10px 14px; border-bottom: 1px solid var(--filete); }
+  .planilla td { padding: 0; border-bottom: 1px solid var(--filete); vertical-align: top; }
+  .planilla tr:last-child td { border-bottom: 0; }
+  .fila-btn { display: grid; grid-template-columns: 210px 120px 1fr 70px; gap: 14px; width: 100%; text-align: left; background: none; border: 0; padding: 12px 14px; cursor: pointer; align-items: start; }
+  .fila-btn:hover { background: var(--senal-suave); }
+  .persona { display: flex; gap: 10px; align-items: flex-start; }
+  .persona .e { font-size: 22px; line-height: 1; }
+  .persona b { font: 800 16px/1.2 var(--display); display: block; }
+  .persona small { color: var(--tinta-2); font-size: 13px; }
+  .estado { font-size: 13px; color: var(--tinta-2); }
+  .estado .punto { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--verde); margin-right: 6px; }
+  .estado.pausa .punto { background: var(--tinta-2); } .estado.error .punto { background: var(--rojo); }
+  .novedad { font-size: 14px; }
+  .contador { justify-self: end; font: 800 15px/1 var(--display); color: var(--tinta-2); }
+  .contador.hay { color: #fff; background: var(--rojo); border-radius: 999px; padding: 4px 9px; }
+
+  /* Lo que viene + evolución */
+  .doble { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; margin-bottom: 44px; }
+  .viene li { grid-template-columns: 70px 1fr; }
+  .fecha { font: 800 15px/1.3 var(--display); }
+  .decision { font-size: 13px; }
+  .decision.pendiente { color: var(--ambar); font-weight: 600; } .decision.si { color: var(--verde); } .decision.no { color: var(--tinta-2); }
+  .series { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; }
+  .serie .t { font-size: 13px; color: var(--tinta-2); }
+  .serie .v { font: 800 20px/1.2 var(--display); font-variant-numeric: tabular-nums; }
+  .serie svg { width: 100%; height: 42px; display: block; overflow: visible; }
+  .serie path.linea { fill: none; stroke: var(--senal); stroke-width: 2; vector-effect: non-scaling-stroke; }
+  .serie path.area { fill: var(--senal-suave); stroke: none; }
+
+  /* Bitácora */
+  .filtros { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .chip { border: 1px solid var(--filete); background: var(--hoja); border-radius: 999px; padding: 4px 11px; font-size: 13px; cursor: pointer; }
+  .chip[aria-pressed="true"] { background: var(--tinta); color: var(--tiza); border-color: var(--tinta); }
+  .bitacora li { grid-template-columns: 30px 1fr 92px; }
+  .bitacora li.mas { grid-template-columns: 30px 1fr; border-bottom: 0; }
+  .hora { font-size: 13px; color: var(--tinta-2); text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* Panel lateral del trabajador */
+  .velo { position: fixed; inset: 0; background: rgba(10, 18, 24, .45); display: none; z-index: 20; }
+  .velo.abierto { display: block; }
+  .lateral { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100%); background: var(--hoja); z-index: 21; transform: translateX(100%); transition: transform 260ms cubic-bezier(.2,.7,.2,1); display: flex; flex-direction: column; border-radius: 14px 0 0 14px; }
+  .lateral.abierto { transform: none; }
+  @media (prefers-reduced-motion: reduce) { .lateral { transition: none; } }
+  .lateral header { padding: 22px 24px 14px; border-bottom: 1px solid var(--filete); }
+  .lateral h3 { font: 800 26px/1.15 var(--display); margin: 4px 0 6px; }
+  .lateral .oficio { color: var(--tinta-2); font-size: 14px; margin: 0; max-width: 70ch; }
+  .lateral .cuerpo { overflow: auto; padding: 16px 24px 28px; }
+  .tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .tabla th { text-align: left; font-weight: 600; color: var(--tinta-2); border-bottom: 1px solid var(--filete); padding: 8px 10px 8px 0; position: sticky; top: 0; background: var(--hoja); }
+  .tabla td { border-bottom: 1px solid var(--filete); padding: 8px 10px 8px 0; vertical-align: top; }
+  .cerrar { position: absolute; top: 16px; right: 16px; }
+  .pedile { background: var(--senal-suave); border-radius: 8px; padding: 10px 12px; font-size: 14px; margin: 12px 0 0; }
+
+  /* Tutorial */
+  .tour-velo { position: fixed; inset: 0; z-index: 40; display: none; }
+  .tour-velo.abierto { display: block; }
+  .tour-foco { position: absolute; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(10, 18, 24, .62); transition: all 220ms ease; pointer-events: none; }
+  @media (prefers-reduced-motion: reduce) { .tour-foco { transition: none; } }
+  .tour-caja { position: absolute; width: min(360px, calc(100vw - 32px)); background: var(--hoja); color: var(--tinta); border-radius: 12px; padding: 16px 18px; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+  .tour-caja h4 { font: 800 19px/1.2 var(--display); margin: 0 0 6px; }
+  .tour-caja p { margin: 0 0 14px; font-size: 15px; }
+  .tour-pie { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .tour-paso { font-size: 13px; color: var(--tinta-2); }
+
+  .oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .demo { background: var(--ambar-suave); color: var(--tinta); border-radius: 8px; padding: 8px 12px; font-size: 14px; margin-top: 16px; }
+
+  @media (max-width: 860px) {
+    .balance { grid-template-columns: 1fr; }
+    .columna, .columna + .columna { padding: 18px 0; border-left: 0; }
+    .columna + .columna { border-top: 1px solid var(--filete); }
+    .doble { grid-template-columns: 1fr; }
+    .fila-btn { grid-template-columns: 1fr auto; }
+    .fila-btn .estado, .fila-btn .novedad { grid-column: 1 / -1; }
+    .numero + .numero { border-left: 0; padding-left: 0; }
+    .numero { border-bottom: 1px solid var(--filete); }
+    .pagina { padding: 20px 16px 60px; }
+  }
+</style>
+</head>
+<body>
+<div class="pagina">
+  <div class="cabecera">
+    <div class="sello" id="sello"></div>
+    <div class="acciones">
+      <button class="boton" id="btn-tema" type="button">Cambiar tema</button>
+      <button class="boton principal" id="btn-tour" type="button">Ver tutorial</button>
+    </div>
+  </div>
+  <div id="aviso-demo"></div>
+  <p class="frase" id="frase" data-tour="frase"></p>
+  <p class="frase-pie" id="frase-pie"></p>
+
+  <section class="balance" aria-label="Balance del día">
+    <div class="columna" data-tour="funciona">
+      <h2>Lo que está funcionando</h2>
+      <ul class="lista" id="funciona"></ul>
+    </div>
+    <div class="columna" data-tour="atencion">
+      <h2>Lo que necesita atención</h2>
+      <ul class="lista" id="atencion"></ul>
+    </div>
+  </section>
+
+  <section class="numeros" id="numeros" aria-label="Números" data-tour="numeros"></section>
+
+  <section class="bloque" data-tour="equipo">
+    <div class="bloque-cab"><h2>Tu equipo de turno</h2><p id="equipo-pie"></p></div>
+    <table class="planilla">
+      <thead class="oculto"><tr><th scope="col">Trabajador, estado, última novedad y alertas sin leer</th></tr></thead>
+      <tbody id="equipo"></tbody>
+    </table>
+  </section>
+
+  <div class="doble">
+    <section data-tour="viene">
+      <h2>Lo que viene</h2>
+      <ul class="lista viene" id="viene"></ul>
+    </section>
+    <section data-tour="evolucion">
+      <h2>Evolución de 30 días</h2>
+      <div class="series" id="series"></div>
+    </section>
+  </div>
+
+  <section class="bloque" data-tour="bitacora">
+    <div class="bloque-cab"><h2>Bitácora de la semana</h2><p>Todo lo que avisaron, lo más nuevo primero.</p></div>
+    <div class="filtros" id="filtros" role="group" aria-label="Filtrar la bitácora"></div>
+    <ul class="lista bitacora" id="bitacora"></ul>
+  </section>
+</div>
+
+<div class="velo" id="velo"></div>
+<aside class="lateral" id="lateral" role="dialog" aria-modal="true" aria-labelledby="lat-nombre" hidden>
+  <button class="boton cerrar" id="lat-cerrar" type="button">Cerrar</button>
+  <header>
+    <div class="persona"><span class="e" id="lat-emoji"></span><div><small id="lat-puesto"></small></div></div>
+    <h3 id="lat-nombre"></h3>
+    <p class="oficio" id="lat-oficio"></p>
+    <p class="pedile" id="lat-pedile"></p>
+  </header>
+  <div class="cuerpo" id="lat-cuerpo"></div>
+</aside>
+
+<div class="tour-velo" id="tour" role="dialog" aria-modal="true" aria-labelledby="tour-titulo">
+  <div class="tour-foco" id="tour-foco"></div>
+  <div class="tour-caja" id="tour-caja">
+    <h4 id="tour-titulo"></h4>
+    <p id="tour-texto"></p>
+    <div class="tour-pie">
+      <span class="tour-paso" id="tour-paso"></span>
+      <span>
+        <button class="boton" id="tour-saltar" type="button">Saltar</button>
+        <button class="boton" id="tour-atras" type="button">Anterior</button>
+        <button class="boton principal" id="tour-sig" type="button">Siguiente</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<script id="datos" type="application/json">/*__DATOS_DEL_TABLERO__*/null</script>
+<script>
+(function () {
+  'use strict';
+  // ───────── Datos (o demo si se abre la plantilla sola) ─────────
+  var bruto = document.getElementById('datos').textContent.trim();
+  var D = null;
+  try { D = bruto.indexOf('/*') === 0 ? null : JSON.parse(bruto); } catch (e) { D = null; }
+  var esDemo = !D;
+  if (esDemo) D = demo();
+
+  // ───────── Utilidades seguras: todo texto entra por textContent ─────────
+  function h(tag, attrs, hijos) {
+    var el = document.createElement(tag);
+    if (attrs) for (var k in attrs) {
+      if (k === 'texto') el.textContent = attrs[k];
+      else if (k === 'clase') el.className = attrs[k];
+      else if (k.indexOf('on') === 0) el.addEventListener(k.slice(2), attrs[k]);
+      else el.setAttribute(k, attrs[k]);
+    }
+    (hijos || []).forEach(function (c) { if (c != null) el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return el;
+  }
+  function $(id) { return document.getElementById(id); }
+  function vaciar(el) { while (el.firstChild) el.removeChild(el.firstChild); }
+  function cuando(t) {
+    if (!t) return 'todavía no';
+    var m = Math.round((Date.now() - t) / 60000);
+    if (m < 1) return 'recién'; if (m < 60) return 'hace ' + m + ' min'; if (m < 1440) return 'hace ' + Math.round(m / 60) + ' h';
+    return 'hace ' + Math.round(m / 1440) + ' días';
+  }
+  function dia(t) { return new Date(t).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }); }
+  function guardado(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+  var porId = {}; D.equipo.forEach(function (w) { porId[w.id] = w; });
+
+  // ───────── Cabecera y frase ─────────
+  $('sello').appendChild(h('span', null, [h('strong', { texto: 'Parte del día' }), ' de ' + (D.tiendas.length ? D.tiendas.join(' y ') : 'tu tienda')]));
+  if (esDemo) $('aviso-demo').appendChild(h('div', { clase: 'demo', texto: 'Estás viendo datos de ejemplo. Pedile a Claude "abrí el tablero" y se arma con los datos de tu tienda.' }));
+  $('frase').textContent = D.frase;
+  $('frase-pie').textContent = 'Actualizado ' + cuando(D.generado) + (D.corriendo ? '. El equipo está trabajando ' + (D.corriendo === 'servicio' ? 'las 24 horas.' : 'mientras Claude está abierto.') : '. El equipo trabaja cuando Claude está abierto.');
+
+  // ───────── Funciona / atención ─────────
+  function itemLista(x, conNivel) {
+    var que = h('div', { clase: 'que' }, [conNivel ? h('span', { clase: 'marca', 'aria-hidden': 'true' }) : null, x.texto,
+      h('span', { clase: 'por' }, [x.nombre + (x.skill ? '. ' : ''), x.skill ? h('span', { clase: 'skill', texto: 'Pedile a Claude la skill ' + x.skill }) : null])]);
+    return h('li', { clase: conNivel ? x.nivel : '' }, [h('span', { clase: 'quien', 'aria-hidden': 'true', texto: x.emoji }), que]);
+  }
+  if (D.funciona.length) D.funciona.forEach(function (x) { $('funciona').appendChild(itemLista(x, false)); });
+  else $('funciona').appendChild(h('li', { clase: 'vacio' }, [h('span'), h('span', { texto: 'Cuando el equipo junte datos, acá van tus productos, campañas y búsquedas que mejor andan.' })]));
+  if (D.atencion.length) D.atencion.forEach(function (x) { $('atencion').appendChild(itemLista(x, true)); });
+  else $('atencion').appendChild(h('li', { clase: 'vacio' }, [h('span', { texto: '✅' }), h('span', { texto: 'Nada pendiente. Tu equipo sigue vigilando.' })]));
+
+  // ───────── Números ─────────
+  D.numeros.forEach(function (n) {
+    $('numeros').appendChild(h('div', { clase: 'numero ' + (n.tono || '') }, [h('div', { clase: 't', texto: n.titulo }), h('div', { clase: 'v', texto: n.valor }), h('div', { clase: 'd', texto: n.detalle || '' })]));
+  });
+
+  // ───────── Equipo ─────────
+  var activos = D.equipo.filter(function (w) { return w.activo; }).length;
+  $('equipo-pie').textContent = activos + ' de ' + D.equipo.length + ' trabajando. Tocá a cualquiera para ver todo lo que sabe.';
+  D.equipo.forEach(function (w) {
+    var est = w.error ? 'error' : w.activo ? '' : 'pausa';
+    var btn = h('button', { clase: 'fila-btn', type: 'button', 'aria-label': w.nombre + ', ' + w.puesto + '. Ver detalle', onclick: function () { abrirTrabajador(w.id, btn); } }, [
+      h('span', { clase: 'persona' }, [h('span', { clase: 'e', 'aria-hidden': 'true', texto: w.emoji }), h('span', null, [h('b', { texto: w.nombre }), h('small', { texto: w.puesto + ', ' + w.cada })])]),
+      h('span', { clase: 'estado ' + est }, [h('span', { clase: 'punto', 'aria-hidden': 'true' }), w.error ? 'con un error' : w.activo ? cuando(w.ultimo) : 'en pausa']),
+      h('span', { clase: 'novedad', texto: w.destacado || 'Sin novedades.' }),
+      h('span', { clase: 'contador' + (w.sinLeer ? ' hay' : ''), texto: w.sinLeer ? String(w.sinLeer) : '0', 'aria-label': w.sinLeer + ' alertas sin leer' })]);
+    $('equipo').appendChild(h('tr', null, [h('td', null, [btn])]));
+  });
+
+  // ───────── Lo que viene ─────────
+  var DEC = { pendiente: 'Falta que decidas si participás', si: 'Participás', no: 'No participás' };
+  if (D.viene.length) D.viene.forEach(function (v) {
+    $('viene').appendChild(h('li', null, [h('span', { clase: 'fecha', texto: dia(v.t) }), h('div', { clase: 'que' }, [v.nombre, h('span', { clase: 'por', texto: v.tipo + (v.cierre ? ', inscripción hasta el ' + dia(v.cierre) : '') }), h('span', { clase: 'decision ' + v.decision, texto: DEC[v.decision] || '' })])]));
+  });
+  else $('viene').appendChild(h('li', { clase: 'vacio' }, [h('span'), h('span', { texto: 'Clara todavía no armó la agenda. Pedile a Claude "¿qué fechas vienen?".' })]));
+
+  // ───────── Evolución ─────────
+  var SERIES = [['facturacion', 'Facturación del mes', true], ['neto', 'Neto del mes', true], ['ganancia', 'Ganancia de 30 días', true], ['publicidad', 'Publicidad de 7 días', true], ['preguntas', 'Preguntas sin responder', false], ['sinStock', 'Productos sin stock', false]];
+  var NS = 'http://www.w3.org/2000/svg';
+  SERIES.forEach(function (s) {
+    var pts = (D.series && D.series[s[0]]) || [];
+    var ult = pts.length ? pts[pts.length - 1].v : null;
+    var caja = h('div', { clase: 'serie' }, [h('div', { clase: 't', texto: s[1] }), h('div', { clase: 'v', texto: ult == null ? 'sin datos todavía' : s[2] ? '$ ' + Math.round(ult).toLocaleString('es-AR') : String(ult) })]);
+    if (pts.length > 1) {
+      var svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 100 40'); svg.setAttribute('preserveAspectRatio', 'none'); svg.setAttribute('role', 'img');
+      svg.setAttribute('aria-label', s[1] + ': de ' + pts[0].v + ' a ' + ult + ' en ' + pts.length + ' días');
+      var vs = pts.map(function (p) { return p.v; }), mn = Math.min.apply(null, vs), mx = Math.max.apply(null, vs), r = mx - mn || 1;
+      var xy = pts.map(function (p, i) { return [(i / (pts.length - 1)) * 100, 36 - ((p.v - mn) / r) * 32]; });
+      var d = xy.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(2) + ' ' + p[1].toFixed(2); }).join(' ');
+      var area = document.createElementNS(NS, 'path'); area.setAttribute('class', 'area'); area.setAttribute('d', d + ' L100 40 L0 40 Z');
+      var linea = document.createElementNS(NS, 'path'); linea.setAttribute('class', 'linea'); linea.setAttribute('d', d);
+      svg.appendChild(area); svg.appendChild(linea); caja.appendChild(svg);
+    }
+    $('series').appendChild(caja);
+  });
+
+  // ───────── Bitácora con filtros ─────────
+  var filtro = { quien: null, nivel: null }, mostrar = 25;
+  function pintarBitacora() {
+    var ul = $('bitacora'); vaciar(ul);
+    var lista = D.alertas.filter(function (a) { return (!filtro.quien || a.quien === filtro.quien) && (!filtro.nivel || a.nivel === filtro.nivel); });
+    if (!lista.length) { ul.appendChild(h('li', { clase: 'vacio' }, [h('span'), h('span', { texto: 'Sin avisos con ese filtro.' })])); return; }
+    lista.slice(0, mostrar).forEach(function (a) {
+      var w = porId[a.quien] || { emoji: '•', nombre: a.quien };
+      ul.appendChild(h('li', { clase: a.nivel }, [h('span', { clase: 'quien', 'aria-hidden': 'true', texto: w.emoji }),
+        h('div', { clase: 'que' }, [h('span', { clase: 'marca', 'aria-hidden': 'true' }), a.texto, h('span', { clase: 'por', texto: w.nombre + (a.skill ? ', skill ' + a.skill : '') })]),
+        h('span', { clase: 'hora', texto: new Date(a.t).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) })]));
+    });
+    if (lista.length > mostrar) ul.appendChild(h('li', { clase: 'mas' }, [h('span'), h('button', { clase: 'boton', type: 'button', texto: 'Mostrar ' + Math.min(25, lista.length - mostrar) + ' más (quedan ' + (lista.length - mostrar) + ')', onclick: function () { mostrar += 25; pintarBitacora(); } })]));
+  }
+  function chip(texto, activo, alTocar) { return h('button', { clase: 'chip', type: 'button', 'aria-pressed': activo ? 'true' : 'false', texto: texto, onclick: alTocar }); }
+  function pintarFiltros() {
+    var f = $('filtros'); vaciar(f);
+    f.appendChild(chip('Todo', !filtro.quien && !filtro.nivel, function () { filtro = { quien: null, nivel: null }; mostrar = 25; pintarFiltros(); pintarBitacora(); }));
+    f.appendChild(chip('Solo urgentes', filtro.nivel === 'alta', function () { filtro.nivel = filtro.nivel === 'alta' ? null : 'alta'; mostrar = 25; pintarFiltros(); pintarBitacora(); }));
+    var conAvisos = {}; D.alertas.forEach(function (a) { conAvisos[a.quien] = (conAvisos[a.quien] || 0) + 1; });
+    D.equipo.filter(function (w) { return conAvisos[w.id]; }).forEach(function (w) {
+      f.appendChild(chip(w.emoji + ' ' + w.nombre + ' (' + conAvisos[w.id] + ')', filtro.quien === w.id, function () { filtro.quien = filtro.quien === w.id ? null : w.id; mostrar = 25; pintarFiltros(); pintarBitacora(); }));
+    });
+  }
+  pintarFiltros(); pintarBitacora();
+
+  // ───────── Panel lateral del trabajador ─────────
+  var volverA = null;
+  function abrirTrabajador(id, origen) {
+    var w = porId[id]; volverA = origen;
+    $('lat-emoji').textContent = w.emoji; $('lat-puesto').textContent = w.puesto + ', ' + w.cada; $('lat-nombre').textContent = w.nombre; $('lat-oficio').textContent = w.oficio;
+    vaciar($('lat-pedile'));
+    $('lat-pedile').appendChild(h('span', null, ['Pedile a Claude: ', h('b', { texto: '"resultados de ' + w.nombre + '"' }), w.skills.length ? ' o usá ' + (w.skills.length > 1 ? 'sus skills ' : 'su skill ') + w.skills.join(', ') + '.' : '.']));
+    var cuerpo = $('lat-cuerpo'); vaciar(cuerpo);
+    if (w.destacado) cuerpo.appendChild(h('p', null, [h('b', { texto: w.destacado })]));
+    if (w.tabla.filas.length) {
+      var thead = h('thead', null, [h('tr', null, w.tabla.cabecera.map(function (c) { return h('th', { scope: 'col', texto: c }); }))]);
+      var tbody = h('tbody', null, w.tabla.filas.map(function (f) { return h('tr', null, f.map(function (v) { return h('td', { texto: v == null || v === '' ? '—' : typeof v === 'number' ? v.toLocaleString('es-AR') : String(v) }); })); }));
+      cuerpo.appendChild(h('table', { clase: 'tabla' }, [thead, tbody]));
+    } else cuerpo.appendChild(h('p', { clase: 'vacio', texto: 'Todavía no tiene datos. Si necesita tareas o costos, Claude te dice cuáles.' }));
+    var lat = $('lateral'); lat.hidden = false;
+    requestAnimationFrame(function () { lat.classList.add('abierto'); $('velo').classList.add('abierto'); $('lat-cerrar').focus(); });
+  }
+  function cerrarTrabajador() {
+    var lat = $('lateral'); lat.classList.remove('abierto'); $('velo').classList.remove('abierto');
+    setTimeout(function () { lat.hidden = true; }, 280);
+    if (volverA) volverA.focus();
+  }
+  $('lat-cerrar').addEventListener('click', cerrarTrabajador);
+  $('velo').addEventListener('click', cerrarTrabajador);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('lateral').hidden && !$('tour').classList.contains('abierto')) cerrarTrabajador(); });
+
+  // ───────── Tema ─────────
+  var tema = guardado('tablero-tema');
+  if (tema) document.documentElement.setAttribute('data-tema', tema);
+  $('btn-tema').addEventListener('click', function () {
+    var oscuroAhora = document.documentElement.getAttribute('data-tema') === 'oscuro' || (!document.documentElement.getAttribute('data-tema') && matchMedia('(prefers-color-scheme: dark)').matches);
+    var nuevo = oscuroAhora ? 'claro' : 'oscuro';
+    document.documentElement.setAttribute('data-tema', nuevo); guardado('tablero-tema', nuevo);
+  });
+
+  // ───────── Tutorial guiado ─────────
+  var PASOS = [
+    ['frase', 'El parte del día', 'Esta frase resume tu día: cuánto facturaste, cuánto te queda y lo más urgente. Se arma sola con lo que encontró tu equipo.'],
+    ['funciona', 'Lo que está funcionando', 'Tus productos con mejor margen, las campañas que venden barato, los catálogos que ganás, tus mejores puestos. Lo que conviene repetir.'],
+    ['atencion', 'Lo que necesita atención', 'Ordenado por urgencia: rojo primero. Cada línea dice quién del equipo lo vio y qué skill pedirle a Claude para resolverlo.'],
+    ['numeros', 'Tus números', 'Facturación, lo que te queda limpio, la ganancia de 30 días, la publicidad, tu reputación y lo que tenés para responder. Si dice parcial, faltan costos en el cerebro.'],
+    ['equipo', 'Tu equipo de turno', 'Los 18 trabajadores: cada cuánto controlan, cuándo fue la última vez y qué encontraron. Tocá cualquiera para ver su tabla completa.'],
+    ['viene', 'Lo que viene', 'Las campañas de MercadoLibre y las fechas cruciales. Si dice que falta tu decisión, Clara te lo va a seguir preguntando.'],
+    ['evolucion', 'Evolución de 30 días', 'Cómo se mueven tus números día a día. Se llena sola con cada control del equipo.'],
+    ['bitacora', 'La bitácora', 'Todo lo que avisaron en la semana. Filtrá por trabajador o mirá solo lo urgente.'],
+  ];
+  var paso = 0;
+  function mostrarPaso() {
+    var p = PASOS[paso], el = document.querySelector('[data-tour="' + p[0] + '"]');
+    el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    setTimeout(function () {
+      var r = el.getBoundingClientRect(), foco = $('tour-foco'), caja = $('tour-caja'), m = 8;
+      foco.style.left = (r.left - m) + 'px'; foco.style.top = (r.top - m) + 'px'; foco.style.width = (r.width + 2 * m) + 'px'; foco.style.height = Math.min(r.height + 2 * m, innerHeight - 40) + 'px';
+      $('tour-titulo').textContent = p[1]; $('tour-texto').textContent = p[2]; $('tour-paso').textContent = (paso + 1) + ' de ' + PASOS.length;
+      $('tour-atras').disabled = paso === 0; $('tour-sig').textContent = paso === PASOS.length - 1 ? 'Terminar' : 'Siguiente';
+      var abajo = r.bottom + 16 + 190 < innerHeight;
+      caja.style.top = (abajo ? Math.min(r.bottom + 16, innerHeight - 200) : Math.max(16, r.top - 16 - caja.offsetHeight)) + 'px';
+      caja.style.left = Math.max(16, Math.min(r.left, innerWidth - caja.offsetWidth - 16)) + 'px';
+      $('tour-sig').focus();
+    }, 320);
+  }
+  function abrirTour() { paso = 0; $('tour').classList.add('abierto'); mostrarPaso(); }
+  function cerrarTour() { $('tour').classList.remove('abierto'); guardado('tablero-tour-visto', '1'); $('btn-tour').focus(); }
+  $('btn-tour').addEventListener('click', abrirTour);
+  $('tour-saltar').addEventListener('click', cerrarTour);
+  $('tour-atras').addEventListener('click', function () { if (paso > 0) { paso--; mostrarPaso(); } });
+  $('tour-sig').addEventListener('click', function () { if (paso < PASOS.length - 1) { paso++; mostrarPaso(); } else cerrarTour(); });
+  document.addEventListener('keydown', function (e) {
+    if (!$('tour').classList.contains('abierto')) return;
+    if (e.key === 'Escape') cerrarTour();
+    if (e.key === 'ArrowRight') $('tour-sig').click();
+    if (e.key === 'ArrowLeft') $('tour-atras').click();
+  });
+  addEventListener('resize', function () { if ($('tour').classList.contains('abierto')) mostrarPaso(); });
+  if (!guardado('tablero-tour-visto')) setTimeout(abrirTour, 900);
+
+  // Se recarga solo cada 5 minutos si la pestaña está a la vista (el equipo lo regenera en cada control)
+  setInterval(function () { if (!document.hidden && !$('tour').classList.contains('abierto') && $('lateral').hidden) location.reload(); }, 5 * 60 * 1000);
+
+  // ───────── Datos de ejemplo ─────────
+  function demo() {
+    var ahora = Date.now(), H = 3600000, Dd = 86400000;
+    function serie(base, paso, n) { var a = []; for (var i = n; i >= 0; i--) a.push({ d: new Date(ahora - i * Dd).toISOString().slice(0, 10), v: Math.round(base + paso * (n - i) + Math.sin(i) * base * 0.04) }); return a; }
+    var eq = [['precios', '🕵️', 'Vera', 'Centinela de precios', 'cada 30 min', 'Un rival quedó más barato que vos en el termo 1L'], ['ventas', '📦', 'Tomás', 'Contador de ventas', 'cada 1 h', 'El rival que más vende: Termo Lumilagro (≈ 6 u./día)'], ['ranking', '🏆', 'Martina', 'Vigía de búsquedas', 'cada 1 h', 'Tus puestos: termo 1 litro 2º'], ['rivales', '🎯', 'Bruno', 'Cazador de rivales nuevos', 'cada 3 h', 'Sin rivales nuevos esta semana'], ['auditor', '🩺', 'Lucía', 'Auditora de publicaciones', 'cada 15 días', '3 en rojo para arreglar'], ['agenda', '🗓️', 'Clara', 'Agenda comercial', 'cada 1 día', '1 decisión pendiente: CyberMonday'], ['rentabilidad', '💰', 'Ramiro', 'Analista de rentabilidad', 'cada 1 día', 'Ganancia neta estimada 30 días: $ 412.300'], ['anuncios', '📣', 'Ana', 'Gestora de anuncios', 'cada 1 día', '7 días: invertiste $ 30.000 y vendiste $ 200.000 por ads'], ['logistica', '🚚', 'Leo', 'Coordinador de logística', 'cada 2 h', '2 para despachar hoy'], ['contabilidad', '🧾', 'Carmen', 'Contadora', 'cada 1 día', 'Neto del mes ≈ $ 1.184.000'], ['stock', '📦', 'Nico', 'Encargado de stock', 'cada 6 h', '1 se corta en una semana'], ['atencion', '💬', 'Paula', 'Atención al comprador', 'cada 30 min', '2 preguntas sin responder'], ['reclamos', '🛡️', 'Iván', 'Reclamos y mediaciones', 'cada 1 h', 'Sin reclamos abiertos'], ['reputacion', '⭐', 'Valen', 'Reputación y opiniones', 'cada 1 día', 'Verde y MercadoLíder platinum'], ['catalogo', '🏷️', 'Gabi', 'Catálogo', 'cada 6 h', 'Ganás 4 de 5 catálogos'], ['moderaciones', '🚫', 'Sole', 'Moderaciones', 'cada 6 h', 'Ninguna publicación moderada'], ['proveedores', '🔄', 'Fede', 'Proveedores', 'cada 6 h', '6 productos vinculados a proveedores'], ['tendencias', '📈', 'Sofía', 'Radar de tendencias', 'cada 12 h', 'Lo más buscado: termo de vidrio']];
+    return {
+      generado: ahora - 4 * 60000, tiendas: ['TU_TIENDA'], corriendo: 'servicio',
+      frase: 'En octubre facturaste $ 3.420.000 y te quedan $ 1.184.000 limpios. Hoy hay 2 cosas urgentes: el mate imperial está sin stock y se vendía, entre otras.',
+      funciona: [{ quien: 'rentabilidad', nombre: 'Ramiro', emoji: '💰', texto: 'Termo acero 1L deja 31% de margen ($ 13.020 por unidad)' }, { quien: 'anuncios', nombre: 'Ana', emoji: '📣', texto: 'La campaña «Termos» vende con ACOS 9%' }, { quien: 'catalogo', nombre: 'Gabi', emoji: '🏷️', texto: 'Ganás el catálogo de Termo acero 1L' }, { quien: 'ranking', nombre: 'Martina', emoji: '🏆', texto: 'Estás 2º en «termo 1 litro»' }, { quien: 'tendencias', nombre: 'Sofía', emoji: '📈', texto: 'Lo más buscado ahora: «termo de vidrio»' }],
+      atencion: [{ quien: 'stock', nombre: 'Nico', emoji: '📦', texto: 'Mate imperial está sin stock y se vendía', nivel: 'alta', skill: 'stock-ml' }, { quien: 'agenda', nombre: 'Clara', emoji: '🗓️', texto: 'Decidí si entrás a «CyberMonday»: la inscripción cierra pronto', nivel: 'alta', skill: 'agenda-comercial-ml' }, { quien: 'atencion', nombre: 'Paula', emoji: '💬', texto: '2 pregunta(s) esperando respuesta', nivel: 'media', skill: 'responder-preguntas-ml' }, { quien: 'logistica', nombre: 'Leo', emoji: '🚚', texto: '2 venta(s) para despachar', nivel: 'media', skill: 'logistica-ml' }],
+      numeros: [{ titulo: 'Facturación de octubre', valor: '$ 3.420.000', detalle: '↑ 18% contra el mismo período del mes pasado', tono: 'neutro' }, { titulo: 'Te queda limpio', valor: '$ 1.184.000', detalle: 'margen 34.6%', tono: 'verde' }, { titulo: 'Ganancia de 30 días', valor: '$ 412.300', detalle: '14 producto(s) con costo cargado', tono: 'neutro' }, { titulo: 'Publicidad, 7 días', valor: '$ 30.000', detalle: 'vendió $ 200.000, ACOS 15%', tono: 'neutro' }, { titulo: 'Reputación', valor: 'verde', detalle: 'MercadoLíder platinum', tono: 'verde' }, { titulo: 'Para responder', valor: '2', detalle: '2 pregunta(s), 0 mensaje(s), 0 reclamo(s)', tono: 'ambar' }],
+      equipo: eq.map(function (w, i) { return { id: w[0], emoji: w[1], nombre: w[2], puesto: w[3], cada: w[4], destacado: w[5], oficio: 'Trabajador del equipo.', activo: true, ultimo: ahora - (i + 1) * 7 * 60000, error: null, sinLeer: i % 5 === 0 ? 2 : 0, skills: [], tabla: { cabecera: ['Ejemplo', 'Dato'], filas: [['Fila de ejemplo', 1]] } }; }),
+      viene: [{ t: ahora + 14 * Dd, nombre: 'CyberMonday', tipo: 'Fecha comercial (estimada)', cierre: null, decision: 'pendiente', ref: 'cyber' }, { t: ahora + 39 * Dd, nombre: 'Black Friday', tipo: 'Fecha comercial', cierre: null, decision: 'si', ref: 'bf' }, { t: ahora + 67 * Dd, nombre: 'Navidad', tipo: 'Fecha comercial', cierre: null, decision: 'pendiente', ref: 'nav' }],
+      series: { facturacion: serie(300000, 105000, 30), neto: serie(90000, 36000, 30), ganancia: serie(380000, 1100, 30), publicidad: serie(26000, 140, 30), preguntas: serie(4, -0.07, 30), sinStock: serie(1, 0, 30) },
+      alertas: [{ t: ahora - 20 * 60000, quien: 'stock', nivel: 'alta', texto: 'Mate imperial está SIN STOCK y vendías 2.1/día', skill: 'stock-ml' }, { t: ahora - 2 * H, quien: 'precios', nivel: 'alta', texto: 'Un rival quedó más barato que tu termo 1L: $ 39.000 vs tu $ 42.000', skill: 'calculadora-ml' }, { t: ahora - 5 * H, quien: 'atencion', nivel: 'media', texto: '2 preguntas sin responder', skill: 'responder-preguntas-ml' }, { t: ahora - Dd, quien: 'tendencias', nivel: 'media', texto: 'Entró al top: «termo de vidrio»', skill: 'descubrir-ganadores-ml' }],
+    };
+  }
+})();
+</script>
+</body>
+</html>

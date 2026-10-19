@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.22.0
+- **📋 El tablero del día** (`ml_tablero` + skill `tablero-ml`): un parte diario visual tipo CRM con todo lo que sabe el equipo — la frase del día escrita con tus datos, lo que está funcionando, lo que necesita atención (urgente primero, con la skill que lo resuelve), tus números (facturación, neto, ganancia 30 días, publicidad, reputación, pendientes), la planilla de los 18 trabajadores con su tabla completa al tocarlos, lo que viene, la evolución de 30 días y la bitácora filtrable.
+- Página local y privada (0600), sin servidor y sin internet; se regenera sola después de cada control y se recarga cada 5 minutos. Tema claro/oscuro, adaptada a celular, accesible con teclado y con **tutorial guiado** la primera vez.
+- 🔒 Todo el texto se pinta como texto (sin innerHTML) y los datos se incrustan escapados: un título malicioso de un rival no puede romper la página (probado).
+- Con varias tiendas, el tablero no repite la misma línea. Suite: 128 pruebas.
+
 ## 1.21.0
 - **7 trabajadores nuevos — el equipo pasa a 18:**
   - 📦 **Nico · Stock**: días de stock por producto según lo que vendés por día; avisa lo que se corta en ≤3 y ≤7 días, lo que quedó sin stock vendiendo (con la plata que perdés por día) y el stock parado.

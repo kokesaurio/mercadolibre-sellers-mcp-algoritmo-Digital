@@ -851,6 +851,8 @@ export async function correrCiclo({ solo, forzar = false, alAvisar, modo = 'manu
     if (!enBase) fresco.bandeja.push(...res.alertas); // respaldo si este Node no trae SQLite
     if (fresco.bandeja.length > MAX_BANDEJA) fresco.bandeja.splice(0, fresco.bandeja.length - MAX_BANDEJA);
   });
+  // El tablero se mantiene al día solo (si el vendedor ya lo abrió alguna vez)
+  try { const tb = await import('./tablero.js'); if (fs.existsSync(tb.RUTA_TABLERO())) await tb.generarTablero(); } catch {}
   // Resultados a Google Drive (si está configurado). Best-effort: nunca frena al equipo.
   if (res.corridos.length || res.alertas.length) {
     try { const { exportarADrive } = await import('./resultados.js'); res.drive = await exportarADrive(res.alertas); }

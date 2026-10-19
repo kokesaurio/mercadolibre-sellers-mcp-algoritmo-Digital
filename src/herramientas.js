@@ -5,6 +5,8 @@ import { VERSION, chequearActualizacion } from './version.js';
 import { leerCerebro, saberDe, aprender, olvidar } from './cerebro.js';
 import { armarResultados, resultadosEnMarkdown, conectarDrive, desconectarDrive, configDrive, claveDrive, exportarADrive, detectarCarpetaDrive, CARPETA_NOMBRE } from './resultados.js';
 import { auditarItem } from './auditoria.js';
+import { generarTablero, abrirEnNavegador } from './tablero.js';
+import { pathToFileURL } from 'node:url';
 import { resumenContable, enviosRecientes, inicioDeMes, nombreMes } from './negocio.js';
 import { fechasComerciales, cronogramaML, estadoDecision, diasHasta, tipoLegible, ICONO_DECISION } from './agenda.js';
 import { faltantes, agrupar, preguntasRespondidas, armarDescripcion, INICIO as FAQ_INICIO } from './faq.js';
@@ -708,6 +710,21 @@ export const TOOLS = [
         corrida ? `Trabajaron ahora: ${corrida.corridos.map((i) => EQUIPO[i].nombre).join(', ') || 'nadie (sin tareas)'}${corrida.errores.length ? ` · ⚠️ ${corrida.errores.join(' · ')}` : ''}.` : 'Plan armado con lo último que sabía el equipo (sin correrlo ahora).',
         '', '## El plan, en orden', ...pasos.map((p, i) => `${i + 1}. ${p.texto}`),
         '', 'Decime "dale" y arranco por el paso 1 (con la skill indicada), o elegí el número del paso.'].join('\n');
+    },
+  },
+  {
+    name: 'ml_tablero', title: 'Tablero del día (parte diario visual)', readOnly: true,
+    description: 'Arma el tablero visual del día con todo lo que saben los 18 trabajadores: la frase del día, lo que está funcionando, lo que necesita atención (urgente primero, con la skill para resolverlo), tus números (facturación, neto, ganancia, publicidad, reputación, pendientes), la planilla del equipo (tocás un trabajador y ves su tabla), lo que viene, la evolución de 30 días y la bitácora. Es una página local (sin servidor, funciona sin internet) con tutorial guiado; después se actualiza sola con cada control del equipo. Con abrir=true la abre en el navegador.',
+    schema: { abrir: z.boolean().optional().describe('true = abrirla en el navegador de esta computadora') },
+    async run(args) {
+      const { ruta, datos } = await generarTablero();
+      const abierto = args.abrir ? abrirEnNavegador(ruta) : false;
+      const urg = datos.atencion.filter((x) => x.nivel === 'alta').length;
+      return [`# 📋 Tablero del día listo`, '', `> ${datos.frase}`, '',
+        `- ✅ **${datos.funciona.length}** cosa(s) funcionando · ⚠️ **${datos.atencion.length}** para atender (${urg} urgente(s)) · 👷 ${datos.equipo.filter((w) => w.activo).length} de ${datos.equipo.length} trabajando`,
+        `- Archivo: \`${ruta}\``, `- Abrilo en el navegador: ${pathToFileURL(ruta).href}`,
+        abierto ? '- Ya lo abrí en tu navegador.' : '- Pedime "abrí el tablero" y lo abro en tu navegador.',
+        '', 'Se actualiza solo con cada control del equipo y la página se recarga cada 5 minutos. La primera vez arranca con un tutorial guiado (después está en el botón "Ver tutorial").'].join('\n');
     },
   },
   // ─────────────────────────────── Cerebro ───────────────────────────────
