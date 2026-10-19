@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.25.0
+- **🎩 Ponele nombre al jefe**: "el jefe se llama Don Ramón" → `ml_jefe nombre="Don Ramón"` (opcional `emoji="👑"`; `nombre=""` lo vuelve a "El jefe"). El nombre aparece en el plan, en la lista del equipo y en el tablero, donde el jefe tiene su tarjeta arriba del equipo y un paso nuevo en el tutorial.
+- Seguro: hasta 30 letras, solo letras, números, espacios, punto, apóstrofo y guion; no puede repetir el nombre de un trabajador; el emoji tiene que ser un emoji. Un nombre rechazado no pisa el anterior. Suite: 130 pruebas.
+
 ## 1.24.0
 - **🟡 El tablero con los colores de MercadoLibre**: franja amarilla arriba, fondo gris con tarjetas blancas, azul de ML en botones, links y gráficos, y el verde, naranja y rojo de ML para los estados. Solo los colores: sin logos ni nada que lo haga pasar por una página oficial de MercadoLibre.
 - Accesible: textos y botones con el azul más oscuro de ML (el blanco sobre el azul claro no llega al contraste mínimo), estados en sus versiones legibles sobre blanco, y los colores de los gráficos validados para daltonismo en claro y oscuro. El modo oscuro conserva la franja amarilla.

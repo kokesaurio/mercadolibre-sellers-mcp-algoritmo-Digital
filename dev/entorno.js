@@ -925,6 +925,27 @@ async function pruebas() {
     contiene(pubs, 'Lucía', 'mejorar-publicaciones-ml');
     contiene(await J.run({ objetivo: 'x' }), 'Decime el objetivo');
   });
+  await caso('Jefe con nombre: el vendedor lo nombra, se valida y aparece en el plan, la lista del equipo y el tablero', async () => {
+    const J = tool('ml_jefe'), T = tool('ml_trabajadores');
+    contiene(await T.run({ accion: 'equipo' }), 'Jefe de equipo: **El jefe**', 'el jefe se llama');
+    contiene(await J.run({ nombre: '  Don   Ramón ' }), 'ahora es **🎩 Don Ramón**', 'Don Ramón, ¿cómo vendo más');
+    for (const [malo, motivo] of [['Vera', 'ya es'], ['sofia', 'ya es'], ['<img src=x onerror=alert(1)>', 'Usá solo letras'], ['x'.repeat(31), 'hasta 30'], ['Ana; DROP TABLE', 'Usá solo letras']]) {
+      const r = await J.run({ nombre: malo });
+      contiene(r, 'No le cambié el nombre', motivo);
+    }
+    contiene(await J.run({ emoji: '<b>' }), 'un solo emoji');
+    if (tr.jefe().nombre !== 'Don Ramón') throw new Error('un nombre rechazado pisó el anterior');
+    contiene(await J.run({ emoji: '👑' }), '👑 Don Ramón');
+    const plan = await J.run({ objetivo: 'mejorar la reputación', sin_correr: true });
+    contiene(plan, '# 👑 Don Ramón, jefe de equipo — objetivo');
+    contiene(await T.run({ accion: 'equipo' }), '👑 Jefe de equipo: **Don Ramón**');
+    const { datos } = await (await import('../src/tablero.js')).generarTablero();
+    if (datos.jefe?.nombre !== 'Don Ramón' || datos.jefe.emoji !== '👑' || !datos.jefe.propio) throw new Error('el tablero no trae al jefe con su nombre: ' + JSON.stringify(datos.jefe));
+    const plan2 = await J.run({ nombre: 'Jefa Ana María', objetivo: 'vender más', sin_correr: true });
+    contiene(plan2, 'ahora es **👑 Jefa Ana María**', 'Jefa Ana María, jefe de equipo — objetivo');
+    contiene(await J.run({ nombre: '' }), 'volvió a llamarse **🎩 El jefe**');
+    contiene(await J.run({ objetivo: 'vender más', sin_correr: true }), '# 🎩 Jefe de equipo — objetivo');
+  });
 
   // ───────────── Nico, Paula, Iván, Valen, Gabi, Sole y Fede ─────────────
   const pv = await import('../src/postventa.js');

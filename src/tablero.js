@@ -8,7 +8,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
-import { EQUIPO, IDS, leerEquipo, tareasDe, claveTarea, alertasRecientes, resumenAlertas, quienCorre } from './trabajadores.js';
+import { EQUIPO, IDS, leerEquipo, tareasDe, claveTarea, alertasRecientes, resumenAlertas, quienCorre, jefe } from './trabajadores.js';
 import { armarResultados } from './resultados.js';
 import { estadoDecision } from './agenda.js';
 import { COLOR } from './postventa.js';
@@ -194,7 +194,7 @@ export async function armarTablero() {
     ads: aHoy ? aHoy.cost : null, ventasAds: aHoy ? aHoy.ventas : null, acos: aHoy && aHoy.ventas ? Math.round((aHoy.cost / aHoy.ventas) * 1000) / 10 : null, enVivo };
 
   return {
-    generado: ahora, tiendas: cuentas, hoy, ventasDia: ordenar(ventasDia), adsDia: ordenar(adsDia), frase, funciona: fun.slice(0, 10), atencion: ate.slice(0, 14), numeros, equipo,
+    generado: ahora, tiendas: cuentas, jefe: (({ nombre, emoji, propio }) => ({ nombre, emoji, propio }))(jefe(d)), hoy, ventasDia: ordenar(ventasDia), adsDia: ordenar(adsDia), frase, funciona: fun.slice(0, 10), atencion: ate.slice(0, 14), numeros, equipo,
     viene: [...unicos.values()].slice(0, 8), corriendo: corre ? corre.modo : null,
     series: {
       facturacion: await serie('contabilidad', 'facturacionMes'), neto: await serie('contabilidad', 'netoMes'),

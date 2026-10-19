@@ -186,6 +186,8 @@ Dieciocho trabajadores con nombre que **vigilan solos y constantemente** a tus s
 ### 🎩 El jefe de equipo
 **Le das un objetivo, él reparte el trabajo entre los 18.** *"Quiero vender más este mes"*, *"¿por qué gano poco?"*, *"preparame para el CyberMonday"*, *"mejorá mi reputación"*: el jefe (`ml_jefe`, skill [jefe-de-equipo-ml](skills/jefe-de-equipo-ml/)) elige qué trabajadores tienen que ver, los pone a trabajar en ese momento, junta lo que encontraron y te da **el plan en orden** (urgentes primero), cada paso con su responsable y la skill que lo resuelve. Lo que toca tu tienda, siempre con tu OK.
 
+**Ponele el nombre que quieras.** Decile a Claude *"el jefe se llama Don Ramón"* (y si querés, un emoji: *"que sea 👑"*). Desde ahí aparece con ese nombre en los planes, en la lista del equipo y en el tablero, y le hablás directo: *"Don Ramón, ¿cómo vendo más este mes?"*.
+
 **Dales tareas hablando:** *"Vera, vigilá MLA123 contra mi MLA456 y avisame si baja más de 2%"* · *"Martina, decime en qué puesto estoy para 'termo 1 litro'"* · *"¿qué encontró el equipo?"* · *"Lucía, auditá la tienda ahora"* · *"Clara, ¿qué fechas vienen?"*. Sin tareas propias, cada uno vigila tus seguidos de `ml_vigilar` de su tipo.
 
 **Cuándo trabajan:**
@@ -305,7 +307,7 @@ Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando
 | ml_promociones / ml_aceptar_promocion ✏️ | Promociones ofrecidas y aceptación por ítem |
 | ml_agenda 🗓️ | **La agenda comercial**: fechas cruciales del año (calculadas solas cada año, por país) + el cronograma de campañas de MercadoLibre con cierre de inscripción y candidatas. Guarda tu decisión de participar o no (Clara te sigue preguntando hasta que decidas), fechas propias, y arma el **kit para actualizar Mi página** (banner y destacados del evento) |
 | ml_tablero 📋 | **El tablero del día**: arma (y con `abrir=true` abre en tu navegador) la página visual con lo que funciona, lo que necesita atención, tus números, el equipo, lo que viene, la evolución y la bitácora; se actualiza sola |
-| ml_jefe 🎩 | **El jefe de equipo**: le das un objetivo en una frase y reparte el trabajo entre los trabajadores que corresponden, los hace trabajar ya y te devuelve el plan en orden con responsable y skill por paso |
+| ml_jefe 🎩 | **El jefe de equipo**: le das un objetivo en una frase y reparte el trabajo entre los trabajadores que corresponden, los hace trabajar ya y te devuelve el plan en orden con responsable y skill por paso. Con `nombre` le ponés el nombre (y `emoji`) que quieras |
 | ml_numeros 🧾 | Los **números del mes** de Carmen: facturación, comisiones reales de ML, publicidad, impuestos, mercadería, envíos → resultado neto y margen, contra el mes anterior (marca "parcial" si faltan costos) |
 | ml_despachos 🚚 | La lista de Leo: **qué despachar y hasta cuándo**, demorados, devueltos/no entregados, por tipo de envío, y tu % de despachos con demora |
 | ml_tendencias | Qué está buscando la gente en ML |

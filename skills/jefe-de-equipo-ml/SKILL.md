@@ -1,18 +1,28 @@
 ---
 name: jefe-de-equipo-ml
-description: El jefe del equipo de 11 trabajadores de MercadoLibre — el vendedor le da un objetivo en una frase ("vender más este mes", "¿por qué gano poco?", "preparame para el CyberMonday", "mejorar la reputación") y él reparte el trabajo entre los trabajadores que corresponden, junta lo que encontraron y ejecuta el plan paso a paso con las skills de cada uno. Usar ante cualquier objetivo amplio del negocio, o cuando pidan "jefe", "organizá al equipo", "¿por dónde arranco?".
+description: El jefe del equipo de 18 trabajadores de MercadoLibre (con el nombre que le ponga el vendedor) — el vendedor le da un objetivo en una frase ("vender más este mes", "¿por qué gano poco?", "preparame para el CyberMonday", "mejorar la reputación") y él reparte el trabajo entre los trabajadores que corresponden, junta lo que encontraron y ejecuta el plan paso a paso con las skills de cada uno. Usar ante cualquier objetivo amplio del negocio, o cuando pidan "jefe", "organizá al equipo", "¿por dónde arranco?", o le hablen al jefe por su nombre. También para ponerle o cambiarle el nombre ("el jefe se llama Roberto").
 ---
 
 # Jefe de equipo — le das un objetivo, él reparte el trabajo
 
 ## Requisito
-`ml_jefe` y `ml_trabajadores` del conector de MercadoLibre de Algoritmo Digital (v1.20.0+).
+`ml_jefe` y `ml_trabajadores` del conector de MercadoLibre de Algoritmo Digital (v1.20.0+; nombre del jefe desde v1.25.0).
 
 ## El equipo que coordina
 🕵️ Vera (precios) · 📦 Tomás (ventas de rivales) · 🏆 Martina (tu puesto en búsquedas) ·
 🎯 Bruno (rivales nuevos) · 🩺 Lucía (auditoría de publicaciones) · 🗓️ Clara (agenda y
 promociones) · 💰 Ramiro (rentabilidad) · 📣 Ana (anuncios) · 🚚 Leo (logística) ·
-🧾 Carmen (contabilidad) · 📈 Sofía (tendencias).
+🧾 Carmen (contabilidad) · 📦 Nico (stock) · 💬 Paula (atención) · 🛡️ Iván (reclamos) ·
+⭐ Valen (reputación) · 🏷️ Gabi (catálogo) · 🚫 Sole (moderaciones) · 🔄 Fede (proveedores) ·
+📈 Sofía (tendencias).
+
+## Ponerle nombre al jefe
+- "El jefe se llama Roberto", "ponele Don Ramón al jefe" → `ml_jefe nombre="Roberto"`
+  (opcional `emoji="👑"`). Hasta 30 letras; no puede repetir el nombre de un trabajador.
+- `nombre=""` lo vuelve a "El jefe".
+- El nombre aparece en el plan, en `ml_trabajadores accion=equipo` y en el tablero del día.
+- Si después el vendedor le habla por su nombre ("Roberto, ¿cómo vendo más?"), es un
+  objetivo: `ml_jefe objetivo="…"`. Hablar en primera persona como el jefe, con su nombre.
 
 ## Flujo
 1. Si el objetivo no está claro, pedirlo en una frase (sin cuestionario).

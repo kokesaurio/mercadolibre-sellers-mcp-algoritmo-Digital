@@ -11,7 +11,7 @@ import { resumenContable, enviosRecientes, inicioDeMes, nombreMes } from './nego
 import { fechasComerciales, cronogramaML, estadoDecision, diasHasta, tipoLegible, ICONO_DECISION } from './agenda.js';
 import { faltantes, agrupar, preguntasRespondidas, armarDescripcion, INICIO as FAQ_INICIO } from './faq.js';
 import { estadoDB, leerMediciones, precioSinCambiosDesde, backupDB, RETENCION_DIAS, NODE_MINIMO } from './db.js';
-import { decidir, confirmarFecha, agregarFechaPropia } from './trabajadores.js';
+import { decidir, confirmarFecha, agregarFechaPropia, jefe, nombrarJefe } from './trabajadores.js';
 import { EQUIPO, IDS, etiqueta, resumenAlertas, resolverTrabajador, leerEquipo, asignarTarea, quitarTarea, tareasDe, actualizarEquipo, correrCiclo, leerBandeja, quienCorre, INTERVALO_MINIMO } from './trabajadores.js';
 import { leerVigilancia, agregarObjetivo, quitarObjetivo, claveDe, tomarSnapshot, compararSnapshots, guardarVigilancia, registrarHistorial, leerHistorial } from './vigilancia.js';
 
@@ -641,9 +641,20 @@ export const TOOLS = [
   },
   {
     name: 'ml_jefe', title: 'Jefe de equipo (le das un objetivo y reparte el trabajo)', readOnly: true,
-    description: 'El jefe del equipo de trabajadores: le das un OBJETIVO en una frase ("vender más este mes", "¿por qué gano poco?", "preparame para el CyberMonday", "mejorar la reputación") y él elige qué trabajadores tienen que ver, los pone a trabajar ahora mismo, junta lo que encontraron y devuelve el plan en orden: cada paso con el trabajador responsable, lo que encontró y la skill para hacerlo. Lo que modifica la tienda queda marcado para hacerlo con tu OK. Sin objetivo claro, trabaja con todo el equipo.',
-    schema: { ...cuentaParam, objetivo: z.string().describe('El objetivo en tus palabras'), sin_correr: z.boolean().optional().describe('true = armar el plan con lo último que sabe el equipo, sin hacerlo trabajar ahora') },
+    description: 'El jefe del equipo de trabajadores: le das un OBJETIVO en una frase ("vender más este mes", "¿por qué gano poco?", "preparame para el CyberMonday", "mejorar la reputación") y él elige qué trabajadores tienen que ver, los pone a trabajar ahora mismo, junta lo que encontraron y devuelve el plan en orden: cada paso con el trabajador responsable, lo que encontró y la skill para hacerlo. Lo que modifica la tienda queda marcado para hacerlo con tu OK. Sin objetivo claro, trabaja con todo el equipo. El vendedor le puede poner NOMBRE (y emoji) al jefe: cuando diga "el jefe se llama Roberto", "ponele Don Ramón al jefe" o similar, llamar con nombre="…" (sin objetivo); nombre="" lo vuelve a "El jefe". Después, si el vendedor le habla al jefe por su nombre ("Roberto, ¿cómo vendo más?"), es un objetivo para esta herramienta.',
+    schema: { ...cuentaParam, objetivo: z.string().optional().describe('El objetivo en tus palabras'), sin_correr: z.boolean().optional().describe('true = armar el plan con lo último que sabe el equipo, sin hacerlo trabajar ahora'),
+      nombre: z.string().optional().describe('Ponerle nombre al jefe (hasta 30 letras). "" = volver a "El jefe"'), emoji: z.string().optional().describe('Emoji del jefe (ej: 🎩, 👑, 🦁)') },
     async run(args) {
+      let nombrado = '';
+      if (args.nombre != null || args.emoji != null) {
+        const r = nombrarJefe(args.nombre ?? jefe().nombre, args.emoji);
+        if (r.error) return `No le cambié el nombre: ${r.error}`;
+        const j = r.jefe;
+        const listo = j.propio ? `Listo: tu jefe de equipo ahora es **${j.emoji} ${j.nombre}**. Así aparece en los planes, en la lista del equipo y en el tablero del día.` : `Listo: el jefe volvió a llamarse **${j.emoji} ${j.nombre}**.`;
+        nombrado = `_${listo}_\n\n`;
+        if (!args.objetivo) return `${listo}\n\nPara hablarle, decile por ejemplo "${j.propio ? j.nombre + ', ' : ''}¿cómo vendo más este mes?".`;
+      }
+      const J = jefe();
       const obj = sinAcento(args.objetivo || '');
       if (obj.length < 3) return 'Decime el objetivo en una frase (ej: "vender más este mes", "¿por qué gano poco?", "preparame para el CyberMonday").';
       const REGLAS = [
@@ -705,7 +716,7 @@ export const TOOLS = [
       }
       pasos.sort((a, b) => a.peso - b.peso);
       if (corrida?.alertas?.length) leerBandeja({ marcar: true });
-      return [`# 🎩 Jefe de equipo — objetivo: «${args.objetivo.trim()}»`,
+      return nombrado + [`# ${J.emoji} ${J.propio ? `${J.nombre}, jefe de equipo` : 'Jefe de equipo'} — objetivo: «${args.objetivo.trim()}»`,
         todos ? `No reconocí un tema puntual: trabajó **todo el equipo** (${equipo.length}).` : `Lo repartí entre **${equipo.length} trabajador(es)** según el objetivo (${temas.join(', ')}).`,
         corrida ? `Trabajaron ahora: ${corrida.corridos.map((i) => EQUIPO[i].nombre).join(', ') || 'nadie (sin tareas)'}${corrida.errores.length ? ` · ⚠️ ${corrida.errores.join(' · ')}` : ''}.` : 'Plan armado con lo último que sabía el equipo (sin correrlo ahora).',
         '', '## El plan, en orden', ...pasos.map((p, i) => `${i + 1}. ${p.texto}`),
@@ -1155,7 +1166,9 @@ export const TOOLS = [
           : '📁 Google Drive: sin conectar (ml_trabajadores accion=drive)';
         const eb = estadoDB();
         const lineaBase = eb.activa ? `🗄️ Base de datos: ${eb.mediciones.n.toLocaleString('es-AR')} mediciones y ${eb.alertas.n.toLocaleString('es-AR')} alertas guardadas (accion=base)` : `🗄️ Base de datos: no activa — ${eb.motivo} (accion=base)`;
-        return `# Equipo de trabajadores\n${modo}\n${lineaBase}\n${lineaDrive}\n\n` + bloques.join('\n\n') + '\n\nDales tareas con ml_trabajadores accion=asignar (ej: trabajador=Vera ref=MLA123 mi_item=TU_ITEM umbral=3) y leé lo que encontraron con accion=informe.';
+        const J = jefe(d);
+        const lineaJefe = `${J.emoji} Jefe de equipo: **${J.nombre}**${J.propio ? '' : ' — ponele nombre: decí "el jefe se llama …"'} (ml_jefe)`;
+        return `# Equipo de trabajadores\n${lineaJefe}\n${modo}\n${lineaBase}\n${lineaDrive}\n\n` + bloques.join('\n\n') + '\n\nDales tareas con ml_trabajadores accion=asignar (ej: trabajador=Vera ref=MLA123 mi_item=TU_ITEM umbral=3) y leé lo que encontraron con accion=informe.';
       }
 
       if (args.accion === 'asignar') {

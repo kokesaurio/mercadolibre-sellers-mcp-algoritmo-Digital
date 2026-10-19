@@ -201,6 +201,36 @@ export function actualizarEquipo(fn) {
   return r;
 }
 
+// ───────────────────────────── El jefe (nombre a elección del vendedor) ─────────────────────────────
+export const JEFE_POR_DEFECTO = { nombre: 'El jefe', emoji: '🎩' };
+const EMOJI_OK = /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|‍|️)+$/u;
+
+export function jefe(d = leerEquipo()) {
+  const j = d.jefe || {};
+  return { nombre: typeof j.nombre === 'string' && j.nombre ? j.nombre : JEFE_POR_DEFECTO.nombre,
+    emoji: typeof j.emoji === 'string' && j.emoji ? j.emoji : JEFE_POR_DEFECTO.emoji, propio: !!j.nombre };
+}
+
+// Valida y guarda. nombre vacío o "sin nombre" vuelve al de fábrica. Devuelve { ok, jefe } o { error }.
+export function nombrarJefe(nombre, emoji) {
+  const n = String(nombre ?? '').normalize('NFC').replace(/\s+/g, ' ').trim();
+  const reset = !n || /^(sin nombre|ninguno|por defecto|el jefe)$/i.test(n);
+  if (!reset) {
+    if (n.length > 30) return { error: 'El nombre puede tener hasta 30 letras.' };
+    if (!/^[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N} .'\-]*$/u.test(n)) return { error: 'Usá solo letras, números, espacios, punto, apóstrofo o guion (ej: "Roberto", "Don Ramón", "Jefa Ana").' };
+    const choca = resolverTrabajador(n);
+    if (choca) return { error: `"${n}" ya es ${etiqueta(choca)}: elegí otro nombre para no confundirlos.` };
+  }
+  let e = emoji == null ? undefined : String(emoji).trim();
+  if (e) { if (e.length > 16 || !EMOJI_OK.test(e)) return { error: 'El emoji tiene que ser un solo emoji (ej: 🎩, 👑, 🦁).' }; }
+  return actualizarEquipo((d) => {
+    const antes = d.jefe || {};
+    d.jefe = reset ? (e ? { emoji: e } : {}) : { nombre: n, emoji: e || antes.emoji };
+    if (!d.jefe.emoji) delete d.jefe.emoji;
+    return { ok: true, jefe: jefe(d) };
+  });
+}
+
 // ───────────────────────────── Tareas ─────────────────────────────
 export function tipoPorDefecto(trabajador, ref) {
   if (DE_TIENDA[trabajador]) return DE_TIENDA[trabajador];

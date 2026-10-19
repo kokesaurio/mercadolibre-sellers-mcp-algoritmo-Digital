@@ -112,6 +112,9 @@
   .bloque { background: var(--hoja); border-radius: 6px; box-shadow: var(--sombra); padding: 20px 24px; margin: 0 0 16px; }
   .bloque-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
   .bloque-cab p { margin: 0; color: var(--tinta-2); font-size: 14px; }
+  .jefe { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; padding: 12px 14px; border-radius: 6px; background: var(--fondo); }
+  .jefe-emoji { font-size: 26px; line-height: 1; }
+  .jefe-texto { margin: 0; font-size: 15px; } .jefe-texto small { display: block; color: var(--tinta-2); font-size: 13.5px; margin-top: 2px; }
   .planilla { width: 100%; border-collapse: collapse; }
   .planilla th { text-align: left; font: 600 13px/1.3 var(--texto); color: var(--tinta-2); padding: 10px 14px; border-bottom: 1px solid var(--filete); }
   .planilla td { padding: 0; border-bottom: 1px solid var(--filete); vertical-align: top; }
@@ -237,6 +240,7 @@
 
   <section class="bloque" data-tour="equipo">
     <div class="bloque-cab"><h2>Tu equipo de turno</h2><p id="equipo-pie"></p></div>
+    <div class="jefe" id="jefe" data-tour="jefe"></div>
     <table class="planilla">
       <thead class="oculto"><tr><th scope="col">Trabajador, estado, última novedad y alertas sin leer</th></tr></thead>
       <tbody id="equipo"></tbody>
@@ -475,6 +479,10 @@
 
   // ───────── Equipo ─────────
   var activos = D.equipo.filter(function (w) { return w.activo; }).length;
+  var J = D.jefe || { nombre: 'El jefe', emoji: '🎩', propio: false };
+  $('jefe').appendChild(h('span', { clase: 'jefe-emoji', 'aria-hidden': 'true', texto: J.emoji }));
+  $('jefe').appendChild(h('p', { clase: 'jefe-texto' }, [h('strong', { texto: J.nombre }), ' coordina a los ' + D.equipo.length + ' trabajadores.',
+    h('small', { texto: J.propio ? 'Pedile a Claude: "' + J.nombre + ', ¿cómo vendo más este mes?" y reparte el trabajo.' : 'Ponele nombre: pedile a Claude "el jefe se llama …". Después le hablás por su nombre.' })]));
   $('equipo-pie').textContent = activos + ' de ' + D.equipo.length + ' trabajando. Tocá a cualquiera para ver todo lo que sabe.';
   D.equipo.forEach(function (w) {
     var est = w.error ? 'error' : w.activo ? '' : 'pausa';
@@ -581,6 +589,7 @@
     ['numeros', 'Tus números', 'Facturación, lo que te queda limpio, la ganancia de 30 días, la publicidad, tu reputación y lo que tenés para responder. Si dice parcial, faltan costos en el cerebro.'],
     ['dia', 'Hoy y día por día', 'Lo que vendiste e invertiste en publicidad hoy, al momento, contra tu promedio. Abajo, los últimos 30 días: pasá el mouse por cada columna para ver el detalle del día (con el teclado, usá las flechas).'],
     ['equipo', 'Tu equipo de turno', 'Los 18 trabajadores: cada cuánto controlan, cuándo fue la última vez y qué encontraron. Tocá cualquiera para ver su tabla completa.'],
+    ['jefe', 'Tu jefe de equipo', 'Coordina a los trabajadores: le das un objetivo y reparte el trabajo. Ponele el nombre que quieras pidiéndole a Claude "el jefe se llama …" (también podés elegirle un emoji), y después hablale por su nombre.'],
     ['viene', 'Lo que viene', 'Las campañas de MercadoLibre y las fechas cruciales. Si dice que falta tu decisión, Clara te lo va a seguir preguntando.'],
     ['evolucion', 'Evolución de 30 días', 'Cómo se mueven tus números día a día. Se llena sola con cada control del equipo.'],
     ['bitacora', 'La bitácora', 'Todo lo que avisaron en la semana. Filtrá por trabajador o mirá solo lo urgente.'],
@@ -626,7 +635,7 @@
     function serie(base, paso, n) { var a = []; for (var i = n; i >= 0; i--) a.push({ d: new Date(ahora - i * Dd).toISOString().slice(0, 10), v: Math.round(base + paso * (n - i) + Math.sin(i) * base * 0.04) }); return a; }
     var eq = [['precios', '🕵️', 'Vera', 'Centinela de precios', 'cada 30 min', 'Un rival quedó más barato que vos en el termo 1L'], ['ventas', '📦', 'Tomás', 'Contador de ventas', 'cada 1 h', 'El rival que más vende: Termo Lumilagro (≈ 6 u./día)'], ['ranking', '🏆', 'Martina', 'Vigía de búsquedas', 'cada 1 h', 'Tus puestos: termo 1 litro 2º'], ['rivales', '🎯', 'Bruno', 'Cazador de rivales nuevos', 'cada 3 h', 'Sin rivales nuevos esta semana'], ['auditor', '🩺', 'Lucía', 'Auditora de publicaciones', 'cada 15 días', '3 en rojo para arreglar'], ['agenda', '🗓️', 'Clara', 'Agenda comercial', 'cada 1 día', '1 decisión pendiente: CyberMonday'], ['rentabilidad', '💰', 'Ramiro', 'Analista de rentabilidad', 'cada 1 día', 'Ganancia neta estimada 30 días: $ 412.300'], ['anuncios', '📣', 'Ana', 'Gestora de anuncios', 'cada 1 día', '7 días: invertiste $ 30.000 y vendiste $ 200.000 por ads'], ['logistica', '🚚', 'Leo', 'Coordinador de logística', 'cada 2 h', '2 para despachar hoy'], ['contabilidad', '🧾', 'Carmen', 'Contadora', 'cada 1 día', 'Neto del mes ≈ $ 1.184.000'], ['stock', '📦', 'Nico', 'Encargado de stock', 'cada 6 h', '1 se corta en una semana'], ['atencion', '💬', 'Paula', 'Atención al comprador', 'cada 30 min', '2 preguntas sin responder'], ['reclamos', '🛡️', 'Iván', 'Reclamos y mediaciones', 'cada 1 h', 'Sin reclamos abiertos'], ['reputacion', '⭐', 'Valen', 'Reputación y opiniones', 'cada 1 día', 'Verde y MercadoLíder platinum'], ['catalogo', '🏷️', 'Gabi', 'Catálogo', 'cada 6 h', 'Ganás 4 de 5 catálogos'], ['moderaciones', '🚫', 'Sole', 'Moderaciones', 'cada 6 h', 'Ninguna publicación moderada'], ['proveedores', '🔄', 'Fede', 'Proveedores', 'cada 6 h', '6 productos vinculados a proveedores'], ['tendencias', '📈', 'Sofía', 'Radar de tendencias', 'cada 12 h', 'Lo más buscado: termo de vidrio']];
     return {
-      generado: ahora - 4 * 60000, tiendas: ['TU_TIENDA'], corriendo: 'servicio',
+      generado: ahora - 4 * 60000, tiendas: ['TU_TIENDA'], corriendo: 'servicio', jefe: { nombre: 'Don Ramón', emoji: '🎩', propio: true },
       hoy: { dia: hoyDemo, ventas: 96500, ordenes: 7, unidades: 9, ads: 3900, ventasAds: 41000, acos: 9.5, enVivo: true },
       ventasDia: Array.from({ length: 30 }, function (_, i) { var d = new Date(ahora - (29 - i) * Dd); var b = Math.round(70000 + 35000 * Math.sin(i / 3.2) + (d.getDay() === 0 ? -30000 : 0) + i * 900); if (i === 29) b = 96500; return { d: ymd(d), bruto: Math.max(0, b), ordenes: Math.max(1, Math.round(b / 13000)), unidades: Math.max(1, Math.round(b / 10500)) }; }),
       adsDia: Array.from({ length: 30 }, function (_, i) { var d = new Date(ahora - (29 - i) * Dd); var c = Math.round(3600 + 900 * Math.sin(i / 2.1)); if (i === 29) c = 3900; return { d: ymd(d), cost: c, ventas: i === 29 ? 41000 : Math.round(c * (8 + 3 * Math.cos(i / 4))), units: 3 }; }),
