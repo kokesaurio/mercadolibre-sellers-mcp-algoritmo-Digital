@@ -87,6 +87,12 @@ compradores. Por eso:
   revisar visitas y conversión en 7 días.
 
 ## El mejorador de UNA publicación (la receta que convierte)
+Es **multicuenta**: con varias tiendas conectadas no hace falta decir la cuenta, el
+mejorador encuentra solo de qué tienda es cada publicación.
+- *"¿Qué publicaciones tengo que mejorar?"* → `ml_mejorar_publicacion` **sin item_id**:
+  barrido de todas las tiendas (o `cuenta=` una), de la que más le falta a la que menos,
+  y el mismo producto (SKU) repetido entre tiendas. Arrancá por las de más ❌.
+
 Cuando el vendedor pide mejorar una publicación puntual:
 
 1. `ml_mejorar_publicacion item_id=MLA…` → checklist + las fotos de la publicación.
@@ -111,6 +117,9 @@ Cuando el vendedor pide mejorar una publicación puntual:
 3. `ml_aplicar_mejora` (sin `confirmar`) muestra cómo queda; con el **OK explícito**
    del vendedor, `confirmar=true` la escribe. Antes guarda un respaldo de la
    descripción anterior. Aplicarla de nuevo no duplica el FAQ.
+   Si el mismo producto (mismo SKU) está en otras publicaciones o tiendas, ofrecé
+   `mismo_sku=true`: la misma estructura en todas, cada una con el FAQ de SUS propias
+   preguntas. La vista previa lista en cuáles se aplicaría.
 4. Si hay preguntas sin responder, ofrecé responderlas (skill responder-preguntas-ml).
 
 ## Qué no hacer

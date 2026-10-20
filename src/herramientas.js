@@ -24,6 +24,76 @@ const cuentaParam = { cuenta: z.string().optional().describe('user_id de la cuen
 
 async function sellerId(c) { return (await c.get('/users/me')).id; }
 
+// ── Multicuenta: ¿de cuál de tus tiendas es esta publicación? Así no hace falta decir la cuenta ──
+const nombreTienda = (t) => (t ? t.nickname || String(t.user_id) : 'tu tienda');
+async function tiendaDelItem(args, id) {
+  const cuentas = listarCuentas();
+  const b = await cliente(args).get(`/items/${id}`);
+  const duena = b.seller_id != null ? cuentas.find((x) => String(x.user_id) === String(b.seller_id)) : null;
+  if (duena) return { c: cliente({ cuenta: String(duena.user_id) }), b, tienda: duena, propia: true };
+  if (b.seller_id != null) return { c: cliente(args), b, tienda: null, propia: false };
+  // ML no informó el vendedor: queda la tienda indicada (o la predeterminada)
+  const t = cuentas.find((x) => String(x.user_id) === String(args.cuenta)) || cuentas.find((x) => x.predeterminada) || cuentas[0] || null;
+  return { c: cliente(args), b, tienda: t, propia: true };
+}
+/** Las otras publicaciones con este SKU en TODAS tus tiendas conectadas. */
+async function mismoSkuEnTiendas(sku, exceptoId) {
+  const out = [];
+  for (const t of listarCuentas()) {
+    const c = cliente({ cuenta: String(t.user_id) });
+    let ids = [];
+    try { ids = (await c.get(`/users/${t.user_id}/items/search`, { seller_sku: sku, limit: 50 })).results || []; } catch { continue; }
+    for (const id of ids) {
+      if (id === exceptoId || out.some((x) => x.id === id)) continue;
+      let b; try { b = await c.get(`/items/${id}`); } catch { continue; }
+      if (skuDeItem(b) !== sku) continue; // la búsqueda de ML es amplia: confirmamos el SKU exacto
+      if (b.seller_id != null && String(b.seller_id) !== String(t.user_id)) continue;
+      out.push({ id, c, b, tienda: t });
+    }
+  }
+  return out;
+}
+/** Barrido del mejorador: todas las tiendas (o la indicada), sin fotos, de la que más le falta a la que menos. */
+async function barridoMejorador(args) {
+  const todas = listarCuentas();
+  if (!todas.length) return 'No hay tiendas conectadas: usá ml_conectar.';
+  const tiendas = args.cuenta ? todas.filter((t) => String(t.user_id) === String(args.cuenta)) : todas;
+  if (!tiendas.length) return `La cuenta ${args.cuenta} no está conectada (ml_cuentas).`;
+  const maximo = Math.min(Math.max(1, Math.round(args.maximo ?? 15)), 50);
+  const ok = (x) => (x ? '✅' : '❌');
+  const porSku = new Map(), bloques = [];
+  for (const t of tiendas) {
+    const c = cliente({ cuenta: String(t.user_id) });
+    let ids = [];
+    try { ids = (await c.get(`/users/${t.user_id}/items/search`, { status: 'active', limit: maximo })).results || []; } catch (e) { bloques.push(`## 🏪 ${nombreTienda(t)}\n⚠️ No pude leer sus publicaciones: ${e.message}`); continue; }
+    ids = ids.slice(0, maximo);
+    const filas = [];
+    for (let k = 0; k < ids.length; k += 20) {
+      let lote = []; try { lote = await c.get('/items', { ids: ids.slice(k, k + 20).join(',') }); } catch {}
+      for (const r of Array.isArray(lote) ? lote : []) {
+        const b = r?.body; if (!b?.id) continue;
+        let desc = ''; try { desc = (await c.get(`/items/${b.id}/description`)).plain_text || ''; } catch {}
+        const rev = revisarDescripcion(quitarBloqueFAQ(desc), b.title);
+        const ch = Object.fromEntries(rev.chequeos.map((x) => [x.id, x.ok]));
+        const pq = await preguntasRecientes(c, b.id, { maximo: 50 }).catch(() => []);
+        const sinResp = pq.filter((q) => !q.answer?.text).length;
+        const faltas = rev.chequeos.filter((x) => !x.ok).length + (b.video_id ? 0 : 1);
+        const sku = skuDeItem(b);
+        if (sku) { const g = porSku.get(sku) || []; g.push({ id: b.id, tienda: t }); porSku.set(sku, g); }
+        filas.push({ faltas, fila: `| ${b.id} ${String(b.title || '').slice(0, 40)} | ${ok(ch.resumen)} | ${ok(ch.medidas)} | ${ok(ch.caracteristicas)} | ${ok(ch.incluye)} | ${ok(!!b.video_id)} | ${pq.length >= 50 ? '50+' : pq.length}${sinResp ? ` (${sinResp} sin responder)` : ''} | ${faltas} |` });
+      }
+    }
+    filas.sort((a, b) => b.faltas - a.faltas);
+    bloques.push([`## 🏪 ${nombreTienda(t)} — ${filas.length} publicación(es) activa(s) revisada(s)`,
+      filas.length ? '| Publicación | Resumen (5 renglones) | Medidas | Características | Qué viene | Video | Preguntas 90 días | A arreglar |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n' + filas.map((x) => x.fila).join('\n') : '_Sin publicaciones activas._',
+      filas.length ? `${filas.filter((x) => x.faltas === 0).length} de ${filas.length} con la receta completa.` : ''].filter(Boolean).join('\n'));
+  }
+  const repetidos = [...porSku.entries()].filter(([, g]) => new Set(g.map((x) => x.tienda.user_id)).size > 1);
+  return [`# 🛠️ Mejorador — barrido de ${tiendas.length} tienda(s)`, '', ...bloques,
+    ...(repetidos.length ? ['', '## 🔁 El mismo producto en varias tiendas (por SKU)', ...repetidos.map(([sku, g]) => `- **${sku}**: ${g.map((x) => `${x.id} (${nombreTienda(x.tienda)})`).join(' · ')} → mejorá una y aplicala a todas con \`ml_aplicar_mejora item_id=${g[0].id} mismo_sku=true\``)] : []),
+    '', 'El video acá cuenta solo el video clásico; los clips y las **medidas en las fotos** se revisan de a una: `ml_mejorar_publicacion item_id=…` (empezá por las de más ❌).'].join('\n');
+}
+
 export const TOOLS = [
   // ───────────────────────────── Conexión ─────────────────────────────
   {
@@ -442,17 +512,19 @@ export const TOOLS = [
 
   {
     name: 'ml_mejorar_publicacion', title: 'Mejorador de publicaciones (revisión)', readOnly: true,
-    description: 'El mejorador de publicaciones: revisa UNA publicación contra la receta que convierte y devuelve el checklist con lo que falta. (1) FOTOS CON MEDIDAS: te muestra las fotos para que las mires — revisá cada imagen y decí si alguna tiene las medidas dibujadas (cotas con cm/mm/L/kg); si ninguna, es un ❌ (se arregla con la skill imagenes-ml). (2) VIDEO: video clásico o clips publicados. (3) DESCRIPCIÓN en este orden: los 5 primeros renglones con el RESUMEN de todo el producto, después MEDIDAS, CARACTERÍSTICAS PRINCIPALES y QUÉ VIENE EN LA CAJA. (4) PREGUNTAS DE LOS ÚLTIMOS 90 DÍAS: las audita (cuántas, cuántas sin responder, de qué temas preguntan) y las resume en un FAQ de 20 preguntas con las respuestas reales del vendedor. Trae también lo que ya dice la ficha técnica y el cerebro (medidas, características, qué incluye) para escribir la descripción nueva. No modifica nada: para aplicar, ml_aplicar_mejora con el OK del vendedor.',
-    schema: { ...cuentaParam, item_id: z.string().describe('La publicación (MLA...)'), fotos: z.boolean().optional().describe('false = no traer las fotos (más rápido)') },
+    description: 'El mejorador de publicaciones, MULTICUENTA: con item_id revisa UNA publicación de cualquiera de tus tiendas conectadas (encuentra sola de qué tienda es, no hace falta decir la cuenta) contra la receta que convierte y devuelve el checklist con lo que falta. (1) FOTOS CON MEDIDAS: te muestra las fotos para que las mires — revisá cada imagen y decí si alguna tiene las medidas dibujadas (cotas con cm/mm/L/kg); si ninguna, es un ❌ (se arregla con la skill imagenes-ml). (2) VIDEO: video clásico o clips publicados. (3) DESCRIPCIÓN en este orden: los 5 primeros renglones con el RESUMEN de todo el producto, después MEDIDAS, CARACTERÍSTICAS PRINCIPALES y QUÉ VIENE EN LA CAJA. (4) PREGUNTAS DE LOS ÚLTIMOS 90 DÍAS: las audita (cuántas, cuántas sin responder, de qué temas preguntan) y las resume en un FAQ de 20 preguntas con las respuestas reales del vendedor. Avisa si el mismo producto (mismo SKU) está en tus otras tiendas. SIN item_id hace un BARRIDO de todas tus tiendas (o de la indicada en cuenta): las publicaciones activas de cada una, de la que más le falta a la que menos, y agrupa el mismo producto entre tiendas. No modifica nada: para aplicar, ml_aplicar_mejora con el OK del vendedor.',
+    schema: { ...cuentaParam, item_id: z.string().optional().describe('La publicación (MLA...). Sin item_id: barrido de todas tus tiendas'),
+      fotos: z.boolean().optional().describe('false = no traer las fotos (más rápido)'),
+      maximo: z.number().optional().describe('Barrido: publicaciones activas por tienda (default 15, máx 50)') },
     async run(args) {
+      if (!args.item_id) return await barridoMejorador(args);
       const id = String(args.item_id || '').trim().toUpperCase();
       if (!/^M[A-Z]{2}\d+$/.test(id)) return 'item_id inválido: tiene que ser como MLA123456789.';
-      const c = cliente(args);
-      const b = await c.get(`/items/${id}`);
+      const { c, b, tienda, propia } = await tiendaDelItem(args, id);
       let desc = ''; try { desc = (await c.get(`/items/${id}/description`)).plain_text || ''; } catch {}
-      const sabido = saberDe(id, skuDeItem(b));
-      const [video, preguntas, imagenes] = await Promise.all([
-        estadoVideo(c, b), preguntasRecientes(c, id).catch(() => []), args.fotos === false ? [] : fotosDe(b)]);
+      const sku = skuDeItem(b), sabido = saberDe(id, sku);
+      const [video, preguntas, imagenes, gemelas] = await Promise.all([
+        estadoVideo(c, b), preguntasRecientes(c, id).catch(() => []), args.fotos === false ? [] : fotosDe(b), sku && propia ? mismoSkuEnTiendas(sku, id).catch(() => []) : []]);
       const rev = revisarDescripcion(quitarBloqueFAQ(desc), b.title);
       const aud = auditarPreguntas(preguntas);
       const mat = material(b, sabido);
@@ -461,7 +533,8 @@ export const TOOLS = [
       const medidasEsperadas = mat.medidas.length ? ` Medidas que deberían verse: ${mat.medidas.slice(0, 4).join(' · ')}.` : '';
       const ch = Object.fromEntries(rev.chequeos.map((x) => [x.id, x]));
       const lineas = [
-        `# 🛠️ Mejorador — ${id} «${b.title}»`, '',
+        `# 🛠️ Mejorador — ${id} «${b.title}»`,
+        propia ? `🏪 Tienda **${nombreTienda(tienda)}**${sku ? ` · SKU ${sku}` : ''}` : '⚠️ Esta publicación **no es de tus tiendas conectadas**: te muestro la revisión, pero no se puede aplicar.', '',
         '## Checklist',
         `- 📏 **Medidas en las fotos:** 👀 ${vistas ? `te muestro ${vistas} de ${nFotos} foto(s) abajo, en orden (foto 1 = portada). **Claude: mirá cada una y decí si alguna tiene las medidas dibujadas (cotas con números y unidad).** Si ninguna, es ❌ y se arma con la skill imagenes-ml (foto de medidas).` : nFotos ? 'no pude traer las fotos: abrí la publicación y fijate si alguna tiene las medidas dibujadas.' : '❌ la publicación no tiene fotos.'}${medidasEsperadas}`,
         `- 🎬 **Video:** ${ok(video.ok)} ${video.video ? 'tiene video' : ''}${video.video && video.clips ? ' y ' : ''}${video.clips ? `${video.clips} clip(s) publicado(s)` : ''}${!video.ok ? (video.revision ? `${video.revision} clip(s) en revisión (24-48 hs)` : 'sin video ni clips: hacé uno con la skill video-publicaciones-ml o ugc-ml') : ''}`,
@@ -472,6 +545,7 @@ export const TOOLS = [
         `- ↕️ **Orden:** ${ok(ch.orden.ok)} ${ch.orden.texto}`,
         `- ❓ **Preguntas de los últimos ${DIAS_PREGUNTAS} días:** ${aud.total} (${aud.respondidas} respondidas${aud.sinResponder ? `, **${aud.sinResponder} sin responder**` : ''}) → FAQ de ${aud.faq.length} pregunta(s)${aud.faq.length < FAQ_MAXIMO ? ` (con tus respuestas de ${DIAS_PREGUNTAS} días no alcanzan para ${FAQ_MAXIMO}: no invento preguntas)` : ''}`,
       ];
+      if (gemelas.length) lineas.push('', `## 🔁 El mismo producto en tus otras publicaciones (SKU ${sku})`, ...gemelas.map((g) => `- ${g.id} en **${nombreTienda(g.tienda)}**`), `Mejorala una vez y aplicala a todas con \`ml_aplicar_mejora item_id=${id} mismo_sku=true\`: cada una se queda con el FAQ de SUS preguntas.`);
       if (aud.temas.length) lineas.push('', `## De qué te preguntan (${DIAS_PREGUNTAS} días)`, aud.temas.slice(0, 8).map(([t, n]) => `${t} ${n}`).join(' · ') + (aud.temas.find(([t]) => t === 'medidas') && !ch.medidas.ok ? '\n⚠️ Te preguntan las medidas y la descripción no las tiene: es lo primero para arreglar.' : ''));
       lineas.push('', '## Material para la descripción nueva (de tu ficha técnica y el cerebro)',
         `**Medidas:** ${mat.medidas.length ? mat.medidas.join(' · ') : '_no están en la ficha ni en el cerebro: pedíselas al vendedor_'}`,
@@ -480,13 +554,13 @@ export const TOOLS = [
         '', '<details><summary>Descripción actual</summary>', '', '```', desc.slice(0, 6000) || '(vacía)', '```', '</details>');
       if (aud.faq.length) lineas.push('', `## FAQ propuesto (${aud.faq.length} preguntas, tus respuestas reales)`, ...aud.faq.map((g, i) => `${i + 1}. **${g.pregunta}** (${g.veces} ${g.veces === 1 ? 'vez' : 'veces'}) → ${g.respuesta}`), '_Descarté stock, precio, cuotas, envíos y cualquier respuesta con datos de contacto._');
       lineas.push('', '## Siguiente paso',
-        'Con este material, Claude arma la descripción nueva: **resumen en 3 a 5 renglones** (qué es, para qué sirve, lo que lo diferencia, la medida clave y qué trae), **medidas**, **características principales** y **qué viene en la caja** — usando solo datos reales (ficha, cerebro, descripción actual o lo que diga el vendedor). Mostrala al vendedor y, con su OK, `ml_aplicar_mejora item_id=' + id + '` (el FAQ de ' + DIAS_PREGUNTAS + ' días se agrega solo al final). Si las fotos no tienen medidas: skill imagenes-ml. Si falta video: skill video-publicaciones-ml.');
+        'Con este material, Claude arma la descripción nueva: **resumen en 3 a 5 renglones** (qué es, para qué sirve, lo que lo diferencia, la medida clave y qué trae), **medidas**, **características principales** y **qué viene en la caja** — usando solo datos reales (ficha, cerebro, descripción actual o lo que diga el vendedor). Mostrala al vendedor y, con su OK, `ml_aplicar_mejora item_id=' + id + (gemelas.length ? ' (y mismo_sku=true para todas sus tiendas)' : '') + '` (el FAQ de ' + DIAS_PREGUNTAS + ' días se agrega solo al final). Si las fotos no tienen medidas: skill imagenes-ml. Si falta video: skill video-publicaciones-ml.');
       return { texto: lineas.join('\n'), imagenes: imagenes.filter(Boolean) };
     },
   },
   {
     name: 'ml_aplicar_mejora', title: 'Mejorador de publicaciones (aplicar)', readOnly: false,
-    description: 'MODIFICA la descripción real de una publicación con la estructura que convierte: el RESUMEN en los 5 primeros renglones (3 a 5 renglones), después MEDIDAS, CARACTERÍSTICAS PRINCIPALES, QUÉ VIENE EN LA CAJA, lo extra que haya que conservar, y al final las PREGUNTAS FRECUENTES: las 20 de los últimos 90 días con las respuestas reales del vendedor (se calculan solas). Los textos los escribe Claude con datos reales (ml_mejorar_publicacion trae el material): nunca inventar medidas ni características. Sin confirmar=true solo muestra cómo quedaría; con confirmar=true la escribe (solo con OK explícito del vendedor) y guarda antes un respaldo de la descripción anterior. Valida: sin HTML, sin datos de contacto ni links, medidas con número y unidad.',
+    description: 'MODIFICA la descripción real de una publicación (de cualquiera de tus tiendas: encuentra sola de cuál es) con la estructura que convierte: el RESUMEN en los 5 primeros renglones (3 a 5 renglones), después MEDIDAS, CARACTERÍSTICAS PRINCIPALES, QUÉ VIENE EN LA CAJA, lo extra que haya que conservar, y al final las PREGUNTAS FRECUENTES: las 20 de los últimos 90 días con las respuestas reales del vendedor (se calculan solas). Con mismo_sku=true la aplica también a TODAS las publicaciones con el mismo SKU en todas tus tiendas conectadas, cada una con el FAQ de SUS propias preguntas. Los textos los escribe Claude con datos reales (ml_mejorar_publicacion trae el material): nunca inventar medidas ni características. Sin confirmar=true solo muestra cómo quedaría; con confirmar=true la escribe (solo con OK explícito del vendedor) y guarda antes un respaldo de cada descripción anterior. Valida: sin HTML, sin datos de contacto ni links, medidas con número y unidad.',
     schema: { ...cuentaParam, item_id: z.string().describe('La publicación (MLA...)'),
       resumen: z.array(z.string()).describe('3 a 5 renglones: el resumen de todo el producto'),
       medidas: z.array(z.string()).describe('Renglones de medidas (ej "Alto: 27 cm")'),
@@ -494,31 +568,46 @@ export const TOOLS = [
       incluye: z.array(z.string()).describe('Qué viene en la caja, un renglón por cosa'),
       extra: z.array(z.string()).optional().describe('Texto de la descripción actual que haya que conservar (garantía, uso, cuidados)'),
       faq: z.boolean().optional().describe('false = no agregar las preguntas frecuentes'),
+      mismo_sku: z.boolean().optional().describe('true = aplicarla también a las publicaciones con el mismo SKU en todas tus tiendas'),
       confirmar: z.boolean().optional().describe('true = escribirla en MercadoLibre (solo con OK explícito del vendedor)') },
     async run(args) {
       const id = String(args.item_id || '').trim().toUpperCase();
       if (!/^M[A-Z]{2}\d+$/.test(id)) return 'item_id inválido: tiene que ser como MLA123456789.';
-      const c = cliente(args);
-      const b = await c.get(`/items/${id}`);
-      let actual = ''; try { actual = (await c.get(`/items/${id}/description`)).plain_text || ''; } catch {}
-      const aud = args.faq === false ? { faq: [] } : auditarPreguntas(await preguntasRecientes(c, id).catch(() => []));
-      let nueva;
-      try { nueva = armarMejorada(args.faq === false ? '' : actual, { resumen: args.resumen, medidas: args.medidas, caracteristicas: args.caracteristicas, incluye: args.incluye, extra: args.extra, faq: aud.faq }); }
-      catch (e) { return `No la armé: ${e.message}. Corregilo y volvé a intentar.`; }
-      const rev = revisarDescripcion(quitarBloqueFAQ(nueva), b.title);
-      const nFaq = (nueva.match(/^¿/gm) || []).length;
-      if (!args.confirmar) {
-        return [`# 🛠️ Así quedaría la descripción de ${id}`, '', '```', nueva, '```', '',
-          `Estructura: ${rev.chequeos.map((x) => `${x.ok ? '✅' : '❌'} ${x.id}`).join(' · ')} · ❓ ${nFaq} preguntas frecuentes · ${nueva.length.toLocaleString('es-AR')} caracteres.`,
-          '', 'No toqué nada. ¿La aplico? (ml_aplicar_mejora … confirmar=true). Antes de escribirla guardo un respaldo de la descripción actual.'].join('\n');
+      const base = await tiendaDelItem(args, id);
+      if (!base.propia) return `No la toqué: ${id} no es de ninguna de tus tiendas conectadas (ml_cuentas).`;
+      const sku = skuDeItem(base.b);
+      if (args.mismo_sku && !sku) return `${id} no tiene SKU cargado, así que no puedo encontrar el mismo producto en tus otras tiendas. Cargale el SKU en MercadoLibre, o aplicala sin mismo_sku.`;
+      const destinos = [{ id, c: base.c, b: base.b, tienda: base.tienda }, ...(args.mismo_sku ? await mismoSkuEnTiendas(sku, id) : [])];
+      const textos = { resumen: args.resumen, medidas: args.medidas, caracteristicas: args.caracteristicas, incluye: args.incluye, extra: args.extra };
+      try { armarMejorada('', { ...textos, faq: [] }); } catch (e) { return `No la armé: ${e.message}. Corregilo y volvé a intentar.`; }
+      // Cada publicación con SU descripción actual y el FAQ de SUS preguntas
+      for (const d of destinos) {
+        d.actual = ''; try { d.actual = (await d.c.get(`/items/${d.id}/description`)).plain_text || ''; } catch {}
+        const aud = args.faq === false ? { faq: [] } : auditarPreguntas(await preguntasRecientes(d.c, d.id).catch(() => []));
+        try { d.nueva = armarMejorada(args.faq === false ? '' : d.actual, { ...textos, faq: aud.faq }); } catch (e) { d.error = e.message; }
+        d.nFaq = d.nueva ? (d.nueva.match(/^¿/gm) || []).length : 0;
       }
-      const respaldo = respaldar(id, actual);
-      await c.put(`/items/${id}/description?api_version=2`, { plain_text: nueva });
-      return [`# ✅ Descripción de ${id} mejorada`, '',
-        `- ${rev.chequeos.map((x) => `${x.ok ? '✅' : '❌'} ${x.id}`).join(' · ')}`,
-        `- ❓ ${nFaq} preguntas frecuentes de los últimos ${DIAS_PREGUNTAS} días al final${nFaq < FAQ_MAXIMO && args.faq !== false ? ` (no había respuestas para ${FAQ_MAXIMO})` : ''}`,
-        `- 💾 La descripción anterior quedó respaldada en \`${respaldo}\` por si querés volver atrás.`,
-        '', 'Lucía la vuelve a revisar en su próxima auditoría. Si las fotos no tienen medidas o falta video, eso se arregla aparte (skills imagenes-ml y video-publicaciones-ml).'].join('\n');
+      const [p0] = destinos;
+      if (p0.error) return `No la armé: ${p0.error}. Corregilo y volvé a intentar.`;
+      const rev = revisarDescripcion(quitarBloqueFAQ(p0.nueva), p0.b.title);
+      const quien = (d) => `${d.id} (${nombreTienda(d.tienda)})`;
+      if (!args.confirmar) {
+        return [`# 🛠️ Así quedaría la descripción de ${quien(p0)}`, '', '```', p0.nueva, '```', '',
+          `Estructura: ${rev.chequeos.map((x) => `${x.ok ? '✅' : '❌'} ${x.id}`).join(' · ')} · ❓ ${p0.nFaq} preguntas frecuentes · ${p0.nueva.length.toLocaleString('es-AR')} caracteres.`,
+          ...(destinos.length > 1 ? ['', `## 🔁 También se aplicaría en ${destinos.length - 1} publicación(es) con el SKU ${sku}`, ...destinos.slice(1).map((d) => `- ${quien(d)}: ${d.error ? '⚠️ ' + d.error : `misma estructura, con ${d.nFaq} preguntas frecuentes de SUS compradores`}`)] : args.mismo_sku ? ['', `No encontré otras publicaciones con el SKU ${sku} en tus tiendas: se aplica solo a esta.`] : []),
+          '', `No toqué nada. ¿La aplico? (ml_aplicar_mejora … ${args.mismo_sku ? 'mismo_sku=true ' : ''}confirmar=true). Antes de escribir guardo un respaldo de cada descripción actual.`].join('\n');
+      }
+      const hechas = [], fallidas = [];
+      for (const d of destinos) {
+        if (d.error) { fallidas.push(`${quien(d)}: ${d.error}`); continue; }
+        try { d.respaldo = respaldar(d.id, d.actual); await d.c.put(`/items/${d.id}/description?api_version=2`, { plain_text: d.nueva }); hechas.push(d); }
+        catch (e) { fallidas.push(`${quien(d)}: ${e.message}`); }
+      }
+      return [`# ✅ Descripción mejorada en ${hechas.length} publicación(es)`, '',
+        `- Estructura: ${rev.chequeos.map((x) => `${x.ok ? '✅' : '❌'} ${x.id}`).join(' · ')}`,
+        ...hechas.map((d) => `- **${quien(d)}** · ❓ ${d.nFaq} preguntas frecuentes de los últimos ${DIAS_PREGUNTAS} días · 💾 respaldo en \`${d.respaldo}\``),
+        ...(fallidas.length ? ['', '⚠️ No se pudo en:', ...fallidas.map((x) => '- ' + x)] : []),
+        '', 'Lucía las vuelve a revisar en su próxima auditoría. Si las fotos no tienen medidas o falta video, eso se arregla aparte (skills imagenes-ml y video-publicaciones-ml).'].join('\n');
     },
   },
   {

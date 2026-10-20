@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.28.0
+- **🏪 El mejorador, multicuenta**: encuentra solo de cuál de tus tiendas conectadas es cada publicación (no hace falta decir la cuenta); una publicación ajena se puede revisar pero no modificar.
+- **Barrido de todas las tiendas**: `ml_mejorar_publicacion` sin item_id revisa las publicaciones activas de cada tienda (resumen en 5 renglones, medidas, características, qué viene, video, preguntas de 90 días y las sin responder), de la que más le falta a la que menos, y marca el mismo producto (SKU) repetido entre tiendas.
+- **Mismo SKU en todas tus tiendas**: `ml_aplicar_mejora mismo_sku=true` aplica la misma estructura en todas las publicaciones de ese SKU, cada una con el FAQ de sus propias preguntas y su propio respaldo. Confirma el SKU exacto (no mezcla "TER-1L" con "TER-1L-PACK") y usa la cuenta dueña de cada publicación. Suite: 133 pruebas.
+
 ## 1.27.0
 - **🛠️ El mejorador de publicaciones** (`ml_mejorar_publicacion`): revisa una publicación contra la receta que convierte — **medidas en las fotos** (le muestra las fotos a Claude para que las mire), **video** (clásico o clips publicados), y la **descripción en orden**: resumen de todo el producto en los **5 primeros renglones** → **medidas** → **características principales** → **qué viene en la caja**. Audita las **preguntas de los últimos 90 días** (total, sin responder, de qué temas preguntan) y las resume en un **FAQ de 20** con tus respuestas reales. Trae el material de la ficha técnica y el cerebro para escribir la descripción.
 - **`ml_aplicar_mejora`** reescribe la descripción con esa estructura y el FAQ de 20 al final: primero la vista previa, con tu OK la escribe y guarda un **respaldo** de la anterior. No duplica el FAQ si se aplica dos veces. Rechaza HTML, links y datos de contacto, y medidas sin número.

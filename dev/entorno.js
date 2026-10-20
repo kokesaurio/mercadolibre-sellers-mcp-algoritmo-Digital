@@ -24,6 +24,7 @@ const envios = {
 let campaniasML = [{ id: 'C1', name: 'Campaña general', status: 'active', budget: 5000, metrics: { cost: 30000, acos: 15, units_quantity: 25, total_amount: 200000 } }];
 let demoraRate = 0.02;
 const itemsPorEstado = { active: ['MLA111', 'MLA222'], under_review: [], paused: [], inactive: [] };
+let activos888 = null; const porSkuDeTienda = {}; // multicuenta: publicaciones de la segunda tienda y búsqueda por SKU
 let portadaPobre = [];
 let ptwMLA111 = { status: 'competing', current_price: 42000, price_to_win: 39900, boosts: [{ id: 'fulfillment' }] };
 let preguntasPend = [{ id: 555, item_id: 'MLA111', text: '¿Tenés stock?', date_created: new Date(Date.now() - 10 * 60000).toISOString() }];
@@ -121,7 +122,9 @@ export function crearMockMeli() {
   app.get('/orders/:id/shipments', auth, (req, res) => envios[req.params.id] ? res.json(envios[req.params.id]) : res.status(404).json({ message: 'shipment not found' }));
   app.get('/users/:uid/items/search', auth, (req, res) => {
     if (req.query.tags === 'poor_quality_thumbnail') return res.json({ paging: { total: portadaPobre.length }, results: portadaPobre });
-    const r = itemsPorEstado[req.query.status || 'active'] || [];
+    if (String(req.params.uid) !== String(req.usuario)) return res.status(403).json({ message: 'forbidden: no es tu cuenta' });
+    if (req.query.seller_sku) { const r = (porSkuDeTienda[req.usuario] || {})[String(req.query.seller_sku)] || []; return res.json({ paging: { total: r.length }, results: r }); }
+    const r = (req.usuario === 888 && activos888) || itemsPorEstado[req.query.status || 'active'] || [];
     res.json({ paging: { total: r.length }, results: r });
   });
   app.get('/items', auth, (req, res) => res.json(String(req.query.ids).split(',').map((id) => ({ code: 200, body: { id, title: 'Producto ' + id, price: 42000, currency_id: 'ARS', available_quantity: 10, sold_quantity: 55, status: 'active', permalink: 'https://articulo.mercadolibre.com.ar/' + id, catalog_listing: id === 'MLA111', ...(mercado.items?.[id] || {}) } }))));
@@ -1046,7 +1049,7 @@ async function pruebas() {
     if (descripcionesPut.length !== putsAntes) throw new Error('escribió sin confirmar');
     const vieja = descripciones.MLA700;
     const ok = await AP.run({ ...base, confirmar: true });
-    contiene(ok, 'Descripción de MLA700 mejorada', '20 preguntas frecuentes', 'respaldada');
+    contiene(ok, 'Descripción mejorada en 1 publicación(es)', '20 preguntas frecuentes', 'respaldo en');
     const nueva = descripciones.MLA700, ls = nueva.split('\n');
     if (ls[0] !== base.resumen[0] || ls.slice(0, 5).some((l) => /^(MEDIDAS|CARACTER)/.test(l))) throw new Error('los 5 primeros renglones no son el resumen');
     const i = (t) => nueva.indexOf(t);
@@ -1063,6 +1066,50 @@ async function pruebas() {
     const au = await import('../src/auditoria.js');
     const ev = au.evaluar({ b: { title: 'Termo Acero 1 Litro', pictures: [], attributes: [] }, desc: vieja + '\n' + 'Texto largo. '.repeat(20) });
     if (!ev.problemas.some((p) => p.codigo === 'descripcion_estructura' && p.texto.includes('ml_mejorar_publicacion'))) throw new Error('Lucía no marcó la descripción desordenada');
+  });
+
+  await caso('mejorador multicuenta: encuentra la tienda de cada publicación, aplica al mismo SKU en todas tus tiendas y barre todas', async () => {
+    const hace = (d) => new Date(Date.now() - d * 86400000).toISOString();
+    const sku = [{ id: 'SELLER_SKU', value_name: 'TER-1L' }];
+    mercado.items = { ...(mercado.items || {}),
+      MLA710: { seller_id: 777, title: 'Termo Acero 1 Litro Negro', attributes: sku, pictures: [] },
+      MLA711: { seller_id: 777, title: 'Otro producto', attributes: [{ id: 'SELLER_SKU', value_name: 'TER-1L-PACK' }], pictures: [] },
+      MLA810: { seller_id: 888, title: 'Termo Acero 1 Litro Negro (tienda dos)', attributes: sku, pictures: [], video_id: 'v1' },
+      MLA811: { seller_id: 888, title: 'Mate de la tienda dos', attributes: [], pictures: [] },
+      MLA999999: { seller_id: 123456, title: 'Termo de un rival', attributes: sku, pictures: [] } };
+    porSkuDeTienda[777] = { 'TER-1L': ['MLA710', 'MLA711'] }; porSkuDeTienda[888] = { 'TER-1L': ['MLA810'] };
+    descripciones.MLA810 = 'Descripción vieja de la tienda dos.';
+    preguntasPorItem.MLA810 = [{ id: 1, status: 'ANSWERED', date_created: hace(2), text: '¿Es apto para camping montaña?', answer: { text: 'Sí, ideal para camping.', date_created: hace(2) } }];
+    // Revisión de una publicación de la SEGUNDA tienda sin decir la cuenta
+    const r = await tool('ml_mejorar_publicacion').run({ item_id: 'MLA810', fotos: false });
+    contiene(r.texto, '🏪 Tienda **TIENDA_DOS**', 'SKU TER-1L', 'El mismo producto en tus otras publicaciones', 'MLA710 en **TIENDA_DEMO**', 'mismo_sku=true', '🎬 **Video:** ✅');
+    if (r.texto.includes('MLA711')) throw new Error('mezcló un SKU parecido pero distinto');
+    // Publicación ajena: se puede mirar, no aplicar
+    contiene((await tool('ml_mejorar_publicacion').run({ item_id: 'MLA999999', fotos: false })).texto, 'no es de tus tiendas conectadas');
+    const AP = tool('ml_aplicar_mejora');
+    const base = { resumen: ['Termo de acero de 1 litro.', 'Mantiene el agua caliente 24 horas.', 'Mide 27 cm de alto.'], medidas: ['Alto: 27 cm'], caracteristicas: ['Acero inoxidable', 'Doble pared'], incluye: ['1 termo'] };
+    contiene(await AP.run({ ...base, item_id: 'MLA999999', confirmar: true }), 'no es de ninguna de tus tiendas');
+    contiene(await AP.run({ ...base, item_id: 'MLA811', mismo_sku: true }), 'no tiene SKU');
+    // Vista previa con mismo SKU: muestra las dos tiendas y no escribe
+    const puts = descripcionesPut.length;
+    const prev = await AP.run({ ...base, item_id: 'MLA710', mismo_sku: true });
+    contiene(prev, 'MLA710 (TIENDA_DEMO)', 'También se aplicaría en 1 publicación(es) con el SKU TER-1L', 'MLA810 (TIENDA_DOS)', 'con 1 preguntas frecuentes de SUS compradores', 'mismo_sku=true confirmar=true');
+    if (descripcionesPut.length !== puts) throw new Error('escribió sin confirmar');
+    const ok = await AP.run({ ...base, item_id: 'MLA710', mismo_sku: true, confirmar: true });
+    contiene(ok, 'mejorada en 2 publicación(es)', '**MLA710 (TIENDA_DEMO)**', '**MLA810 (TIENDA_DOS)**');
+    const escritas = descripcionesPut.slice(puts).map((x) => x.id).sort();
+    if (escritas.join() !== 'MLA710,MLA810') throw new Error('escribió en: ' + escritas);
+    if (!descripciones.MLA810.includes('¿Es apto para camping montaña?') || descripciones.MLA710.includes('camping')) throw new Error('el FAQ no es el de las preguntas de cada publicación');
+    if (!descripciones.MLA810.startsWith('Termo de acero de 1 litro.')) throw new Error('no aplicó la estructura en la otra tienda');
+    // Barrido de todas las tiendas
+    const antes = itemsPorEstado.active; itemsPorEstado.active = ['MLA700', 'MLA710']; activos888 = ['MLA810', 'MLA811'];
+    try {
+      const bar = await tool('ml_mejorar_publicacion').run({});
+      contiene(bar, 'barrido de 2 tienda(s)', '🏪 TIENDA_DEMO — 2 publicación(es)', '🏪 TIENDA_DOS — 2 publicación(es)', '| Publicación | Resumen (5 renglones)', 'MLA811', 'El mismo producto en varias tiendas', '**TER-1L**: ', 'MLA810 (TIENDA_DOS)', 'medidas en las fotos');
+      const solo = await tool('ml_mejorar_publicacion').run({ cuenta: '888' });
+      contiene(solo, 'barrido de 1 tienda(s)', 'TIENDA_DOS'); if (solo.includes('TIENDA_DEMO —')) throw new Error('barrió una tienda que no se pidió');
+      contiene(await tool('ml_mejorar_publicacion').run({ cuenta: '555' }), 'no está conectada');
+    } finally { itemsPorEstado.active = antes; activos888 = null; }
   });
 
   // ───────────── Nico, Paula, Iván, Valen, Gabi, Sole y Fede ─────────────
