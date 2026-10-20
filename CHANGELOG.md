@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.27.0
+- **🛠️ El mejorador de publicaciones** (`ml_mejorar_publicacion`): revisa una publicación contra la receta que convierte — **medidas en las fotos** (le muestra las fotos a Claude para que las mire), **video** (clásico o clips publicados), y la **descripción en orden**: resumen de todo el producto en los **5 primeros renglones** → **medidas** → **características principales** → **qué viene en la caja**. Audita las **preguntas de los últimos 90 días** (total, sin responder, de qué temas preguntan) y las resume en un **FAQ de 20** con tus respuestas reales. Trae el material de la ficha técnica y el cerebro para escribir la descripción.
+- **`ml_aplicar_mejora`** reescribe la descripción con esa estructura y el FAQ de 20 al final: primero la vista previa, con tu OK la escribe y guarda un **respaldo** de la anterior. No duplica el FAQ si se aplica dos veces. Rechaza HTML, links y datos de contacto, y medidas sin número.
+- **Lucía** marca en su auditoría las descripciones sin esa estructura.
+- Las herramientas ahora pueden mostrarle imágenes a Claude. Solo se bajan fotos del CDN de MercadoLibre por https (sin redirecciones, máximo 1,5 MB por foto, se verifica que sea una imagen). Suite: 132 pruebas.
+
 ## 1.26.0
 - **🏷️ El costo va por SKU**: el costo se guarda en el SKU y lo comparten todas las publicaciones del mismo producto. Al **crear una publicación** con un SKU que ya tiene costo, lo usa solo; si el SKU no tiene costo, **no publica y te lo pregunta** (o publicás con `sin_costo=true`). `ml_crear_publicacion` suma `sku` (lo carga en la publicación) y `costo`.
 - La calculadora, Ramiro, Carmen y el catálogo toman el costo por SKU (de la publicación, de sus variantes o de la orden), así una publicación nueva del mismo producto ya no sale "sin costo cargado". Cambiar el costo en una publicación lo cambia en todas las del SKU.

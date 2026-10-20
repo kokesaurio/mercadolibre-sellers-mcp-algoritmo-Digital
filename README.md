@@ -230,7 +230,7 @@ El conector trae [**31 skills listas**](skills/) con [guía de uso de cada una](
 
 | Skill | Pedila así |
 | --- | --- |
-| [mejorar-publicaciones-ml](skills/mejorar-publicaciones-ml/) | *"auditá mis publicaciones"* — semáforo 🔴🟡🟢 con la acción concreta por ítem, las peores primero |
+| [mejorar-publicaciones-ml](skills/mejorar-publicaciones-ml/) | *"auditá mis publicaciones"* — semáforo 🔴🟡🟢 con la acción concreta por ítem, las peores primero. *"Mejorá esta publicación"* — el **mejorador**: medidas en las fotos, video, resumen en los 5 primeros renglones → medidas → características → qué viene, y FAQ de 20 con las preguntas de 90 días |
 | [faq-descripcion-ml](skills/faq-descripcion-ml/) | *"me preguntan siempre lo mismo"* — las preguntas repetidas de tus compradores pasan a la descripción como preguntas frecuentes, con tus respuestas reales (Lucía te avisa cuáles faltan) |
 | [agenda-comercial-ml](skills/agenda-comercial-ml/) | *"¿qué fechas vienen?"* — el cronograma de ML y las fechas cruciales; te pregunta si participás en cada una y arma la participación validada por margen |
 | [mi-pagina-ml](skills/mi-pagina-ml/) | *"actualizá Mi página"* — banner del evento y tus productos destacados, aplicado en tu navegador con tu OK (y sacarlo cuando termina) |
@@ -281,7 +281,7 @@ La skill imagenes-ml genera el **set fijo de 4** — beneficio (foto 2), caracte
 
 Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando: `python3 plantillas/generar.py --plantilla medidas --datos datos.json --foto tu-foto.png --salida foto-5-medidas.png`. El método completo (orden de publicación foto 2→10, solo datos confirmados, revisión pieza por pieza) está grabado en la skill.
 
-## Herramientas (40)
+## Herramientas (42)
 
 | Herramienta | Qué hace |
 | --- | --- |
@@ -295,6 +295,8 @@ Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando
 | ml_faq_descripcion ✏️ | **Las preguntas de tus compradores → preguntas frecuentes en la descripción**, con TUS respuestas reales: agrupa las repetidas, descarta stock/precio/envíos y cualquier dato de contacto, no repite lo que ya está y actualiza el bloque sin duplicar. Primero muestra la propuesta; aplica con tu OK (una o todas las que marcó Lucía) |
 | ml_visitas | Tráfico de una publicación |
 | ml_actualizar_publicacion ✏️ | Cambiar precio, stock o pausar/activar |
+| ml_mejorar_publicacion 🛠️ | **El mejorador de una publicación**: te muestra las fotos para ver si tienen las medidas, chequea el video y que la descripción tenga el resumen en los 5 primeros renglones → medidas → características principales → qué viene en la caja, y audita las preguntas de los últimos 90 días en un FAQ de 20 con tus respuestas |
+| ml_aplicar_mejora ✏️ | Reescribe la descripción con esa estructura y el FAQ de 20 al final (vista previa primero, con tu OK la escribe y guarda un respaldo de la anterior) |
 | ml_crear_publicacion ✏️ | Crear una publicación nueva, o clonar una existente (`copiar_de`) — ideal para duplicar entre tus tiendas. Si el SKU ya tiene costo lo usa; si no, te pregunta el costo antes de publicar |
 | ml_preguntas / ml_responder_pregunta ✏️ | Ver y responder preguntas de compradores |
 | ml_cerebro 🧠 | La memoria del negocio: guarda costos, impuestos, envío, medidas y notas por producto o del negocio entero (local, en tu máquina) — y las demás herramientas lo usan solas. **El costo va por SKU**: lo comparten todas las publicaciones del mismo producto |
@@ -319,7 +321,7 @@ Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando
 | ml_subir_clip ✏️ / ml_borrar_clip ✏️ | Subir un clip por API (valida formato, duración y peso antes) y borrar los rechazados para resubir corregidos |
 | ml_version | Versión instalada, chequeo de actualizaciones y cómo actualizar |
 
-✏️ = escribe en tu tienda real. Claude siempre pide confirmación antes, y con `ML_SOLO_LECTURA=1` esas 8 herramientas directamente no existen.
+✏️ = escribe en tu tienda real. Claude siempre pide confirmación antes, y con `ML_SOLO_LECTURA=1` esas 9 herramientas directamente no existen.
 
 ## Varias tiendas
 

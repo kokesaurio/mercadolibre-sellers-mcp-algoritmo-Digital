@@ -182,6 +182,8 @@ export function crearMockMeli() {
       { clip_uuid: 'clip-rechazo-003', metadata: [{ site_id: 'MLA', moderation_status: 'REJECTED', moderation_reasons: { DUPLICATED_VIDEO: 'This video had already been uploaded before.' } }] },
     ] });
   });
+  // Fotos del "CDN" (sin auth, como mlstatic): una JPEG chiquita y algo que no es imagen
+  app.get('/fotos/:n', (req, res) => req.params.n === 'no-imagen' ? res.type('text/html').send('<html>hola</html>') : res.type('image/jpeg').send(Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=', 'base64')));
   app.post('/marketplace/items/:id/clips/upload', auth, (_q, res) => res.json({ status: 'accepted', clip_uuid: 'clip-nuevo-999' }));
   app.delete('/marketplace/items/:id/clips/:uuid', auth, (_q, res) => res.json([{ status: 'DELETED', site_id: 'MLA' }]));
   app.get('/trends/MLA/:cat', auth, (_q, res) => res.json([{ keyword: 'termo acero 1 litro' }, { keyword: 'termo con cebador' }]));
@@ -195,6 +197,7 @@ async function pruebas() {
   const dirTemp = fs.mkdtempSync(path.join(os.tmpdir(), 'meli-test-'));
   process.env.MELI_CONFIG_DIR = dirTemp;
   process.env.MELI_API_BASE = `http://localhost:${PUERTO}`;
+  process.env.MELI_FOTOS_HOST_PRUEBA = `localhost:${PUERTO}`;
   process.env.ML_APP_ID = 'APP-TEST';
   process.env.ML_APP_SECRET = 'SECRET-TEST';
   process.env.ML_REDIRECT_URI = 'https://ejemplo.test/conectar.html';
@@ -296,7 +299,7 @@ async function pruebas() {
     const { crearServidor } = await import('../src/servidor.js');
     crearServidor({ allowWrite: false }); // si registrara mal, tiraría; el conteo real se valida por stdio abajo
     const escrituras = TOOLS.filter((t) => !t.readOnly).map((t) => t.name);
-    if (escrituras.length !== 8) throw new Error('esperaba 8 herramientas de escritura, hay ' + escrituras.length);
+    if (escrituras.length !== 9) throw new Error('esperaba 9 herramientas de escritura, hay ' + escrituras.length);
     if (!escrituras.includes('ml_faq_descripcion')) throw new Error('ml_faq_descripcion tiene que ser de escritura');
   });
   await caso('ml_vigilar agrega competidores y tendencias con primer registro', async () => {
@@ -706,7 +709,7 @@ async function pruebas() {
     const cod = r.problemas.map((p) => p.codigo);
     for (const k of ['sin_actualizar', 'precio_congelado', 'precio_alto', 'fotos_baja_resolucion', 'faltan_atributos', 'sin_garantia']) if (!cod.includes(k)) throw new Error('faltó detectar ' + k + ': ' + cod);
     contiene(r.problemas.map((p) => p.texto).join(' '), 'hace 90 días', 'hace 50 días', '25% arriba del mercado', 'marca y modelo');
-    const al = au.evaluar({ b: { ...vieja, last_updated: new Date(ahora).toISOString(), pictures: [{ max_size: '1200x1200' }, { max_size: '1200x1200' }, { max_size: '1200x1200' }], attributes: [{ id: 'BRAND', value_name: 'Marca X' }, { id: 'MODEL', value_name: 'Pro' }], sale_terms: [{ id: 'WARRANTY_TYPE', value_name: 'Garantía del vendedor' }] }, desc: 'x'.repeat(300), mercado: { mediana: 49000, muestras: 12 }, ahora });
+    const al = au.evaluar({ b: { ...vieja, last_updated: new Date(ahora).toISOString(), pictures: [{ max_size: '1200x1200' }, { max_size: '1200x1200' }, { max_size: '1200x1200' }], attributes: [{ id: 'BRAND', value_name: 'Marca X' }, { id: 'MODEL', value_name: 'Pro' }], sale_terms: [{ id: 'WARRANTY_TYPE', value_name: 'Garantía del vendedor' }] }, desc: `${vieja.title || 'Producto'} de primera calidad.\nIdeal para todos los días.\nMide 27 cm y trae su caja.\n\nMEDIDAS\n- Alto: 27 cm\n\nCARACTERÍSTICAS PRINCIPALES\n- Material: acero\n- Color: negro\n\nQUÉ VIENE EN LA CAJA\n- 1 unidad\n` + 'x'.repeat(200), mercado: { mediana: 49000, muestras: 12 }, ahora });
     if (al.semaforo !== '🟢' || al.problemas.length) throw new Error('una publicación al día no quedó 🟢: ' + al.problemas.map((p) => p.codigo));
     if (!au.evaluar({ b: { ...vieja, price: 20000 }, desc: 'x'.repeat(300), mercado: { mediana: 40000, muestras: 12 }, ahora }).problemas.some((p) => p.codigo === 'precio_bajo')) throw new Error('no detectó precio muy bajo');
     if (au.evaluar({ b: vieja, desc: 'x'.repeat(300), mercado: { mediana: 20000, muestras: 2 }, ahora }).problemas.some((p) => p.codigo === 'precio_alto')) throw new Error('comparó contra el mercado con solo 2 muestras');
@@ -998,6 +1001,68 @@ async function pruebas() {
     contiene(plan2, 'ahora es **👑 Jefa Ana María**', 'Jefa Ana María, jefe de equipo — objetivo');
     contiene(await J.run({ nombre: '' }), 'volvió a llamarse **🎩 El jefe**');
     contiene(await J.run({ objetivo: 'vender más', sin_correr: true }), '# 🎩 Jefe de equipo — objetivo');
+  });
+
+  await caso('mejorador: fotos para mirar, video, resumen en 5 renglones, medidas, características, qué viene y FAQ de 20 con 90 días de preguntas', async () => {
+    const mj = await import('../src/mejorador.js');
+    const hace = (d) => new Date(Date.now() - d * 86400000).toISOString();
+    const B = `http://localhost:${PUERTO}/fotos/`;
+    mercado.items = { ...(mercado.items || {}), MLA700: { title: 'Termo Acero Inoxidable 1 Litro Negro', video_id: null,
+      pictures: [{ secure_url: B + '1.jpg' }, { secure_url: B + 'no-imagen' }, { secure_url: 'https://evil.example.com/x.jpg' }, { secure_url: 'http://169.254.169.254/latest/meta-data' }],
+      attributes: [{ id: 'HEIGHT', name: 'Altura', value_name: '27 cm' }, { id: 'WEIGHT', name: 'Peso', value_name: '480 g' }, { id: 'MATERIAL', name: 'Material', value_name: 'Acero inoxidable' }, { id: 'BRAND', name: 'Marca', value_name: 'Lumi' }, { id: 'SELLER_SKU', value_name: 'TER-1L' }] } };
+    descripciones.MLA700 = 'Hola! Bienvenidos a nuestra tienda, gracias por visitarnos.\nTermo de acero de muy buena calidad que mantiene el agua caliente todo el día.\nEnvío en el día.';
+    const qs = [];
+    for (let i = 0; i < 24; i++) qs.push({ id: i, status: 'ANSWERED', date_created: hace(1 + i * 3), text: `¿Es apto para zona${i}a zona${i}b zona${i}c?`, answer: { text: `Hola! Sí, es apto para zona${i}a. Saludos`, date_created: hace(1 + i * 3) } });
+    qs.push({ id: 90, status: 'ANSWERED', date_created: hace(100), text: '¿Viejisima pregunta muyvieja totalmentevieja?', answer: { text: 'Respuesta vieja.', date_created: hace(100) } });
+    qs.push({ id: 91, status: 'UNANSWERED', date_created: hace(2), text: '¿Cuánto mide de alto?' });
+    qs.push({ id: 92, status: 'ANSWERED', date_created: hace(3), text: '¿Tenés stock?', answer: { text: 'Sí, hay stock.', date_created: hace(3) } });
+    qs.push({ id: 93, status: 'ANSWERED', date_created: hace(4), text: '¿Hacen precio por mayor raro?', answer: { text: 'Escribime al 11 5555 5555', date_created: hace(4) } });
+    qs.sort((a, b) => Date.parse(b.date_created) - Date.parse(a.date_created));
+    preguntasPorItem.MLA700 = qs;
+    // URLs de fotos: solo el CDN de ML por https
+    for (const [u, ok] of [['https://http2.mlstatic.com/D_NQ_x-O.jpg', true], ['https://mlstatic.com.evil.com/x.jpg', false], ['https://user:pw@http2.mlstatic.com/x.jpg', false], ['http://http2.mlstatic.com/x.jpg', false], ['file:///etc/passwd', false], ['javascript:alert(1)', false]])
+      if (!!mj.urlFotoValida(u) !== ok) throw new Error('urlFotoValida(' + u + ') debería ser ' + ok);
+    // Títulos de sección: "Medidas: 27 cm" cuenta; "Viene con tapón." dentro del resumen no
+    const rd = mj.revisarDescripcion('Termo de acero 1 litro.\nViene con tapón cebador.\nIdeal para el mate.\nMedidas: 27 cm de alto\nCaracterísticas\n- Acero\n- Negro\n📦 Qué viene en la caja\n- 1 termo', 'Termo acero');
+    if (rd.resumen.length !== 3 || rd.secciones.medidas !== 3 || rd.secciones.incluye !== 7 || !rd.ok) throw new Error('reconoció mal las secciones: ' + JSON.stringify(rd));
+    // Revisión
+    const r = await tool('ml_mejorar_publicacion').run({ item_id: 'mla700' });
+    if (typeof r !== 'object' || !Array.isArray(r.imagenes)) throw new Error('no devolvió fotos para mirar');
+    if (r.imagenes.length !== 1 || r.imagenes[0].mimeType !== 'image/jpeg') throw new Error('trajo fotos que no tenía que traer: ' + r.imagenes.length);
+    contiene(r.texto, 'Medidas en las fotos', 'te muestro 1 de 4 foto(s)', 'Altura: 27 cm', '🎬 **Video:** ❌', 'arranca con un saludo', 'falta la sección MEDIDAS', 'falta la sección CARACTERÍSTICAS', 'falta la sección QUÉ VIENE EN LA CAJA',
+      'Preguntas de los últimos 90 días:** 27', '**1 sin responder**', 'FAQ de 20 pregunta(s)', 'FAQ propuesto (20 preguntas', '20. **', 'Material: Acero inoxidable', 'ml_aplicar_mejora item_id=MLA700', 'skill imagenes-ml');
+    if (r.texto.includes('Viejisima') || r.texto.includes('5555') || r.texto.includes('¿Tenés stock?')) throw new Error('metió en el FAQ algo viejo, con contacto o de stock');
+    contiene((await tool('ml_mejorar_publicacion').run({ item_id: 'MLA111', fotos: false })).texto, '🎬 **Video:** ✅');
+    contiene(await tool('ml_mejorar_publicacion').run({ item_id: '../etc' }), 'item_id inválido');
+    // Aplicar: validaciones
+    const AP = tool('ml_aplicar_mejora');
+    const base = { item_id: 'MLA700', resumen: ['Termo de acero inoxidable de 1 litro, negro.', 'Mantiene el mate caliente todo el día.', 'Mide 27 cm de alto y pesa 480 g.', 'Viene con tapón cebador.'], medidas: ['Alto: 27 cm', 'Peso: 480 g'], caracteristicas: ['Material: acero inoxidable', 'Marca: Lumi', 'Doble pared'], incluye: ['1 termo', '1 tapón cebador'] };
+    for (const [cambio, motivo] of [[{ resumen: ['Uno', 'Dos'] }, 'al menos 3'], [{ resumen: ['1', '2', '3', '4', '5', '6'] }, 'máximo 5'], [{ medidas: ['Bastante alto'] }, 'medida con número'], [{ caracteristicas: ['Escribinos por WhatsApp', 'Doble pared'] }, 'datos de contacto'], [{ incluye: ['<b>termo</b>'] }, 'HTML'], [{ caracteristicas: ['visitá www.mitienda.com', 'x'] }, 'datos de contacto']]) {
+      contiene(await AP.run({ ...base, ...cambio }), 'No la armé', motivo);
+    }
+    const putsAntes = descripcionesPut.length;
+    const prev = await AP.run(base);
+    contiene(prev, 'Así quedaría', 'MEDIDAS\n- Alto: 27 cm', 'CARACTERÍSTICAS PRINCIPALES\n- Material: acero inoxidable', 'QUÉ VIENE EN LA CAJA\n- 1 termo', 'PREGUNTAS FRECUENTES', '✅ resumen', '✅ orden', '20 preguntas frecuentes', 'No toqué nada');
+    if (descripcionesPut.length !== putsAntes) throw new Error('escribió sin confirmar');
+    const vieja = descripciones.MLA700;
+    const ok = await AP.run({ ...base, confirmar: true });
+    contiene(ok, 'Descripción de MLA700 mejorada', '20 preguntas frecuentes', 'respaldada');
+    const nueva = descripciones.MLA700, ls = nueva.split('\n');
+    if (ls[0] !== base.resumen[0] || ls.slice(0, 5).some((l) => /^(MEDIDAS|CARACTER)/.test(l))) throw new Error('los 5 primeros renglones no son el resumen');
+    const i = (t) => nueva.indexOf(t);
+    if (!(i('MEDIDAS') < i('CARACTERÍSTICAS PRINCIPALES') && i('CARACTERÍSTICAS PRINCIPALES') < i('QUÉ VIENE EN LA CAJA') && i('QUÉ VIENE EN LA CAJA') < i('PREGUNTAS FRECUENTES'))) throw new Error('orden equivocado');
+    if ((nueva.match(/^¿/gm) || []).length !== 20) throw new Error('el FAQ no tiene 20 preguntas');
+    if (!mj.revisarDescripcion(nueva.split('PREGUNTAS FRECUENTES')[0], 'Termo Acero Inoxidable 1 Litro Negro').ok) throw new Error('la descripción nueva no pasa su propio chequeo');
+    const resp = /`([^`]+respaldos[^`]+)`/.exec(ok)[1];
+    if (fs.readFileSync(resp, 'utf8') !== vieja) throw new Error('el respaldo no es la descripción anterior');
+    if (process.platform !== 'win32' && (fs.statSync(resp).mode & 0o077)) throw new Error('el respaldo no es privado');
+    // Aplicarla otra vez no duplica el FAQ
+    await AP.run({ ...base, confirmar: true });
+    if ((descripciones.MLA700.match(/PREGUNTAS FRECUENTES/g) || []).length !== 1 || (descripciones.MLA700.match(/^¿/gm) || []).length !== 20) throw new Error('duplicó el FAQ al aplicar dos veces');
+    // Lucía marca las descripciones sin la estructura
+    const au = await import('../src/auditoria.js');
+    const ev = au.evaluar({ b: { title: 'Termo Acero 1 Litro', pictures: [], attributes: [] }, desc: vieja + '\n' + 'Texto largo. '.repeat(20) });
+    if (!ev.problemas.some((p) => p.codigo === 'descripcion_estructura' && p.texto.includes('ml_mejorar_publicacion'))) throw new Error('Lucía no marcó la descripción desordenada');
   });
 
   // ───────────── Nico, Paula, Iván, Valen, Gabi, Sole y Fede ─────────────

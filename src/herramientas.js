@@ -5,11 +5,12 @@ import { VERSION, chequearActualizacion } from './version.js';
 import { leerCerebro, saberDe, aprender, olvidar, normalizarSku, skuDeItem, vincularSku, costoDeSku, publicacionesDeSku } from './cerebro.js';
 import { armarResultados, resultadosEnMarkdown, conectarDrive, desconectarDrive, configDrive, claveDrive, exportarADrive, detectarCarpetaDrive, CARPETA_NOMBRE } from './resultados.js';
 import { auditarItem } from './auditoria.js';
+import { revisarDescripcion, material, estadoVideo, traerClips as traerClipsML, preguntasRecientes, auditarPreguntas, armarMejorada, respaldar, fotosDe, FAQ_MAXIMO, DIAS_PREGUNTAS } from './mejorador.js';
 import { generarTablero, abrirEnNavegador } from './tablero.js';
 import { pathToFileURL } from 'node:url';
 import { resumenContable, enviosRecientes, inicioDeMes, nombreMes } from './negocio.js';
 import { fechasComerciales, cronogramaML, estadoDecision, diasHasta, tipoLegible, ICONO_DECISION } from './agenda.js';
-import { faltantes, agrupar, preguntasRespondidas, armarDescripcion, INICIO as FAQ_INICIO } from './faq.js';
+import { faltantes, agrupar, preguntasRespondidas, armarDescripcion, quitarBloque as quitarBloqueFAQ, INICIO as FAQ_INICIO } from './faq.js';
 import { estadoDB, leerMediciones, precioSinCambiosDesde, backupDB, RETENCION_DIAS, NODE_MINIMO } from './db.js';
 import { decidir, confirmarFecha, agregarFechaPropia, jefe, nombrarJefe } from './trabajadores.js';
 import { EQUIPO, IDS, etiqueta, resumenAlertas, resolverTrabajador, leerEquipo, asignarTarea, quitarTarea, tareasDe, actualizarEquipo, correrCiclo, leerBandeja, quienCorre, INTERVALO_MINIMO } from './trabajadores.js';
@@ -439,6 +440,87 @@ export const TOOLS = [
     },
   },
 
+  {
+    name: 'ml_mejorar_publicacion', title: 'Mejorador de publicaciones (revisión)', readOnly: true,
+    description: 'El mejorador de publicaciones: revisa UNA publicación contra la receta que convierte y devuelve el checklist con lo que falta. (1) FOTOS CON MEDIDAS: te muestra las fotos para que las mires — revisá cada imagen y decí si alguna tiene las medidas dibujadas (cotas con cm/mm/L/kg); si ninguna, es un ❌ (se arregla con la skill imagenes-ml). (2) VIDEO: video clásico o clips publicados. (3) DESCRIPCIÓN en este orden: los 5 primeros renglones con el RESUMEN de todo el producto, después MEDIDAS, CARACTERÍSTICAS PRINCIPALES y QUÉ VIENE EN LA CAJA. (4) PREGUNTAS DE LOS ÚLTIMOS 90 DÍAS: las audita (cuántas, cuántas sin responder, de qué temas preguntan) y las resume en un FAQ de 20 preguntas con las respuestas reales del vendedor. Trae también lo que ya dice la ficha técnica y el cerebro (medidas, características, qué incluye) para escribir la descripción nueva. No modifica nada: para aplicar, ml_aplicar_mejora con el OK del vendedor.',
+    schema: { ...cuentaParam, item_id: z.string().describe('La publicación (MLA...)'), fotos: z.boolean().optional().describe('false = no traer las fotos (más rápido)') },
+    async run(args) {
+      const id = String(args.item_id || '').trim().toUpperCase();
+      if (!/^M[A-Z]{2}\d+$/.test(id)) return 'item_id inválido: tiene que ser como MLA123456789.';
+      const c = cliente(args);
+      const b = await c.get(`/items/${id}`);
+      let desc = ''; try { desc = (await c.get(`/items/${id}/description`)).plain_text || ''; } catch {}
+      const sabido = saberDe(id, skuDeItem(b));
+      const [video, preguntas, imagenes] = await Promise.all([
+        estadoVideo(c, b), preguntasRecientes(c, id).catch(() => []), args.fotos === false ? [] : fotosDe(b)]);
+      const rev = revisarDescripcion(quitarBloqueFAQ(desc), b.title);
+      const aud = auditarPreguntas(preguntas);
+      const mat = material(b, sabido);
+      const ok = (x) => (x ? '✅' : '❌');
+      const nFotos = (b.pictures || []).length, vistas = imagenes.filter(Boolean).length;
+      const medidasEsperadas = mat.medidas.length ? ` Medidas que deberían verse: ${mat.medidas.slice(0, 4).join(' · ')}.` : '';
+      const ch = Object.fromEntries(rev.chequeos.map((x) => [x.id, x]));
+      const lineas = [
+        `# 🛠️ Mejorador — ${id} «${b.title}»`, '',
+        '## Checklist',
+        `- 📏 **Medidas en las fotos:** 👀 ${vistas ? `te muestro ${vistas} de ${nFotos} foto(s) abajo, en orden (foto 1 = portada). **Claude: mirá cada una y decí si alguna tiene las medidas dibujadas (cotas con números y unidad).** Si ninguna, es ❌ y se arma con la skill imagenes-ml (foto de medidas).` : nFotos ? 'no pude traer las fotos: abrí la publicación y fijate si alguna tiene las medidas dibujadas.' : '❌ la publicación no tiene fotos.'}${medidasEsperadas}`,
+        `- 🎬 **Video:** ${ok(video.ok)} ${video.video ? 'tiene video' : ''}${video.video && video.clips ? ' y ' : ''}${video.clips ? `${video.clips} clip(s) publicado(s)` : ''}${!video.ok ? (video.revision ? `${video.revision} clip(s) en revisión (24-48 hs)` : 'sin video ni clips: hacé uno con la skill video-publicaciones-ml o ugc-ml') : ''}`,
+        `- 📝 **Resumen en los 5 primeros renglones:** ${ok(ch.resumen.ok)} ${ch.resumen.texto}`,
+        `- 📐 **Medidas:** ${ok(ch.medidas.ok)} ${ch.medidas.texto}`,
+        `- ⭐ **Características principales:** ${ok(ch.caracteristicas.ok)} ${ch.caracteristicas.texto}`,
+        `- 📦 **Qué viene en la caja:** ${ok(ch.incluye.ok)} ${ch.incluye.texto}`,
+        `- ↕️ **Orden:** ${ok(ch.orden.ok)} ${ch.orden.texto}`,
+        `- ❓ **Preguntas de los últimos ${DIAS_PREGUNTAS} días:** ${aud.total} (${aud.respondidas} respondidas${aud.sinResponder ? `, **${aud.sinResponder} sin responder**` : ''}) → FAQ de ${aud.faq.length} pregunta(s)${aud.faq.length < FAQ_MAXIMO ? ` (con tus respuestas de ${DIAS_PREGUNTAS} días no alcanzan para ${FAQ_MAXIMO}: no invento preguntas)` : ''}`,
+      ];
+      if (aud.temas.length) lineas.push('', `## De qué te preguntan (${DIAS_PREGUNTAS} días)`, aud.temas.slice(0, 8).map(([t, n]) => `${t} ${n}`).join(' · ') + (aud.temas.find(([t]) => t === 'medidas') && !ch.medidas.ok ? '\n⚠️ Te preguntan las medidas y la descripción no las tiene: es lo primero para arreglar.' : ''));
+      lineas.push('', '## Material para la descripción nueva (de tu ficha técnica y el cerebro)',
+        `**Medidas:** ${mat.medidas.length ? mat.medidas.join(' · ') : '_no están en la ficha ni en el cerebro: pedíselas al vendedor_'}`,
+        `**Características:** ${mat.caracteristicas.length ? mat.caracteristicas.join(' · ') : '_sacalas de la descripción actual o pedíselas al vendedor_'}`,
+        `**Qué viene en la caja:** ${mat.incluye.length ? mat.incluye.join(' · ') : '_no está cargado: pedíselo al vendedor_'}`,
+        '', '<details><summary>Descripción actual</summary>', '', '```', desc.slice(0, 6000) || '(vacía)', '```', '</details>');
+      if (aud.faq.length) lineas.push('', `## FAQ propuesto (${aud.faq.length} preguntas, tus respuestas reales)`, ...aud.faq.map((g, i) => `${i + 1}. **${g.pregunta}** (${g.veces} ${g.veces === 1 ? 'vez' : 'veces'}) → ${g.respuesta}`), '_Descarté stock, precio, cuotas, envíos y cualquier respuesta con datos de contacto._');
+      lineas.push('', '## Siguiente paso',
+        'Con este material, Claude arma la descripción nueva: **resumen en 3 a 5 renglones** (qué es, para qué sirve, lo que lo diferencia, la medida clave y qué trae), **medidas**, **características principales** y **qué viene en la caja** — usando solo datos reales (ficha, cerebro, descripción actual o lo que diga el vendedor). Mostrala al vendedor y, con su OK, `ml_aplicar_mejora item_id=' + id + '` (el FAQ de ' + DIAS_PREGUNTAS + ' días se agrega solo al final). Si las fotos no tienen medidas: skill imagenes-ml. Si falta video: skill video-publicaciones-ml.');
+      return { texto: lineas.join('\n'), imagenes: imagenes.filter(Boolean) };
+    },
+  },
+  {
+    name: 'ml_aplicar_mejora', title: 'Mejorador de publicaciones (aplicar)', readOnly: false,
+    description: 'MODIFICA la descripción real de una publicación con la estructura que convierte: el RESUMEN en los 5 primeros renglones (3 a 5 renglones), después MEDIDAS, CARACTERÍSTICAS PRINCIPALES, QUÉ VIENE EN LA CAJA, lo extra que haya que conservar, y al final las PREGUNTAS FRECUENTES: las 20 de los últimos 90 días con las respuestas reales del vendedor (se calculan solas). Los textos los escribe Claude con datos reales (ml_mejorar_publicacion trae el material): nunca inventar medidas ni características. Sin confirmar=true solo muestra cómo quedaría; con confirmar=true la escribe (solo con OK explícito del vendedor) y guarda antes un respaldo de la descripción anterior. Valida: sin HTML, sin datos de contacto ni links, medidas con número y unidad.',
+    schema: { ...cuentaParam, item_id: z.string().describe('La publicación (MLA...)'),
+      resumen: z.array(z.string()).describe('3 a 5 renglones: el resumen de todo el producto'),
+      medidas: z.array(z.string()).describe('Renglones de medidas (ej "Alto: 27 cm")'),
+      caracteristicas: z.array(z.string()).describe('Características principales, un renglón cada una'),
+      incluye: z.array(z.string()).describe('Qué viene en la caja, un renglón por cosa'),
+      extra: z.array(z.string()).optional().describe('Texto de la descripción actual que haya que conservar (garantía, uso, cuidados)'),
+      faq: z.boolean().optional().describe('false = no agregar las preguntas frecuentes'),
+      confirmar: z.boolean().optional().describe('true = escribirla en MercadoLibre (solo con OK explícito del vendedor)') },
+    async run(args) {
+      const id = String(args.item_id || '').trim().toUpperCase();
+      if (!/^M[A-Z]{2}\d+$/.test(id)) return 'item_id inválido: tiene que ser como MLA123456789.';
+      const c = cliente(args);
+      const b = await c.get(`/items/${id}`);
+      let actual = ''; try { actual = (await c.get(`/items/${id}/description`)).plain_text || ''; } catch {}
+      const aud = args.faq === false ? { faq: [] } : auditarPreguntas(await preguntasRecientes(c, id).catch(() => []));
+      let nueva;
+      try { nueva = armarMejorada(args.faq === false ? '' : actual, { resumen: args.resumen, medidas: args.medidas, caracteristicas: args.caracteristicas, incluye: args.incluye, extra: args.extra, faq: aud.faq }); }
+      catch (e) { return `No la armé: ${e.message}. Corregilo y volvé a intentar.`; }
+      const rev = revisarDescripcion(quitarBloqueFAQ(nueva), b.title);
+      const nFaq = (nueva.match(/^¿/gm) || []).length;
+      if (!args.confirmar) {
+        return [`# 🛠️ Así quedaría la descripción de ${id}`, '', '```', nueva, '```', '',
+          `Estructura: ${rev.chequeos.map((x) => `${x.ok ? '✅' : '❌'} ${x.id}`).join(' · ')} · ❓ ${nFaq} preguntas frecuentes · ${nueva.length.toLocaleString('es-AR')} caracteres.`,
+          '', 'No toqué nada. ¿La aplico? (ml_aplicar_mejora … confirmar=true). Antes de escribirla guardo un respaldo de la descripción actual.'].join('\n');
+      }
+      const respaldo = respaldar(id, actual);
+      await c.put(`/items/${id}/description?api_version=2`, { plain_text: nueva });
+      return [`# ✅ Descripción de ${id} mejorada`, '',
+        `- ${rev.chequeos.map((x) => `${x.ok ? '✅' : '❌'} ${x.id}`).join(' · ')}`,
+        `- ❓ ${nFaq} preguntas frecuentes de los últimos ${DIAS_PREGUNTAS} días al final${nFaq < FAQ_MAXIMO && args.faq !== false ? ` (no había respuestas para ${FAQ_MAXIMO})` : ''}`,
+        `- 💾 La descripción anterior quedó respaldada en \`${respaldo}\` por si querés volver atrás.`,
+        '', 'Lucía la vuelve a revisar en su próxima auditoría. Si las fotos no tienen medidas o falta video, eso se arregla aparte (skills imagenes-ml y video-publicaciones-ml).'].join('\n');
+    },
+  },
   {
     name: 'ml_auditar_publicaciones', title: 'Auditar mis publicaciones', readOnly: true,
     description: 'Lista las publicaciones del vendedor con un semáforo de calidad y cómo mejorar cada una: título corto o con relleno, pocas fotos, sin descripción, sin envío gratis, stock crítico, catálogo perdido, publicación pausada — y si está ACTUALIZADA: días sin tocar, precio congelado, precio fuera de mercado, fotos de baja resolución, marca/modelo y garantía. (Lucía, la auditora del equipo de trabajadores, lo hace sola cada 15 días.) Devuelve las peores primero con la acción concreta. Ideal para "¿qué publicaciones tengo que mejorar?".',
@@ -970,15 +1052,7 @@ export const TOOLS = [
         DUPLICATED_VIDEO: 'ese video ya se subió antes — grabá/exportá una versión distinta, no resubas el mismo archivo',
         VIDEO_PROCESSING_ERROR: 'no se pudo procesar el archivo — reexportalo como MP4 (video H.264, audio AAC) y volvé a subir',
       };
-      const traerClips = async (id) => {
-        for (const ruta of [`/marketplace/items/${id}/clips`, `/items/${id}/clips`]) {
-          try { return await c.get(ruta); } catch (e) {
-            if (e.status === 404 && /no clips/i.test(String(e.message))) return { clips: [] }; // existe pero sin clips
-            if (![400, 403, 404].includes(e.status)) throw e;
-          }
-        }
-        return null;
-      };
+      const traerClips = (id) => traerClipsML(c, id); // existe pero sin clips → { clips: [] }; sin API → null
       if (args.item_id) {
         const r = await traerClips(args.item_id);
         if (!r || !r.clips?.length) return `**${args.item_id}** no tiene clips cargados (o tu cuenta todavía no tiene la API de clips habilitada — hoy MercadoLibre la documenta para Global Selling; en ese caso se gestionan desde el panel del vendedor). Para crear uno: skill video-publicaciones-ml o ugc-ml, y subirlo con ml_subir_clip.`;

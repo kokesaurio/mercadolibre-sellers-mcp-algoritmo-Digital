@@ -88,7 +88,8 @@ skill**. Claude las usa solo cuando corresponde.
 **Qué hace:** vinculás cada producto con su proveedor (su publicación de ML o la página de su tienda) y te avisa cambios de precio con el precio sugerido según tu recargo, y cuándo pausar porque se quedó sin stock.
 ### 🔍 [mejorar-publicaciones-ml](mejorar-publicaciones-ml/) — auditoría y mejoras
 **Pedilo así:** "auditá mis publicaciones" · "¿qué publicaciones tengo que mejorar?"
-**Qué hace:** semáforo 🔴🟡🟢 de cada publicación (título, fotos, descripción, envío, stock, video, catálogo) con la acción concreta, las peores primero. Aplica precio/stock/estado con tu confirmación por ítem; fotos y descripción te marca que van por el panel.
+**Qué hace:** semáforo 🔴🟡🟢 de cada publicación (título, fotos, descripción, envío, stock, video, catálogo) con la acción concreta, las peores primero. Aplica precio/stock/estado con tu confirmación por ítem.
+**🛠️ El mejorador** ("mejorá esta publicación"): chequea que tenga **medidas en las fotos** (Claude mira cada foto), **video**, y la descripción en el orden que convierte: **resumen de todo el producto en los 5 primeros renglones → medidas → características principales → qué viene en la caja**; audita las **preguntas de los últimos 90 días** y las resume en un **FAQ de 20** con tus respuestas. Con tu OK reescribe la descripción (con respaldo de la anterior).
 
 ### 🗂️ [visualizador-publicaciones-ml](visualizador-publicaciones-ml/) — elegí cuáles mejorar
 **Pedilo así:** "armame el visualizador" · "mostrame mis publicaciones con fotos"

@@ -24,9 +24,12 @@ export function crearServidor({ allowWrite = true } = {}) {
       { title: tool.title, description: tool.description, inputSchema: tool.schema, annotations: { readOnlyHint: tool.readOnly } },
       async (args) => {
         try {
-          let texto = await tool.run(args || {});
+          const r = await tool.run(args || {});
+          // Una herramienta puede devolver texto, o { texto, imagenes } para que Claude vea fotos
+          let texto = typeof r === 'string' ? r : String(r?.texto ?? '');
+          const imagenes = typeof r === 'object' && Array.isArray(r?.imagenes) ? r.imagenes.filter((x) => x?.type === 'image' && x.data && /^image\/(jpeg|png|webp)$/.test(x.mimeType)) : [];
           if (!avisado && actualizacion?.hayNueva) { texto += AVISO_ACTUALIZAR(actualizacion.remota); avisado = true; }
-          return { content: [{ type: 'text', text: texto }] };
+          return { content: [{ type: 'text', text: texto }, ...imagenes] };
         } catch (e) {
           const msg = e instanceof MeliError
             ? (e.status === 401 ? 'Sesión de MercadoLibre vencida o cuenta no conectada. Usá ml_conectar.' : `MercadoLibre (${e.status}): ${e.message}`)

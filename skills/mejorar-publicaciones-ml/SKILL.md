@@ -1,6 +1,6 @@
 ---
 name: mejorar-publicaciones-ml
-description: Audita y mejora publicaciones de MercadoLibre usando el conector MCP de Algoritmo Digital (herramientas ml_*). Usar SIEMPRE que el usuario quiera mejorar, optimizar o auditar sus publicaciones, títulos, precios o conversión en MercadoLibre; cuando pregunte "por qué no vendo", "cómo subo las ventas", "revisá mi tienda", "optimizá mis títulos", "estoy caro o barato", o pida cualquier diagnóstico o cambio sobre sus publicaciones de ML, aunque no diga la palabra "optimizar".
+description: Audita y mejora publicaciones de MercadoLibre usando el conector MCP de Algoritmo Digital (herramientas ml_*). Usar SIEMPRE que el usuario quiera mejorar, optimizar o auditar sus publicaciones, títulos, precios o conversión en MercadoLibre; cuando pregunte "por qué no vendo", "cómo subo las ventas", "revisá mi tienda", "optimizá mis títulos", "estoy caro o barato", o pida cualquier diagnóstico o cambio sobre sus publicaciones de ML, aunque no diga la palabra "optimizar". También para el MEJORADOR de una publicación: "mejorá esta publicación", "¿tiene medidas en las fotos?", "¿le falta video?", "ordená la descripción", "armale el FAQ con las preguntas".
 ---
 
 # Mejorar publicaciones de MercadoLibre
@@ -86,6 +86,33 @@ compradores. Por eso:
   los cambios impactaron. Cerrá con el resumen de lo aplicado y sugerí
   revisar visitas y conversión en 7 días.
 
+## El mejorador de UNA publicación (la receta que convierte)
+Cuando el vendedor pide mejorar una publicación puntual:
+
+1. `ml_mejorar_publicacion item_id=MLA…` → checklist + las fotos de la publicación.
+   - **📏 Medidas en las fotos:** mirá cada foto que devuelve (en orden, la 1 es la
+     portada) y decí cuál tiene las medidas dibujadas (cotas con número y unidad).
+     Si ninguna: ❌ y ofrecé hacerla con la skill imagenes-ml (foto de medidas),
+     usando las medidas reales que trae el mejorador (ficha o cerebro).
+   - **🎬 Video:** video clásico o clips publicados. Si falta: skill
+     video-publicaciones-ml o ugc-ml.
+   - **📝 Descripción**, en este orden: **los 5 primeros renglones con el resumen de
+     todo el producto** (qué es, para qué sirve, lo que lo diferencia, la medida
+     clave y qué trae: sin saludos, es lo único que se ve sin "ver más") →
+     **MEDIDAS** → **CARACTERÍSTICAS PRINCIPALES** → **QUÉ VIENE EN LA CAJA** →
+     **PREGUNTAS FRECUENTES**.
+   - **❓ Preguntas de los últimos 90 días:** cuántas, cuántas sin responder y de qué
+     preguntan, resumidas en un **FAQ de 20** con las respuestas reales del vendedor
+     (sin stock, precio, cuotas, envíos ni datos de contacto). Si hay menos de 20,
+     se usan las que hay: nunca inventar preguntas ni respuestas.
+2. Mostrá el checklist resumido y la descripción nueva que proponés, escrita con
+   datos reales (ficha técnica, cerebro, descripción actual o lo que diga el
+   vendedor). Si falta una medida o qué incluye la caja, preguntalo: no lo inventes.
+3. `ml_aplicar_mejora` (sin `confirmar`) muestra cómo queda; con el **OK explícito**
+   del vendedor, `confirmar=true` la escribe. Antes guarda un respaldo de la
+   descripción anterior. Aplicarla de nuevo no duplica el FAQ.
+4. Si hay preguntas sin responder, ofrecé responderlas (skill responder-preguntas-ml).
+
 ## Qué no hacer
 
 - No inventes datos: si una herramienta falla o no devuelve algo, decilo.
@@ -102,5 +129,5 @@ cerebro ya tiene el costo para validar el margen.
 Lucía, la auditora del equipo (`ml_trabajadores`), corre esta misma auditoría
 sola cada 15 días sobre TODAS las publicaciones y suma los chequeos de
 "¿está actualizada?" (días sin tocar, precio congelado o fuera de mercado, fotos
-chicas, marca/modelo, garantía). Si el vendedor viene de una alerta de Lucía,
+chicas, marca/modelo, garantía) y marca las descripciones que no tienen la estructura del mejorador. Si el vendedor viene de una alerta de Lucía,
 arrancá por las 🔴 que ella marcó (`ml_trabajadores accion=resultados trabajador=Lucía`).

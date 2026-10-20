@@ -6,7 +6,8 @@
 //   · ¿está ACTUALIZADA?: días sin tocar, precio congelado (con la base de datos),
 //     precio fuera de mercado, fotos de baja resolución, marca/modelo y garantía cargados
 
-import { faltantes, preguntasRespondidas } from './faq.js';
+import { faltantes, preguntasRespondidas, quitarBloque } from './faq.js';
+import { revisarDescripcion } from './mejorador.js';
 
 const DIAS = 86400000;
 export const SIN_TOCAR_DIAS = 60;       // publicación sin ningún cambio hace más de esto → desactualizada
@@ -49,6 +50,11 @@ export function evaluar({ b, desc, ptw = null, mercado = null, precioSinCambiosD
   if (/env[ií]o gratis|oferta|promo|!!|aprovech/i.test(titulo)) add('titulo_relleno', 'calidad', 'título con relleno prohibido (oferta/envío gratis): ML lo ignora y penaliza — dejá solo producto+marca+modelo+atributos');
   if ((b.pictures?.length ?? 0) < 3) add('pocas_fotos', 'calidad', `solo ${b.pictures?.length ?? 0} foto(s): subí a 6+ (fondo blanco la primera, uso real después)`);
   if (!desc || desc.trim().length < 200) add('sin_descripcion', 'calidad', 'descripción vacía o muy corta: agregá qué incluye, medidas, compatibilidades y preguntas frecuentes');
+  if (desc && desc.trim().length >= 200) {
+    const fallas = revisarDescripcion(quitarBloque(desc), titulo).chequeos.filter((x) => !x.ok);
+    const NOMBRE = { resumen: 'resumen en los 5 primeros renglones', medidas: 'medidas', caracteristicas: 'características principales', incluye: 'qué viene en la caja', orden: 'orden' };
+    if (fallas.length) add('descripcion_estructura', 'calidad', `descripción sin la estructura que convierte (falla: ${fallas.map((x) => NOMBRE[x.id]).join(', ')}): resumen arriba, después medidas, características y qué viene — arreglala con el mejorador (ml_mejorar_publicacion)`);
+  }
   if (!b.shipping?.free_shipping) add('sin_envio_gratis', 'calidad', 'sin envío gratis: las publicaciones con envío gratis posicionan y convierten mejor (evaluá absorberlo en el precio)');
   if ((b.available_quantity ?? 0) === 0) add('sin_stock', 'calidad', 'SIN STOCK: repone o pausá — sin stock pierde posicionamiento');
   else if ((b.available_quantity ?? 0) < 3) add('stock_critico', 'calidad', `stock crítico (${b.available_quantity}): si se corta, la publicación pierde posicionamiento histórico`);
@@ -80,7 +86,7 @@ export function evaluar({ b, desc, ptw = null, mercado = null, precioSinCambiosD
   if (!(b.sale_terms || []).some((t) => t.id === 'WARRANTY_TYPE' || t.id === 'WARRANTY_TIME')) add('sin_garantia', 'actualizada', 'sin garantía declarada: cargala (aunque sea "garantía del vendedor 30 días") — da confianza y la pide la ficha');
 
   // Lo más grave primero: es lo que se muestra como "principal problema"
-  const PRIORIDAD = ['sin_stock', 'no_activa', 'pierde_catalogo', 'titulo_relleno', 'sin_actualizar', 'precio_alto', 'precio_bajo', 'precio_congelado', 'stock_critico', 'pocas_fotos', 'fotos_baja_resolucion', 'faltan_atributos', 'sin_descripcion', 'faq_faltante', 'titulo_corto', 'tipo_bajo', 'sin_envio_gratis', 'sin_garantia', 'sin_video'];
+  const PRIORIDAD = ['sin_stock', 'no_activa', 'pierde_catalogo', 'titulo_relleno', 'sin_actualizar', 'precio_alto', 'precio_bajo', 'precio_congelado', 'stock_critico', 'pocas_fotos', 'fotos_baja_resolucion', 'faltan_atributos', 'sin_descripcion', 'descripcion_estructura', 'faq_faltante', 'titulo_corto', 'tipo_bajo', 'sin_envio_gratis', 'sin_garantia', 'sin_video'];
   P.sort((x, y) => PRIORIDAD.indexOf(x.codigo) - PRIORIDAD.indexOf(y.codigo));
   const graves = P.filter((p) => ['sin_stock', 'no_activa', 'pierde_catalogo', 'titulo_relleno'].includes(p.codigo)).length;
   const semaforo = P.length === 0 ? '🟢' : graves || P.length >= 4 ? '🔴' : '🟡';
