@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.29.0
+- **🧭 Descubrir nichos con la API oficial** (`ml_nichos` + skill **nichos-ml**), sin Nubimetrics ni planillas. Para una búsqueda o categoría: ordena las publicaciones por **rotación** (unidades por mes), dice si el producto **se vende hoy o vendió en el pasado** (visitas de 5 meses contra su promedio histórico), si hay **oportunidad o monopolio** (líder, top 3, concentración), el **techo de demanda** y cuánto vende alguien que **entró en los últimos 90 días**, si es **tendencia, estacional o evergreen**, y con tu costo si **los números cierran** (comisión real de ML + impuestos del cerebro).
+- Con varias búsquedas (hasta 5) arma el **ranking de oportunidades** con puntaje 0-100 y señal 🟢🟡🔴.
+- Todo con datos de la API: lo que ML no informa no se inventa y se avisa cuando la muestra es chica. Suite: 134 pruebas.
+
 ## 1.28.0
 - **🏪 El mejorador, multicuenta**: encuentra solo de cuál de tus tiendas conectadas es cada publicación (no hace falta decir la cuenta); una publicación ajena se puede revisar pero no modificar.
 - **Barrido de todas las tiendas**: `ml_mejorar_publicacion` sin item_id revisa las publicaciones activas de cada tienda (resumen en 5 renglones, medidas, características, qué viene, video, preguntas de 90 días y las sin responder), de la que más le falta a la que menos, y marca el mismo producto (SKU) repetido entre tiendas.

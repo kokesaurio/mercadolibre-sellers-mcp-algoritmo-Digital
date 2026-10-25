@@ -5,10 +5,11 @@ import { VERSION, chequearActualizacion } from './version.js';
 import { leerCerebro, saberDe, aprender, olvidar, normalizarSku, skuDeItem, vincularSku, costoDeSku, publicacionesDeSku } from './cerebro.js';
 import { armarResultados, resultadosEnMarkdown, conectarDrive, desconectarDrive, configDrive, claveDrive, exportarADrive, detectarCarpetaDrive, CARPETA_NOMBRE } from './resultados.js';
 import { auditarItem } from './auditoria.js';
+import { muestraDeMercado, pulsoDeVisitas, analizarNicho, senal } from './nichos.js';
 import { revisarDescripcion, material, estadoVideo, traerClips as traerClipsML, preguntasRecientes, auditarPreguntas, armarMejorada, respaldar, fotosDe, FAQ_MAXIMO, DIAS_PREGUNTAS } from './mejorador.js';
 import { generarTablero, abrirEnNavegador } from './tablero.js';
 import { pathToFileURL } from 'node:url';
-import { resumenContable, enviosRecientes, inicioDeMes, nombreMes } from './negocio.js';
+import { resumenContable, enviosRecientes, inicioDeMes, nombreMes, comisionML, rentabilidadDe } from './negocio.js';
 import { fechasComerciales, cronogramaML, estadoDecision, diasHasta, tipoLegible, ICONO_DECISION } from './agenda.js';
 import { faltantes, agrupar, preguntasRespondidas, armarDescripcion, quitarBloque as quitarBloqueFAQ, INICIO as FAQ_INICIO } from './faq.js';
 import { estadoDB, leerMediciones, precioSinCambiosDesde, backupDB, RETENCION_DIAS, NODE_MINIMO } from './db.js';
@@ -1631,6 +1632,92 @@ export const TOOLS = [
     },
   },
   // ───────────────────────────── Tendencias ─────────────────────────────
+  {
+    name: 'ml_nichos', title: 'Descubrir nichos (API oficial)', readOnly: true,
+    description: 'Descubre y valida NICHOS con la API oficial de MercadoLibre (sin Nubimetrics ni planillas). Con UNA búsqueda (o una categoría) da el análisis completo: (1) ordena las publicaciones de mayor a menor ROTACIÓN (unidades por mes = vendidos ÷ antigüedad); (2) si el producto SE VENDE HOY o vendió en el pasado (visitas de los últimos 5 meses contra su promedio histórico); (3) si hay OPORTUNIDAD o MONOPOLIO (cuota del líder, top 3 y HHI entre vendedores); (4) el TECHO DE DEMANDA (unidades por mes del nicho) y cuánto vende hoy alguien que entró en los últimos 90 días; (5) si es TENDENCIA, ESTACIONAL o EVERGREEN; (6) con costo, si los NÚMEROS CIERRAN al precio de mercado (comisión real de ML e impuestos del cerebro). Con VARIAS búsquedas (hasta 5) arma el RANKING DE OPORTUNIDADES con puntaje 0-100. Las ventas de terceros que informa ML pueden ser aproximadas: los resultados son estimaciones sobre una muestra, nunca inventa datos.',
+    schema: { ...cuentaParam,
+      busqueda: z.string().optional().describe('Una keyword, ej "organizador de cocina"'),
+      busquedas: z.array(z.string()).optional().describe('Varias keywords (hasta 5) para el ranking de oportunidades'),
+      categoria: z.string().optional().describe('ID de categoría (ej MLA1574) en vez de keyword'),
+      costo: z.number().min(0).optional().describe('Tu costo por unidad (solo con una búsqueda): para ver si los números cierran'),
+      costo_envio: z.number().min(0).optional().describe('Envío por unidad a tu cargo (default 0)'),
+      muestra: z.number().optional().describe('Publicaciones a analizar por nicho (default 100 con una, 60 con varias; máx 300)'),
+      sitio: z.string().optional() },
+    async run(args) {
+      const c = cliente(args);
+      const sitio = (args.sitio || (await c.get('/users/me')).site_id || 'MLA').toUpperCase();
+      if (!/^M[A-Z]{2}$/.test(sitio)) return 'sitio inválido (ej MLA, MLM, MLB).';
+      const din = (n) => (n == null ? '—' : '$ ' + Math.round(n).toLocaleString('es-AR'));
+      const u = (n) => (n == null ? '—' : n >= 10 ? Math.round(n).toLocaleString('es-AR') : n.toFixed(1).replace('.', ','));
+      const edad = (d) => (d == null ? '—' : d < 60 ? `${d} días` : d < 730 ? `${Math.round(d / 30)} meses` : `${(d / 365).toFixed(1).replace('.', ',')} años`);
+      const lista = [...new Set([...(args.busquedas || []), ...(args.busqueda ? [args.busqueda] : [])].map((x) => String(x).replace(/\s+/g, ' ').trim()).filter((x) => x.length >= 2 && x.length <= 80))].slice(0, 5);
+      if (args.categoria && !/^M[A-Z]{2}\d+$/i.test(args.categoria)) return 'categoria inválida: tiene que ser como MLA1574.';
+      if (!lista.length && !args.categoria) return 'Decime qué nicho analizar: una búsqueda (busqueda="organizador de cocina"), varias para el ranking (busquedas=[…]) o una categoría (categoria=MLA1574).';
+      let tendencias = [];
+      try { tendencias = (await c.get(`/trends/${sitio}`)).map((t) => sinAcento(t.keyword)); } catch {}
+      if (args.categoria) { try { tendencias.push(...(await c.get(`/trends/${sitio}/${args.categoria.toUpperCase()}`)).map((t) => sinAcento(t.keyword))); } catch {} }
+      const enTend = (q) => { const k = sinAcento(q); return tendencias.some((t) => t && (t.includes(k) || k.includes(t))); };
+      const objetivos = args.categoria ? [{ categoria: args.categoria.toUpperCase() }] : lista.map((q) => ({ q }));
+      const muestra = Math.min(Math.max(20, Math.round(args.muestra ?? (objetivos.length > 1 ? 60 : 100))), 300);
+      const analisis = [];
+      for (const o of objetivos) {
+        let nombre = o.q;
+        if (o.categoria) { try { nombre = (await c.get(`/categories/${o.categoria}`)).name || o.categoria; } catch { nombre = o.categoria; } }
+        const m = await muestraDeMercado(c, sitio, { ...o, muestra });
+        const conRot = m.items.filter((x) => x.vendidos != null && x.inicio).sort((a, b) => b.vendidos / (Date.now() - b.inicio) - a.vendidos / (Date.now() - a.inicio));
+        const pulso = await pulsoDeVisitas(c, conRot.slice(0, objetivos.length > 1 ? 5 : 8).map((x) => x.id));
+        analisis.push({ nombre, o, a: analizarNicho(m.items, { enTendencias: enTend(nombre), pulso, palabra: nombre, total: m.total }) });
+      }
+      // ¿Cierran los números? (con una sola búsqueda y costo)
+      let numeros = null;
+      if (args.costo != null && analisis.length === 1 && analisis[0].a.precios.mediana) {
+        const neg = saberDe('__negocio__'), cache = new Map(), a = analisis[0].a;
+        const calc = async (precio) => { const f = await comisionML(c, sitio, precio, 'gold_special', cache); return { precio, ...rentabilidadDe({ precio, pct: f.pct, fijo: f.fijo, costo: args.costo, impuestos_pct: neg.impuestos_pct ?? 0, envio: args.costo_envio ?? 0 }) }; };
+        numeros = { p25: await calc(a.precios.p25), med: await calc(a.precios.mediana), impuestos: neg.impuestos_pct };
+        a.puntaje = Math.max(0, Math.min(100, a.puntaje + (numeros.p25.margen >= 20 ? 10 : numeros.p25.margen >= 10 ? 5 : numeros.med.ganancia <= 0 ? -25 : 0)));
+      }
+      const COMP = { repartido: '🟢 repartido: no hay dueño, hay lugar', peleado: '🟡 peleado: pocos se llevan casi todo', monopolio: '🔴 monopolio: uno se lleva la mayoría' };
+      const TIPO = { tendencia: '📈 tendencia (está creciendo)', estacional: '🗓️ estacional', evergreen: '♾️ evergreen (se vende todo el año)', 'en baja': '📉 en baja' };
+
+      if (analisis.length > 1) {
+        analisis.sort((x, y) => y.a.puntaje - x.a.puntaje);
+        return [`# 🧭 Ranking de oportunidades — ${analisis.length} nichos`, `_Muestra de ${muestra} publicaciones por nicho, con la API oficial de MercadoLibre. Rotación = unidades por mes estimadas._`, '',
+          '| # | Nicho | Puntaje | Señal | Demanda visible / mes | Vendedores con ventas | Líder | Nuevos que ya venden (90 días) | Tipo |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+          ...analisis.map(({ nombre, a }, i) => `| ${i + 1} | ${nombre} | **${a.puntaje}** | ${senal(a)} | ${u(a.demandaMes)} u. | ${a.conVentas} | ${Math.round(a.top1)}% | ${a.nuevos.length}${a.rotNuevo != null ? ` (≈ ${u(a.rotNuevo)} u./mes)` : ''} | ${TIPO[a.tipo]} |`),
+          '', ...analisis.map(({ nombre, a }, i) => `**${i + 1}. ${nombre}** — ${COMP[a.competencia]}; ${a.nuevos.length ? `el mejor que entró hace poco arrancó hace ${a.nuevos[0].dias} días y ya vende ≈ ${u(a.nuevos[0].rotacion)} u./mes` : 'ninguno de los que entraron en 90 días vende todavía'}; precio mediano ${din(a.precios.mediana)}.${a.cobertura < 0.5 ? ' ⚠️ ML informa ventas de pocas publicaciones de este nicho: tomalo con pinzas.' : ''}`),
+          '', `Siguiente paso: pedime el detalle del mejor (ml_nichos busqueda="${analisis[0].nombre}" costo=TU_COSTO) para ver el top por rotación, el techo de demanda y si los números cierran.`].join('\n');
+      }
+
+      const { nombre, a } = analisis[0];
+      if (!a.muestra) return `No encontré publicaciones para «${nombre}».`;
+      const tabla = a.ranking.slice(0, 10).map((x, i) => `| ${i + 1} | ${x.titulo.slice(0, 48)} | ${x.vendedor.nick}${x.tiendaOficial ? ' 🏬' : ''} | ${din(x.precio)} | ${x.vendidos} | ${edad(x.dias)} | **${u(x.rotacion)}** | ${x.vigencia == null ? '—' : x.vigencia >= 0.7 ? '✅ se vende hoy' : x.vigencia >= 0.35 ? '🟡 bajando' : '🔴 vendió en el pasado'} |`);
+      const cv = a.curva;
+      const lineas = [`# 🧭 Nicho: «${nombre}» — ${senal(a)} (${a.puntaje}/100)`,
+        `_Muestra: ${a.muestra} publicaciones más relevantes${a.total ? ` de ${a.total.toLocaleString('es-AR')} en total` : ''}, con la API oficial de MercadoLibre. Rotación = unidades por mes estimadas (vendidos ÷ antigüedad)._`, '',
+        `## 1. ¿Cuánto rota? Las ${Math.min(10, a.ranking.length)} que más venden por mes`,
+        a.ranking.length ? ['| # | Publicación | Vendedor | Precio | Vendidos | Antigüedad | Rotación / mes | ¿Hoy? |', '| --- | --- | --- | --- | --- | --- | --- | --- |', ...tabla].join('\n') : '_MercadoLibre no informa ventas de las publicaciones de este nicho: no puedo calcular la rotación (el resto del análisis usa presencia y visitas)._',
+        '', '## 2. ¿Se vende hoy o vendió en el pasado?',
+        cv ? `Visitas de las ${cv.medidos} que más rotan, por mes (del más viejo al último): ${cv.tramos.map((x) => x.toLocaleString('es-AR')).join(' → ')}${cv.cambio != null ? ` · el último mes ${cv.cambio >= 0 ? 'sube' : 'baja'} ${Math.abs(Math.round(cv.cambio))}% contra el promedio de los 4 anteriores` : ''}.` : '_ML no devolvió el detalle de visitas por día para estas publicaciones._',
+        a.historicas.length ? `🔴 ${a.historicas.length} publicación(es) con muchas ventas viejas pero pocas visitas hoy (vendieron en el pasado, no cuentan como demanda actual): ${a.historicas.slice(0, 3).map((x) => x.id).join(', ')}.` : cv ? '✅ Las que más venden siguen recibiendo visitas: la demanda es actual.' : '',
+        '', '## 3. ¿Oportunidad o monopolio?',
+        `${COMP[a.competencia]}. Líder: **${a.vendedores[0]?.nick}${a.vendedores[0]?.oficial ? ' (tienda oficial)' : ''}** con ${Math.round(a.top1)}% · top 3: ${Math.round(a.top3)}% · ${a.conVentas} vendedor(es) con ventas · índice de concentración ${a.hhi.toLocaleString('es-AR')} (más de 2.500 = concentrado).`,
+        '', '## 4. Techo de demanda',
+        `≈ **${u(a.demandaMes)} unidades por mes** entre las ${a.ranking.length} publicaciones con ventas de la muestra (es un piso: el mercado completo es más grande).`,
+        a.nuevos.length ? `🚀 ${a.nuevos.length} publicación(es) entraron en los últimos 90 días y ya venden. La mejor arrancó hace **${a.nuevos[0].dias} días** y vende ≈ **${u(a.nuevos[0].rotacion)} u./mes** (${a.nuevos[0].vendedor.nick}). Un nuevo hoy vende ≈ ${u(a.rotNuevo)} u./mes (mediana de los que entraron).` : `Nadie que haya entrado en los últimos 90 días está vendiendo todavía: entrar es más difícil.${a.paraUnNuevo ? ` Un objetivo realista para arrancar: ≈ ${u(a.paraUnNuevo)} u./mes.` : ''}`,
+        '', '## 5. Tendencia, estacional o evergreen',
+        `${TIPO[a.tipo]}${a.estacion ? ` — pica en ${a.estacion.meses.map((m) => nombreMes(new Date(2026, m - 1, 1).getTime()).split(' ')[0]).join(', ')}: entrá 6-8 semanas antes con stock` : a.tipo === 'tendencia' ? ' — aparece en las tendencias de búsqueda o sus visitas crecen' : a.tipo === 'en baja' ? ' — las visitas vienen cayendo fuerte: cuidado' : ' — demanda pareja: el más seguro para arrancar'}.`,
+        '', '## 6. ¿Cierran los números?',
+        numeros ? ['| Precio | Comisión ML | Impuestos | Ganancia por unidad | Margen |', '| --- | --- | --- | --- | --- |',
+          ...[['competitivo (25% más barato)', numeros.p25], ['de mercado (mediana)', numeros.med]].map(([t, r]) => `| ${t}: ${din(r.precio)} | −${din(r.comision)} | −${din(r.impuestos)} | ${r.semaforo} ${din(r.ganancia)} | ${r.margen.toFixed(1).replace('.', ',')}% |`),
+          `Con tu costo de ${din(args.costo)}${args.costo_envio ? ` + envío ${din(args.costo_envio)}` : ''}${numeros.impuestos == null ? ' (sin impuestos: cargá tu % con ml_cerebro)' : ` e impuestos de ${numeros.impuestos}%`}. ${numeros.p25.margen >= 20 ? '✅ Cierra aun peleando por precio.' : numeros.med.ganancia > 0 ? '🟡 Cierra al precio de mercado, pero no da para pelear por precio: diferenciate (combo, FULL, mejor ficha).' : '🔴 No cierra: con este costo perdés plata al precio de mercado.'} Sin publicidad: sumala con la calculadora-ml.`].join('\n')
+          : `Decime tu costo por unidad y te digo si cierra al precio de mercado (precio competitivo ${din(a.precios.p25)} · mediana ${din(a.precios.mediana)}). Nunca invento el costo.`,
+        '', `**Mercado:** precios ${din(a.precios.min)} a ${din(a.precios.max)} (mediana ${din(a.precios.mediana)}) · envío gratis ${a.envioGratisPct}% · FULL ${a.fullPct}%${a.envioGratisPct >= 60 ? ' → el envío gratis es casi obligatorio' : ''}.`,
+        a.cobertura < 0.5 ? `⚠️ ML informa ventas de solo ${Math.round(a.cobertura * 100)}% de las publicaciones de la muestra: tomá los números como orientativos.` : '',
+        '_Las ventas de terceros que informa MercadoLibre pueden venir redondeadas: todo es una estimación sobre la muestra._',
+        '', 'Siguiente paso: si es 🟢 o 🟡, sumalo a la vigilancia (ml_vigilar busqueda) para confirmar la tendencia con el historial, y compará varios con ml_nichos busquedas=[…].'];
+      return lineas.filter((x) => x !== '').join('\n').replace(/\n## /g, '\n\n## ');
+    },
+  },
   {
     name: 'ml_tendencias', title: 'Tendencias de búsqueda', readOnly: true,
     description: 'Las búsquedas más populares del sitio o de una categoría: qué está queriendo comprar la gente.',

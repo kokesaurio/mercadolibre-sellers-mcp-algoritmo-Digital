@@ -29,6 +29,11 @@ rango y mediana de precios, % con envío gratis, si está en tendencias
   (mejor ficha, FULL, set/combo), no de frente.
 - ⚪ A validar: no está en tendencias hoy → mirar la categoría y estacionalidad.
 
+### 2b. Análisis profundo del nicho
+Para rotación, "¿se vende hoy?", monopolio, techo de demanda, tipo (tendencia,
+estacional, evergreen) y ranking entre varias candidatas: skill **nichos-ml**
+(`ml_nichos`).
+
 ### 3. Validar el negocio antes de entusiasmarse
 - `ml_comisiones` al precio mediana → ¿queda margen con tu costo? Pedir el
   costo al usuario; nunca inventarlo.

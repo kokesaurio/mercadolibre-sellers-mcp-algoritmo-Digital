@@ -1,4 +1,4 @@
-# Guía de uso — las 31 skills del conector
+# Guía de uso — las 32 skills del conector
 
 Skills listas para Claude que convierten el [conector de MercadoLibre de
 Algoritmo Digital](../README.md) en flujos de trabajo completos. **Cómo
@@ -123,6 +123,10 @@ skill**. Claude las usa solo cuando corresponde.
 ### 🏆 [descubrir-ganadores-ml](descubrir-ganadores-ml/) — qué conviene vender
 **Pedilo así:** "¿qué conviene vender?" · "buscá productos ganadores" · "¿este producto tiene mercado?"
 **Qué hace:** ranking oficial de más vendidos por categoría + tendencias + análisis de mercado por keyword (competencia, precios, quién domina) con señal de oportunidad 🟢🟡⚪ — y valida el margen con tus costos antes de recomendar entrar.
+
+### 🧭 [nichos-ml](nichos-ml/) — descubrir nichos con la API oficial
+**Pedilo así:** "buscame un nicho" · "dame el ranking de oportunidades entre organizador de cocina, soporte de celular y lámpara led" · "¿este nicho tiene lugar o hay monopolio?"
+**Qué hace:** sin Nubimetrics ni planillas: ordena las publicaciones por rotación, dice si se vende hoy o vendió en el pasado, si hay oportunidad o monopolio, el techo de demanda (y cuánto vende alguien que entró hace poco), si es tendencia, estacional o evergreen, y con tu costo si los números cierran. Con varios nichos arma el ranking con puntaje 0-100.
 
 ### 👷 [trabajadores-ml](trabajadores-ml/) — el equipo que vigila 24/7
 **Pedilo así:** "dale una tarea a Vera" · "Martina, ¿en qué puesto estoy para 'termo 1 litro'?" · "¿qué encontró el equipo?"

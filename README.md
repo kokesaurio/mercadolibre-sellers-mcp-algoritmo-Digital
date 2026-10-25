@@ -212,9 +212,9 @@ Dieciocho trabajadores con nombre que **vigilan solos y constantemente** a tus s
 - **Carpeta de Google Drive para escritorio**: se detecta sola y se crea *MercadoLibre - Equipo de trabajadores* con Alertas.csv, Historial.csv (90 días), un CSV por trabajador y un resumen.
 - Seguro: la planilla rechaza envíos sin tu clave, y ningún texto de un rival (ej. un título con `=IMPORTXML(...)`) se guarda como fórmula.
 
-## Las 31 skills — tu equipo de trabajo
+## Las 32 skills — tu equipo de trabajo
 
-El conector trae [**31 skills listas**](skills/) con [guía de uso de cada una](skills/README.md). Se suben una vez en Claude (**Configuración → Capacidades → Skills → Cargar skill**) y convierten las herramientas en flujos completos: vos pedís en una frase, la skill sabe el procedimiento.
+El conector trae [**32 skills listas**](skills/) con [guía de uso de cada una](skills/README.md). Se suben una vez en Claude (**Configuración → Capacidades → Skills → Cargar skill**) y convierten las herramientas en flujos completos: vos pedís en una frase, la skill sabe el procedimiento.
 
 > 🚀 **Empezá por acá:** subí [setup-ml](skills/setup-ml/) y decile a Claude **"setup"** — conecta tus cuentas, arma la vigilancia inicial y te entrega tu primera foto del negocio con las 3 acciones más urgentes.
 
@@ -260,6 +260,7 @@ El conector trae [**31 skills listas**](skills/) con [guía de uso de cada una](
 
 | Skill | Pedila así |
 | --- | --- |
+| [nichos-ml](skills/nichos-ml/) | *"buscame un nicho"* · *"dame el ranking de oportunidades"* — con la API oficial (sin Nubimetrics): rotación, ¿se vende hoy o vendió en el pasado?, oportunidad o monopolio, techo de demanda, tendencia/estacional/evergreen y si cierran los números con tu costo |
 | [descubrir-ganadores-ml](skills/descubrir-ganadores-ml/) | *"¿qué conviene vender?"* — más vendidos oficiales por categoría, tendencias y análisis de mercado por keyword, validado por margen |
 | [trabajadores-ml](skills/trabajadores-ml/) | *"¿qué encontró el equipo?"* — los 18 trabajadores 24/7 y su jefe: darles tareas, leer sus alertas y despachar cada una a su skill |
 | [vigilancia-ml](skills/vigilancia-ml/) | *"¿qué cambió en la competencia?"* — solo novedades: precios movidos, publicaciones nuevas, ventas estimadas del rival, keywords en alza |
@@ -281,7 +282,7 @@ La skill imagenes-ml genera el **set fijo de 4** — beneficio (foto 2), caracte
 
 Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando: `python3 plantillas/generar.py --plantilla medidas --datos datos.json --foto tu-foto.png --salida foto-5-medidas.png`. El método completo (orden de publicación foto 2→10, solo datos confirmados, revisión pieza por pieza) está grabado en la skill.
 
-## Herramientas (42)
+## Herramientas (43)
 
 | Herramienta | Qué hace |
 | --- | --- |
@@ -312,6 +313,7 @@ Las [plantillas](plantillas/) son SVG paramétricos y el generador es un comando
 | ml_jefe 🎩 | **El jefe de equipo**: le das un objetivo en una frase y reparte el trabajo entre los trabajadores que corresponden, los hace trabajar ya y te devuelve el plan en orden con responsable y skill por paso. Con `nombre` le ponés el nombre (y `emoji`) que quieras |
 | ml_numeros 🧾 | Los **números del mes** de Carmen: facturación, comisiones reales de ML, publicidad, impuestos, mercadería, envíos → resultado neto y margen, contra el mes anterior (marca "parcial" si faltan costos) |
 | ml_despachos 🚚 | La lista de Leo: **qué despachar y hasta cuándo**, demorados, devueltos/no entregados, por tipo de envío, y tu % de despachos con demora |
+| ml_nichos 🧭 | **Descubrir nichos con la API oficial**: rotación de cada publicación, si se vende hoy o vendió en el pasado, oportunidad o monopolio, techo de demanda y cuánto vende un nuevo, tendencia/estacional/evergreen y, con tu costo, si cierran los números. Con varias búsquedas, el ranking de oportunidades (0-100) |
 | ml_tendencias | Qué está buscando la gente en ML |
 | ml_descubrir_ganadores | Artículos ganadores con datos de la API: ranking oficial de más vendidos por categoría (highlights) + análisis de mercado por keyword (competencia, precios, dominancia, señal de oportunidad) |
 | ml_vigilar / ml_novedades_competencia | Lista de rivales 🥊, productos seguidos 📦, búsquedas y trends — y el control que reporta solo lo que cambió: precios, publicaciones nuevas, ventas estimadas del rival, cambios de líder y keywords en alza |

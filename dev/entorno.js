@@ -143,7 +143,9 @@ export function crearMockMeli() {
   });
   app.post('/items/:id/description', auth, (req, res) => res.json({ ok: true }));
   app.put('/items/:id', auth, (req, res) => res.json({ id: req.params.id, price: req.body.price ?? 42000, currency_id: 'ARS', available_quantity: req.body.available_quantity ?? 10, status: req.body.status ?? 'active' }));
-  app.get('/items/:id/visits/time_window', auth, (_q, res) => res.json({ total_visits: 340 }));
+  app.get('/items/:id/visits/time_window', auth, (req, res) => { const d = mercado.visitasDia?.[req.params.id]; return res.json(d ? { total_visits: d.reduce((s, x) => s + x.total, 0), results: d } : { total_visits: 340 }); });
+  app.get('/visits/items', auth, (req, res) => res.json(Object.fromEntries(String(req.query.ids).split(',').filter((id) => mercado.visitasTotal?.[id] != null).map((id) => [id, mercado.visitasTotal[id]]))));
+  app.get('/categories/:id', auth, (req, res) => res.json({ id: req.params.id, name: req.params.id === 'MLA5000' ? 'Organización de cocina' : 'Categoría' }));
   app.get('/items/:id/price_to_win', auth, (_q, res) => res.json(ptwMLA111));
   app.get('/questions/search', auth, (req, res) => {
     if (req.query.item) {
@@ -158,6 +160,8 @@ export function crearMockMeli() {
   app.get('/sites/MLA/search', auth, (req, res) => {
     if (req.query.nickname || req.query.seller_id) return res.json({ paging: { total: mercado.rival.length }, results: mercado.rival });
     if (req.query.q === 'termo 1 litro') return res.json({ paging: { total: mercado.busqueda.length }, results: mercado.busqueda });
+    const nicho = mercado.nichos?.[req.query.q || 'cat:' + req.query.category];
+    if (nicho) { const off = Number(req.query.offset || 0), lim = Number(req.query.limit || 50); return res.json({ paging: { total: nicho.length * 40 }, results: nicho.slice(off, off + lim) }); }
     return res.json({ paging: { total: 2 }, results: [{ title: 'Termo rival', price: 39999, currency_id: 'ARS', seller: { nickname: 'RIVAL' }, shipping: { free_shipping: true } }, { title: 'Termo caro', price: 52000, currency_id: 'ARS', seller: { nickname: 'OTRO' } }] });
   });
   app.get('/seller-promotions/users/777', auth, (_q, res) => res.json({ results: promosML }));
@@ -1110,6 +1114,58 @@ async function pruebas() {
       contiene(solo, 'barrido de 1 tienda(s)', 'TIENDA_DOS'); if (solo.includes('TIENDA_DEMO —')) throw new Error('barrió una tienda que no se pidió');
       contiene(await tool('ml_mejorar_publicacion').run({ cuenta: '555' }), 'no está conectada');
     } finally { itemsPorEstado.active = antes; activos888 = null; }
+  });
+
+  await caso('nichos: rotación, ¿se vende hoy?, oportunidad vs monopolio, techo, tipo, números y ranking — con la API oficial', async () => {
+    const D = 86400000, ahora = Date.now();
+    const dias = (n) => new Date(ahora - n * D).toISOString();
+    const curva = (porDia) => Array.from({ length: 150 }, (_, i) => ({ date: new Date(ahora - (149 - i) * D - 3600000).toISOString(), total: porDia(149 - i) }));
+    mercado.nichos = {}; mercado.visitasDia = {}; mercado.visitasTotal = {};
+    mercado.items = mercado.items || {};
+    const alta = (q, id, { vendedor, precio, vendidos, edad, oficial, visitas, total }) => {
+      (mercado.nichos[q] = mercado.nichos[q] || []).push({ id, title: `${q} ${id}`, price: precio, seller: { id: vendedor, nickname: 'V' + vendedor }, shipping: { free_shipping: true, logistic_type: 'fulfillment' }, ...(oficial ? { official_store_id: 9 } : {}) });
+      mercado.items[id] = { start_time: dias(edad), sold_quantity: vendidos, price: precio };
+      if (visitas) mercado.visitasDia[id] = curva(visitas);
+      if (total != null) mercado.visitasTotal[id] = total;
+    };
+    // A: organizador de cocina — repartido entre 8 vendedores, 2 nuevos que ya venden, visitas parejas
+    for (let v = 1; v <= 8; v++) for (let k = 0; k < 2; k++) alta('organizador de cocina', `MLA5${v}${k}`, { vendedor: 100 + v, precio: 9000 + v * 300, vendidos: 600 + v * 40, edad: 300, visitas: () => 100, total: 30000 });
+    alta('organizador de cocina', 'MLA5901', { vendedor: 201, precio: 9500, vendidos: 150, edad: 45, visitas: () => 120, total: 5400 });
+    alta('organizador de cocina', 'MLA5902', { vendedor: 202, precio: 9900, vendidos: 60, edad: 70, visitas: () => 80, total: 5600 });
+    // B: cargador — un vendedor se lleva casi todo, visitas cayendo, publicaciones viejas que vendieron en el pasado
+    alta('cargador celular', 'MLA6001', { vendedor: 300, oficial: true, precio: 15000, vendidos: 50000, edad: 1100, visitas: (d) => (d < 30 ? 60 : 200), total: 900000 });
+    alta('cargador celular', 'MLA6002', { vendedor: 300, precio: 15500, vendidos: 30000, edad: 1000, visitas: (d) => (d < 30 ? 50 : 180), total: 700000 });
+    alta('cargador celular', 'MLA6003', { vendedor: 300, precio: 14000, vendidos: 20000, edad: 900, visitas: (d) => (d < 30 ? 40 : 150), total: 600000 });
+    alta('cargador celular', 'MLA6004', { vendedor: 301, precio: 16000, vendidos: 200, edad: 400, visitas: () => 5, total: 2000 });
+    // C: ventilador de pie — estacional
+    for (let v = 1; v <= 4; v++) alta('ventilador de pie', `MLA70${v}`, { vendedor: 400 + v, precio: 60000, vendidos: 300, edad: 365, visitas: () => 50, total: 20000 });
+    const N = tool('ml_nichos');
+    // Detalle de un nicho con costo
+    const t = await N.run({ busqueda: 'organizador de cocina', costo: 3000 });
+    contiene(t, 'Nicho: «organizador de cocina» — 🟢 oportunidad', 'de 720 en total', '1. ¿Cuánto rota?', 'Rotación / mes', '✅ se vende hoy', '2. ¿Se vende hoy o vendió en el pasado?', 'la demanda es actual',
+      '3. ¿Oportunidad o monopolio?', '🟢 repartido', '4. Techo de demanda', 'unidades por mes', 'arrancó hace **45 días** y vende ≈ **100 u./mes**', '5. Tendencia, estacional o evergreen', '♾️ evergreen', '6. ¿Cierran los números?', 'Comisión ML', '✅ Cierra', 'envío gratis 100%');
+    // Monopolio, en baja, con publicaciones que vendieron en el pasado
+    const m = await N.run({ busqueda: 'cargador celular' });
+    contiene(m, '🔴 monopolio', 'V300 (tienda oficial)', '📉 en baja', 'vendieron en el pasado', 'Nadie que haya entrado en los últimos 90 días', 'Decime tu costo');
+    if (!/🔴 descartar|🟡 entrar diferenciado/.test(m)) throw new Error('un monopolio en baja no puede salir como oportunidad');
+    contiene(await N.run({ busqueda: 'ventilador de pie' }), '🗓️ estacional', 'diciembre', '🟡 peleado'); // 4 vendedores parejos: no es monopolio
+    const nj = await import('../src/nichos.js');
+    const it = () => [{ id: 'X', vendidos: 100, inicio: ahora - 400 * D, vendedor: { id: '1' }, precio: 10 }];
+    if (nj.analizarNicho(it(), { pulso: { medidos: 1, tramos: [100, 400, 380, 120, 90], porItem: {} }, palabra: 'cosa' }).tipo !== 'estacional') throw new Error('una curva que sube y baja no salió estacional');
+    if (nj.analizarNicho(it(), { pulso: { medidos: 1, tramos: [100, 100, 110, 120, 200], porItem: {} }, palabra: 'cosa' }).tipo !== 'tendencia') throw new Error('una curva que sube fuerte no salió tendencia');
+    // Ranking de varios
+    const r = await N.run({ busquedas: ['cargador celular', 'organizador de cocina', 'ventilador de pie'] });
+    contiene(r, 'Ranking de oportunidades — 3 nichos', '| 1 | organizador de cocina |', 'arrancó hace 45 días');
+    if (r.indexOf('| 1 | organizador de cocina') > r.indexOf('cargador celular |')) throw new Error('el ranking no ordenó por puntaje');
+    // Por categoría y validaciones
+    mercado.nichos['cat:MLA5000'] = mercado.nichos['organizador de cocina'];
+    contiene(await N.run({ categoria: 'mla5000' }), 'Nicho: «Organización de cocina»');
+    contiene(await N.run({}), 'Decime qué nicho analizar');
+    contiene(await N.run({ categoria: '../x' }), 'categoria inválida');
+    contiene(await N.run({ busqueda: 'x', sitio: 'MLA/../../users' }), 'sitio inválido');
+    // Sin ventas informadas: no inventa la rotación
+    alta('sin datos', 'MLA8001', { vendedor: 1, precio: 100, vendidos: 0, edad: 10 }); mercado.items.MLA8001 = {};
+    contiene(await N.run({ busqueda: 'sin datos' }), 'no informa ventas');
   });
 
   // ───────────── Nico, Paula, Iván, Valen, Gabi, Sole y Fede ─────────────
