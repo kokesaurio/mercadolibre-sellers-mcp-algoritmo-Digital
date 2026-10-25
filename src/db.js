@@ -187,6 +187,10 @@ export function filaDeMedicion(trabajador, tarea, datos) {
   } else if (trabajador === 'proveedores') {
     Object.assign(f, { precio: datos.prov?.precio ?? null, mi_precio: datos.mio?.precio ?? null, stock: datos.mio?.stock ?? null });
     f.extra = JSON.stringify({ precioProveedor: datos.prov?.precio ?? null, stockProveedor: datos.prov?.stock == null ? null : datos.prov.stock ? 'sí' : 'agotado' });
+  } else if (trabajador === 'nichos') {
+    const ns = Object.entries(datos.nichos || {}).filter(([, x]) => !x.error).sort((a, b) => b[1].puntaje - a[1].puntaje);
+    const [k, x] = ns[0] || [];
+    Object.assign(f, { lider: k ?? null, precio: x?.precio ?? null, puesto: x?.puntaje ?? null, extra: JSON.stringify({ nichos: ns.length, oportunidades: ns.filter(([, y]) => y.puntaje >= 65).length, mejorPuntaje: x?.puntaje ?? null }) });
   } else if (trabajador === 'tendencias') {
     const ks = (datos.keywords || []).slice(0, 10);
     Object.assign(f, { lider: ks[0] ?? null, extra: JSON.stringify({ top: ks }) });

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.30.0
+- **🧭 Emma, exploradora de nichos** (trabajadora 19): una vez por semana analiza tus nichos candidatos con la API oficial (tus tareas, tus búsquedas seguidas o, sin ninguno, las 5 tendencias del sitio) y avisa cuando uno **pasa a 🟢 oportunidad**, **deja de serlo** o **se está monopolizando**. Llega a los resultados, al historial, al jefe (solo cuando el objetivo es qué vender) y a Drive.
+- **Tablero: "Nichos con oportunidad"**: el ranking de Emma con puntaje, señal, demanda visible, competencia, si alguien nuevo ya vende y el tipo, con paso propio en el tutorial.
+- El tutorial del tablero usa la altura real de cada caja: ningún paso queda fuera de la pantalla (en computadora ni en celular). Suite: 135 pruebas.
+
 ## 1.29.0
 - **🧭 Descubrir nichos con la API oficial** (`ml_nichos` + skill **nichos-ml**), sin Nubimetrics ni planillas. Para una búsqueda o categoría: ordena las publicaciones por **rotación** (unidades por mes), dice si el producto **se vende hoy o vendió en el pasado** (visitas de 5 meses contra su promedio histórico), si hay **oportunidad o monopolio** (líder, top 3, concentración), el **techo de demanda** y cuánto vende alguien que **entró en los últimos 90 días**, si es **tendencia, estacional o evergreen**, y con tu costo si **los números cierran** (comisión real de ML + impuestos del cerebro).
 - Con varias búsquedas (hasta 5) arma el **ranking de oportunidades** con puntaje 0-100 y señal 🟢🟡🔴.

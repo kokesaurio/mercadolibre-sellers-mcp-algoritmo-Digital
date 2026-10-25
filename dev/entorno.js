@@ -506,10 +506,10 @@ async function pruebas() {
   // ───────────── Equipo de trabajadores 24/7 ─────────────
   const tr = await import('../src/trabajadores.js');
   const T = tool('ml_trabajadores');
-  await caso('trabajadores: equipo con 18 nombres, puestos y skills a cargo', async () => {
+  await caso('trabajadores: equipo con 19 nombres, puestos y skills a cargo', async () => {
     const t = await T.run({ accion: 'equipo' });
     contiene(t, 'Vera', 'Tomás', 'Martina', 'Bruno', 'Lucía', 'Clara', 'Ramiro', 'Ana', 'Leo', 'Carmen', 'Nico', 'Paula', 'Iván', 'Valen', 'Gabi', 'Sole', 'Fede', 'Sofía', 'cada 30 min', 'Analista de rentabilidad', 'Gestora de anuncios', 'Coordinador de logística', 'Contadora', 'cada 2 h', 'Auditora de publicaciones', 'Agenda comercial', 'cada 15 días', 'cada 1 día', 'Centinela de precios', 'Cazador de rivales', 'calculadora-ml', 'competencia-ml', 'descubrir-ganadores-ml', 'mejorar-publicaciones-ml', 'panel-ventas-ml');
-    if (tr.IDS.length !== 18) throw new Error('el equipo no tiene 18');
+    if (tr.IDS.length !== 19) throw new Error('el equipo no tiene 19');
     const todas = tr.IDS.flatMap((id) => tr.EQUIPO[id].skills.map((x) => x.skill));
     if (new Set(todas).size !== todas.length) throw new Error('una skill está asignada a dos trabajadores');
     for (const sk of todas) if (!fs.existsSync(path.join('skills', sk, 'SKILL.md'))) throw new Error('skill inexistente: ' + sk);
@@ -1168,6 +1168,46 @@ async function pruebas() {
     contiene(await N.run({ busqueda: 'sin datos' }), 'no informa ventas');
   });
 
+  await caso('Emma: cada semana analiza tus nichos, avisa cuando uno es o pasa a 🟢, y llega a los resultados, al jefe y al tablero', async () => {
+    const e = tr.EQUIPO.nichos;
+    if (e.nombre !== 'Emma' || e.intervalo !== 7 * 24 * 60 || !e.skills.some((x) => x.skill === 'nichos-ml')) throw new Error('Emma mal definida');
+    let msg = ''; try { tr.asignarTarea('Emma', { ref: '<script>' }); } catch (x) { msg = x.message; }
+    if (!msg.includes('búsqueda del nicho')) throw new Error('aceptó una ref inválida: ' + msg);
+    const a = tr.asignarTarea('emma', { ref: 'organizador de cocina' });
+    if (a.tarea.tipo !== 'nicho') throw new Error('tipo por defecto: ' + a.tarea.tipo);
+    tr.asignarTarea('Emma', { ref: 'cargador celular' });
+    const r1 = await tr.correrCiclo({ solo: ['nichos'], forzar: true });
+    const txt = r1.alertas.map((x) => x.texto).join('\n');
+    contiene(txt, '🧭 «organizador de cocina» es 🟢 oportunidad', 'sin dueño', 'ya vende ≈ 100 u./mes', 'ml_nichos busqueda="organizador de cocina"');
+    if (txt.includes('«cargador celular» es 🟢')) throw new Error('marcó como oportunidad un monopolio');
+    if (r1.alertas.some((x) => x.skill !== 'nichos-ml')) throw new Error('alerta sin la skill nichos-ml');
+    const r2 = await tr.correrCiclo({ solo: ['nichos'], forzar: true });
+    if (r2.alertas.some((x) => x.texto.includes('organizador de cocina'))) throw new Error('repitió el aviso sin cambios');
+    // Si el nicho se monopoliza, avisa que dejó de ser oportunidad
+    const antes = mercado.nichos['organizador de cocina'];
+    mercado.nichos['organizador de cocina'] = antes.map((x) => ({ ...x, seller: { id: 999, nickname: 'GIGANTE' } }));
+    const r3 = await tr.correrCiclo({ solo: ['nichos'], forzar: true });
+    contiene(r3.alertas.map((x) => x.texto).join('\n'), '«organizador de cocina» dejó de ser oportunidad');
+    mercado.nichos['organizador de cocina'] = antes;
+    await tr.correrCiclo({ solo: ['nichos'], forzar: true });
+    // Resultados, jefe y tablero
+    const res = (await import('../src/resultados.js')).armarResultados();
+    contiene(res.nichos.destacado, 'Mejor nicho: «organizador de cocina»');
+    if (res.nichos.filas[0][0] !== 'organizador de cocina') throw new Error('la tabla no ordena por puntaje');
+    contiene(await tool('ml_jefe').run({ objetivo: '¿qué producto conviene vender? buscame un nicho', sin_correr: true }), 'Emma', 'nichos-ml');
+    if ((await tool('ml_jefe').run({ objetivo: 'xyz', sin_correr: true })).includes('Emma (')) throw new Error('el jefe metió a Emma sin que el objetivo lo pida');
+    const { datos } = await (await import('../src/tablero.js')).generarTablero();
+    if (datos.nichos?.[0]?.nombre !== 'organizador de cocina' || !datos.funciona.some((x) => x.texto.includes('Nicho con oportunidad'))) throw new Error('el tablero no trae el ranking de nichos');
+    // Sin tareas propias ni búsquedas seguidas: explora las tendencias del sitio
+    const tend = mercado.tendencias; mercado.tendencias = [{ keyword: 'organizador de cocina' }, { keyword: 'cargador celular' }];
+    try {
+      const f = await tr.OFICIOS.nichos.foto(new (await import('../src/meli.js')).MeliClient({}), { tipo: 'nicho', ref: 'tendencias del sitio', radar: true }, 'MLA');
+      if (!f.radar || Object.keys(f.nichos).join() !== 'organizador de cocina,cargador celular') throw new Error('el radar no tomó las tendencias: ' + Object.keys(f.nichos));
+      contiene(tr.OFICIOS.nichos.cambios({ ref: 'tendencias del sitio', radar: true }, null, f).map((x) => x.texto).join(' '), '(en tendencia)');
+    } finally { mercado.tendencias = tend; }
+    tr.quitarTarea('Emma', 'organizador de cocina'); tr.quitarTarea('Emma', 'cargador celular');
+  });
+
   // ───────────── Nico, Paula, Iván, Valen, Gabi, Sole y Fede ─────────────
   const pv = await import('../src/postventa.js');
   await caso('Nico: días de stock por producto, se corta esta semana y sin stock vendiendo', async () => {
@@ -1261,7 +1301,7 @@ async function pruebas() {
     delete process.env.ML_PROVEEDOR_PERMITIR_LOCAL;
     contiene(m, 'no encontré el precio');
   });
-  await caso('Jefe: con 18 trabajadores, reparte reputación, stock y proveedores a quien corresponde', async () => {
+  await caso('Jefe: con 19 trabajadores, reparte reputación, stock y proveedores a quien corresponde', async () => {
     const J = tool('ml_jefe');
     contiene(await J.run({ objetivo: 'cuidar la reputación', sin_correr: true }), 'Iván', 'Valen', 'reclamos-ml');
     contiene(await J.run({ objetivo: 'no quedarme sin stock', sin_correr: true }), 'Nico', 'Fede', 'stock-ml');
@@ -1379,7 +1419,7 @@ async function pruebas() {
   });
 
   // ───────────── El tablero del día ─────────────
-  await caso('tablero: se arma con lo de los 18 trabajadores, archivo privado y se regenera solo', async () => {
+  await caso('tablero: se arma con lo de los 19 trabajadores, archivo privado y se regenera solo', async () => {
     mercado.items.MLA500 = { ...(mercado.items.MLA500 || {}), title: '</script><img src=x onerror=alert(1)>Termo trucho' };
     await tr.correrCiclo({ solo: ['precios'], forzar: true });
     const t = await tool('ml_tablero').run({});
@@ -1390,7 +1430,7 @@ async function pruebas() {
     if (html.includes('</script><img')) throw new Error('un texto de un rival puede romper la página (XSS)');
     const m = html.match(/<script id="datos" type="application\/json">([\s\S]*?)<\/script>/);
     const datos = JSON.parse(m[1]);
-    if (datos.equipo.length !== 18) throw new Error('faltan trabajadores en el tablero');
+    if (datos.equipo.length !== 19) throw new Error('faltan trabajadores en el tablero');
     if (!datos.frase || !datos.numeros.length) throw new Error('sin frase o números');
     if (!JSON.stringify(datos).includes('<img src=x')) throw new Error('perdió el texto (tenía que quedar como texto, escapado)');
     if (!datos.atencion.some((x) => x.quien === 'stock') || !datos.funciona.length) throw new Error('no armó funciona/atención');

@@ -1,4 +1,4 @@
-// src/trabajadores.js — el equipo de 18 trabajadores que vigilan solos, 24/7.
+// src/trabajadores.js — el equipo de 19 trabajadores que vigilan solos, 24/7.
 //
 // Cada trabajador tiene un oficio fijo, una frecuencia y una lista de tareas
 // (lo que le asignás con ml_trabajadores). Si no le asignás nada, vigila
@@ -18,6 +18,7 @@ import { MeliClient, listarCuentas } from './meli.js';
 import { auditarItem, idsDeTienda } from './auditoria.js';
 import { fechasComerciales, cronogramaML, estadoDecision, diasHasta, tipoLegible } from './agenda.js';
 import { saberDe, skuDeItem, vincularSku } from './cerebro.js';
+import { analizarKeyword, resumirNicho } from './nichos.js';
 import { stockDias, preguntasPendientes, mensajesSinLeer, reclamosAbiertos, reputacionDe, opinionesDe, estadoCatalogo, ESTADO_CATALOGO, moderadas, traducirSub, precioProveedor, COLOR } from './postventa.js';
 import { rentabilidadDe, comisionML, adsDeItem, ordenesPagas, ventasPorItem, campanias, enviosRecientes, resumenContable, inicioDeMes, nombreMes, ventasDiarias, adsDelDia, diaLocal } from './negocio.js';
 import { leerVigilancia, claveDe, tomarSnapshot, compararSnapshots } from './vigilancia.js';
@@ -154,7 +155,15 @@ export const EQUIPO = {
       { skill: 'ugc-ml', para: 'UGC con avatar para pauta del producto en tendencia' },
     ],
   },
+  nichos: {
+    alias: 'emma', emoji: '🧭', nombre: 'Emma', puesto: 'Exploradora de nichos', intervalo: 7 * 24 * 60, tipos: ['nicho'],
+    oficio: 'Una vez por semana analiza tus nichos candidatos con la API oficial de MercadoLibre (rotación, si se venden hoy, oportunidad o monopolio, techo de demanda, tendencia/estacional/evergreen) y arma el ranking de oportunidades. Toma tus búsquedas seguidas y las que le asignes; sin ninguna, explora las 5 búsquedas en tendencia del sitio. Avisa cuando un nicho pasa a 🟢 oportunidad o deja de serlo.',
+    skills: [
+      { skill: 'nichos-ml', para: 'ver el detalle del nicho con tu costo, el ranking de oportunidades y decidir si entrar' },
+    ],
+  },
 };
+export const MAX_NICHOS = 8; // por semana: cada nicho son ~15 llamadas a la API
 export const IDS = Object.keys(EQUIPO);
 // Trabajadores que trabajan sobre TU tienda (sin tareas: una por cada cuenta conectada) y avisan desde el primer control
 export const DE_TIENDA = { auditor: 'propias', agenda: 'agenda', rentabilidad: 'tienda', anuncios: 'tienda', logistica: 'tienda', contabilidad: 'tienda', stock: 'tienda', atencion: 'tienda', reclamos: 'tienda', reputacion: 'tienda', catalogo: 'tienda', moderaciones: 'tienda' };
@@ -248,6 +257,7 @@ export function asignarTarea(quien, { tipo, ref, mi_item, umbral, nota, cuenta, 
   const limpio = String(ref ?? '').trim();
   if (!limpio && !['tendencias', 'propias', 'agenda', 'tienda'].includes(tipo)) throw new Error('Falta ref: el item_id, vendedor o palabra clave a vigilar.');
   if (limpio.length > 120) throw new Error('ref demasiado largo (máx. 120 caracteres).');
+  if (tipo === 'nicho' && (limpio.length < 2 || limpio.length > 80 || /[<>{}]/.test(limpio))) throw new Error('Para Emma, ref es la búsqueda del nicho (2 a 80 caracteres), ej: "organizador de cocina".');
   if (mi_item && !/^[A-Z]{3}\d+$/i.test(String(mi_item).trim())) throw new Error('mi_item tiene que ser un item_id de MercadoLibre (ej: MLA123456789).');
   if (tipo === 'proveedor') {
     if (!/^[A-Z]{3}\d+$/i.test(limpio)) throw new Error('Para Fede, ref es TU publicación (ej: MLA123456789).');
@@ -293,6 +303,13 @@ export function tareasDe(d, trabajador) {
     // Sin tareas propias: trabaja sobre cada tienda conectada
     let cs = []; try { cs = listarCuentas(); } catch {}
     return cs.map((c) => ({ tipo: DE_TIENDA[trabajador], ref: 'tienda ' + c.nickname, cuenta: String(c.user_id), deLista: true }));
+  }
+  if (trabajador === 'nichos') {
+    // Emma: tus nichos + tus búsquedas seguidas; sin ninguno, explora las tendencias del sitio
+    const ks = new Set(propias.map((t) => sinAcentos(t.ref)));
+    const seguidas = (leerVigilancia().objetivos || []).filter((o) => o.tipo === 'busqueda' && !ks.has(sinAcentos(o.ref))).map((o) => ({ tipo: 'nicho', ref: o.ref, deLista: true }));
+    const todas = [...propias, ...seguidas].slice(0, MAX_NICHOS);
+    return todas.length ? todas : [{ tipo: 'nicho', ref: 'tendencias del sitio', radar: true, deLista: true }];
   }
   const claves = new Set(propias.map(claveTarea));
   const deLista = (leerVigilancia().objetivos || [])
@@ -341,7 +358,7 @@ async function buscarTop(c, sitio, q, n = 50) {
 }
 
 // Cada oficio: foto(c, tarea, sitio) → datos ; cambios(tarea, viejo, nuevo) → [{texto, nivel}]
-const OFICIOS = {
+export const OFICIOS = {
   precios: {
     async foto(c, t, sitio) {
       const datos = await tomarSnapshot(c, t, sitio);
@@ -794,6 +811,31 @@ const OFICIOS = {
       return out;
     },
   },
+  nichos: {
+    async foto(c, t, sitio) {
+      let tend = [];
+      try { tend = (await c.get(`/trends/${sitio}`)).map((x) => x.keyword).filter(Boolean); } catch {}
+      const norm = tend.map(sinAcentos);
+      const enTend = (k) => norm.some((x) => x && (x.includes(sinAcentos(k)) || sinAcentos(k).includes(x)));
+      const palabras = t.radar ? tend.slice(0, 5) : [t.ref];
+      const nichos = {};
+      for (const k of palabras) { try { nichos[k] = resumirNicho(await analizarKeyword(c, sitio, k, { muestra: 60, enTendencias: enTend(k) })); } catch (e) { nichos[k] = { error: e.message }; } }
+      return { radar: !!t.radar, nichos };
+    },
+    cambios(t, v, n) {
+      const out = [];
+      for (const [k, x] of Object.entries(n.nichos || {})) {
+        if (x.error) continue;
+        const a = v?.nichos?.[k];
+        const verde = (y) => y && !y.error && y.puntaje >= 65;
+        const det = `${x.puntaje}/100 · ${x.competencia === 'repartido' ? 'sin dueño' : x.competencia === 'monopolio' ? `monopolio de ${x.lider} (${x.top1}%)` : `peleado (líder ${x.top1}%)`} · ≈ ${x.demandaMes.toLocaleString('es-AR')} u./mes visibles${x.mejorNuevo ? ` · uno que entró hace ${x.mejorNuevo.dias} días ya vende ≈ ${x.mejorNuevo.rotacion} u./mes` : ''}`;
+        if (verde(x) && !verde(a)) out.push({ nivel: a ? 'alta' : 'media', skill: 'nichos-ml', texto: `🧭 «${k}» ${a ? 'pasó a' : 'es'} 🟢 oportunidad${t.radar ? ' (en tendencia)' : ''}: ${det} — pedí el detalle con tu costo (ml_nichos busqueda="${k}")` });
+        else if (verde(a) && !verde(x)) out.push({ nivel: 'media', skill: 'nichos-ml', texto: `🧭 «${k}» dejó de ser oportunidad (${x.senal}): ${det}` });
+        else if (a && !a.error && x.competencia === 'monopolio' && a.competencia !== 'monopolio') out.push({ nivel: 'baja', skill: 'nichos-ml', texto: `🧭 «${k}» se está monopolizando: ${x.lider} ya se lleva ${x.top1}%` });
+      }
+      return out;
+    },
+  },
   tendencias: {
     async foto(c, t, sitio) { return tomarSnapshot(c, { ...t, tipo: 'tendencias' }, sitio); },
     cambios(t, v, n) { return compararSnapshots({ tipo: 'tendencias' }, v, n).map((texto) => ({ nivel: 'media', ...(texto.startsWith('entraron') || texto.includes('subió') ? { skill: 'descubrir-ganadores-ml' } : {}), texto: `${t.ref}: ${texto}` })); },
@@ -817,7 +859,7 @@ async function correrTarea(trabajador, t, d, c, sitio) {
       vistos.add(nick);
     }
     d.vistos[clave] = [...vistos].slice(-500);
-  } else if (DE_TIENDA[trabajador] || trabajador === 'proveedores') {
+  } else if (DE_TIENDA[trabajador] || trabajador === 'proveedores' || trabajador === 'nichos') {
     const pre = !DE_TIENDA[trabajador] || trabajador === 'auditor' || trabajador === 'agenda' ? '' : deCual(t); // Lucía y Clara ya nombran la tienda
     alertas = OFICIOS[trabajador].cambios(t, viejo?.datos ?? null, nuevo.datos).map((a) => (pre ? { ...a, texto: pre + a.texto } : a));
   } else if (viejo) {
@@ -826,7 +868,7 @@ async function correrTarea(trabajador, t, d, c, sitio) {
   // Tomás guarda desde cuándo vigila cada publicación para calcular el ritmo real de ventas
   if (trabajador === 'ventas') nuevo.datos.base = viejo?.datos?.base || (viejo ? { t: viejo.t, vendidos: viejo.datos.vendidos } : { t: nuevo.t, vendidos: nuevo.datos.vendidos });
   d.snapshots[clave] = nuevo;
-  return { primera: !viejo && !DE_TIENDA[trabajador] && trabajador !== 'proveedores', alertas, medicion: { t: nuevo.t, trabajador, tarea: t, datos: nuevo.datos } };
+  return { primera: !viejo && !DE_TIENDA[trabajador] && trabajador !== 'proveedores' && trabajador !== 'nichos', alertas, medicion: { t: nuevo.t, trabajador, tarea: t, datos: nuevo.datos } };
 }
 
 const sitioCache = new Map();

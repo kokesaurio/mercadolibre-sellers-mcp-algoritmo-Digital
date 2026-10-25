@@ -1,6 +1,6 @@
 ---
 name: jefe-de-equipo-ml
-description: El jefe del equipo de 18 trabajadores de MercadoLibre (con el nombre que le ponga el vendedor) — el vendedor le da un objetivo en una frase ("vender más este mes", "¿por qué gano poco?", "preparame para el CyberMonday", "mejorar la reputación") y él reparte el trabajo entre los trabajadores que corresponden, junta lo que encontraron y ejecuta el plan paso a paso con las skills de cada uno. Usar ante cualquier objetivo amplio del negocio, o cuando pidan "jefe", "organizá al equipo", "¿por dónde arranco?", o le hablen al jefe por su nombre. También para ponerle o cambiarle el nombre ("el jefe se llama Roberto").
+description: El jefe del equipo de 19 trabajadores de MercadoLibre (con el nombre que le ponga el vendedor) — el vendedor le da un objetivo en una frase ("vender más este mes", "¿por qué gano poco?", "preparame para el CyberMonday", "mejorar la reputación") y él reparte el trabajo entre los trabajadores que corresponden, junta lo que encontraron y ejecuta el plan paso a paso con las skills de cada uno. Usar ante cualquier objetivo amplio del negocio, o cuando pidan "jefe", "organizá al equipo", "¿por dónde arranco?", o le hablen al jefe por su nombre. También para ponerle o cambiarle el nombre ("el jefe se llama Roberto").
 ---
 
 # Jefe de equipo — le das un objetivo, él reparte el trabajo
@@ -14,7 +14,7 @@ description: El jefe del equipo de 18 trabajadores de MercadoLibre (con el nombr
 promociones) · 💰 Ramiro (rentabilidad) · 📣 Ana (anuncios) · 🚚 Leo (logística) ·
 🧾 Carmen (contabilidad) · 📦 Nico (stock) · 💬 Paula (atención) · 🛡️ Iván (reclamos) ·
 ⭐ Valen (reputación) · 🏷️ Gabi (catálogo) · 🚫 Sole (moderaciones) · 🔄 Fede (proveedores) ·
-📈 Sofía (tendencias).
+📈 Sofía (tendencias) · 🧭 Emma (nichos).
 
 ## Ponerle nombre al jefe
 - "El jefe se llama Roberto", "ponele Don Ramón al jefe" → `ml_jefe nombre="Roberto"`

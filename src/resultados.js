@@ -262,6 +262,21 @@ export function armarResultados(d = leerEquipo()) {
       destacado = filas.length ? `${filas.length} producto(s) vinculados a proveedores${agotados ? ` · ${agotados} agotado(s) en el proveedor` : ''}` : 'Sin proveedores vinculados: asignale a Fede tu publicación y la del proveedor';
     }
 
+    if (id === 'nichos') {
+      cabecera = ['Nicho', 'Puntaje', 'Señal', 'Demanda visible / mes', 'Vendedores con ventas', 'Líder', 'Nuevos que ya venden (90 días)', 'Tipo', 'Precio mediano', 'Origen', 'Último control'];
+      const vistos = new Map();
+      for (const t of tareas) {
+        const s = snap(t); if (!s) { if (!t.radar) vistos.set(t.ref, [t.ref, '', '(esperando el primer análisis)', '', '', '', '', '', '', 'tuyo', '']); continue; }
+        for (const [k, x] of Object.entries(s.datos.nichos || {})) {
+          if (x.error) { vistos.set(k, [k, '', '⚠️ ' + x.error, '', '', '', '', '', '', t.radar ? 'tendencia del sitio' : 'tuyo', fecha(s.t)]); continue; }
+          vistos.set(k, [k, x.puntaje, x.senal, x.demandaMes, x.conVentas, `${x.lider ?? '—'} (${x.top1}%)`, x.nuevos, x.tipo, x.precio, t.radar ? 'tendencia del sitio' : t.deLista ? 'búsqueda seguida' : 'tuyo', fecha(s.t)]);
+        }
+      }
+      filas = [...vistos.values()].sort((a, b) => (Number(b[1]) || -1) - (Number(a[1]) || -1));
+      const mejor = filas.find((f0) => Number(f0[1]) >= 0 && typeof f0[1] === 'number');
+      destacado = mejor ? `Mejor nicho: «${mejor[0]}» ${mejor[2]} (${mejor[1]}/100) → nichos-ml` : '';
+    }
+
     if (id === 'tendencias') {
       cabecera = ['Sitio / categoría', 'Puesto', 'Keyword', 'Último control'];
       for (const t of tareas) {

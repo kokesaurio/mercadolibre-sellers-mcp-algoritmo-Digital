@@ -159,3 +159,19 @@ export function senal(a) {
   if (a.puntaje >= 40) return '🟡 entrar diferenciado';
   return '🔴 descartar';
 }
+
+/** Lo esencial de un nicho para guardar en el historial del equipo y mostrar en el tablero. */
+export function resumirNicho(a) {
+  const n = a.nuevos[0];
+  return { puntaje: a.puntaje, senal: senal(a), competencia: a.competencia, tipo: a.tipo, demandaMes: Math.round(a.demandaMes), conVentas: a.conVentas,
+    top1: Math.round(a.top1), lider: a.vendedores[0]?.nick ?? null, nuevos: a.nuevos.length, mejorNuevo: n ? { dias: n.dias, rotacion: Math.round(n.rotacion) } : null,
+    precio: a.precios.mediana, cobertura: Math.round(a.cobertura * 100), muestra: a.muestra };
+}
+
+/** Analiza un nicho de punta a punta (lo usan Emma y el tablero). */
+export async function analizarKeyword(c, sitio, palabra, { muestra = 60, enTendencias = false, medir = 5 } = {}) {
+  const m = await muestraDeMercado(c, sitio, { q: palabra, muestra });
+  const con = m.items.filter((x) => x.vendidos != null && x.inicio).sort((p, q) => q.vendidos / Math.max(1, Date.now() - q.inicio) - p.vendidos / Math.max(1, Date.now() - p.inicio));
+  const pulso = await pulsoDeVisitas(c, con.slice(0, medir).map((x) => x.id));
+  return analizarNicho(m.items, { enTendencias, pulso, palabra, total: m.total });
+}

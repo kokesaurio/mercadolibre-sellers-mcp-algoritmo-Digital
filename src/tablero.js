@@ -1,4 +1,4 @@
-// src/tablero.js — el "parte diario": junta lo que saben los 18 trabajadores en un solo tablero
+// src/tablero.js — el "parte diario": junta lo que saben los 19 trabajadores en un solo tablero
 // visual (panel/tablero.html) que se abre en el navegador, sin servidor y sin internet.
 // Lo que funciona, lo que necesita atención, los números, el equipo, lo que viene,
 // la evolución de 30 días y la bitácora de alertas.
@@ -117,6 +117,15 @@ export async function armarTablero() {
   const aud = fotos(d, 'auditor')[0];
   if (aud) { if (aud.rojas) agrega(atencion, 'auditor', `${aud.rojas} publicación(es) en rojo en la última auditoría`, { nivel: 'media', skill: 'mejorar-publicaciones-ml' }); if (aud.verdes) agrega(funciona, 'auditor', `${aud.verdes} publicación(es) al día en la auditoría`); }
   for (const t of tareasDe(d, 'ranking')) { const s = d.snapshots['ranking|' + claveTarea(t)]; if (typeof s?.datos?.mio === 'number' && s.datos.mio <= 3) agrega(funciona, 'ranking', `Estás ${s.datos.mio}º en «${t.ref}»`); }
+  // ── Emma: el ranking de nichos (el último análisis de cada búsqueda, sin repetir) ──
+  const nichosMap = new Map();
+  for (const t of tareasDe(d, 'nichos')) {
+    const s = d.snapshots['nichos|' + claveTarea(t)];
+    for (const [k, x] of Object.entries(s?.datos?.nichos || {})) if (!x.error && (!nichosMap.has(k) || nichosMap.get(k).t < s.t)) nichosMap.set(k, { nombre: k, t: s.t, origen: t.radar ? 'tendencia' : 'tuyo', ...x });
+  }
+  const nichos = [...nichosMap.values()].sort((p, q) => q.puntaje - p.puntaje).slice(0, 6)
+    .map(({ nombre, puntaje, senal, competencia, tipo, demandaMes, top1, lider, nuevos, mejorNuevo, precio, origen, t }) => ({ nombre, puntaje, senal, competencia, tipo, demandaMes, top1, lider, nuevos, mejorNuevo, precio, origen, t }));
+  if (nichos[0]?.puntaje >= 65) agrega(funciona, 'nichos', `Nicho con oportunidad: «${nichos[0].nombre}» (${nichos[0].puntaje}/100)`, { skill: 'nichos-ml' });
   const tend = fotos(d, 'tendencias')[0]?.keywords?.[0];
   if (tend) agrega(funciona, 'tendencias', `Lo más buscado ahora: «${tend}»`);
   const ag = d.agenda || {};
@@ -195,7 +204,7 @@ export async function armarTablero() {
 
   return {
     generado: ahora, tiendas: cuentas, jefe: (({ nombre, emoji, propio }) => ({ nombre, emoji, propio }))(jefe(d)), hoy, ventasDia: ordenar(ventasDia), adsDia: ordenar(adsDia), frase, funciona: fun.slice(0, 10), atencion: ate.slice(0, 14), numeros, equipo,
-    viene: [...unicos.values()].slice(0, 8), corriendo: corre ? corre.modo : null,
+    viene: [...unicos.values()].slice(0, 8), nichos, corriendo: corre ? corre.modo : null,
     series: {
       facturacion: await serie('contabilidad', 'facturacionMes'), neto: await serie('contabilidad', 'netoMes'),
       ganancia: await serie('rentabilidad', 'ganancia30d'), publicidad: await serie('anuncios', 'gasto7d'),

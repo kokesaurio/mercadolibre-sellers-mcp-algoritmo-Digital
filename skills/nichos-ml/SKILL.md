@@ -63,6 +63,13 @@ techo y cuánto vende un nuevo → tipo → números.
 copiar-publicaciones-ml (crear) → imagenes-ml (set de 4) → video-publicaciones-ml →
 mejorar-publicaciones-ml (el mejorador) → publicidad-ml.
 
+## Emma lo hace sola cada semana
+🧭 Emma, la exploradora de nichos del equipo (`ml_trabajadores`), corre este análisis
+una vez por semana sobre tus nichos candidatos (`trabajador=Emma ref="…"`), tus
+búsquedas seguidas o, sin ninguno, las tendencias del sitio. Avisa cuando un nicho pasa
+a 🟢 o deja de serlo, y el ranking aparece en el tablero del día ("Nichos con
+oportunidad"). Si el vendedor viene de una alerta de Emma, arrancá por el paso 3.
+
 ## Reglas
 - Solo datos de la API. Las ventas de terceros que informa ML pueden venir
   redondeadas: hablar de "estimado" y de "piso" (la muestra no es todo el mercado).

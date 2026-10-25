@@ -1,6 +1,6 @@
 ---
 name: tablero-ml
-description: El tablero del día (parte diario visual tipo CRM) del equipo de trabajadores de MercadoLibre — en una página ves lo que está funcionando, lo que necesita atención, tus números, los 18 trabajadores, lo que viene, la evolución de 30 días y la bitácora. Usar cuando pidan "abrí el tablero", "¿cómo venimos?" en formato visual, "mostrame el día", "panel", "CRM", o al empezar el día.
+description: El tablero del día (parte diario visual tipo CRM) del equipo de trabajadores de MercadoLibre — en una página ves lo que está funcionando, lo que necesita atención, tus números, los 19 trabajadores, lo que viene, la evolución de 30 días y la bitácora. Usar cuando pidan "abrí el tablero", "¿cómo venimos?" en formato visual, "mostrame el día", "panel", "CRM", o al empezar el día.
 ---
 
 # Tablero del día

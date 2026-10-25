@@ -1,6 +1,6 @@
 ---
 name: trabajadores-ml
-description: El equipo de 18 trabajadores que vigilan MercadoLibre solos y constantemente — Vera (precios), Tomás (ventas de rivales y quiebres de stock), Martina (ranking en búsquedas), Bruno (rivales nuevos), Lucía (audita todas tus publicaciones cada 15 días), Clara (agenda comercial: cronograma de ML y fechas cruciales), Ramiro (rentabilidad), Ana (anuncios), Leo (logística), Carmen (contabilidad), Nico (stock), Paula (atención), Iván (reclamos), Valen (reputación), Gabi (catálogo), Sole (moderaciones), Fede (proveedores) y Sofía (tendencias). Con un objetivo amplio, usar el jefe (skill jefe-de-equipo-ml). Darles tareas, ver qué encontraron y despachar cada alerta a la skill que maneja ese trabajador. Usar cuando pidan "poné a vigilar", "resultados del equipo", "mandalo a Drive", "conectá la planilla", "historial de", "cómo evolucionó", "estado de la base", "backup", "dale una tarea a Vera", "¿qué encontraron los trabajadores?", "informe del equipo", "auditá mis publicaciones cada 15 días", "¿qué fechas vienen?", "cronograma de MercadoLibre", "¿qué publicaciones están desactualizadas?", "vigilá 24/7" o nombren a cualquiera del equipo.
+description: El equipo de 19 trabajadores que vigilan MercadoLibre solos y constantemente — Vera (precios), Tomás (ventas de rivales y quiebres de stock), Martina (ranking en búsquedas), Bruno (rivales nuevos), Lucía (audita todas tus publicaciones cada 15 días), Clara (agenda comercial: cronograma de ML y fechas cruciales), Ramiro (rentabilidad), Ana (anuncios), Leo (logística), Carmen (contabilidad), Nico (stock), Paula (atención), Iván (reclamos), Valen (reputación), Gabi (catálogo), Sole (moderaciones), Fede (proveedores) y Sofía (tendencias), Emma (nichos). Con un objetivo amplio, usar el jefe (skill jefe-de-equipo-ml). Darles tareas, ver qué encontraron y despachar cada alerta a la skill que maneja ese trabajador. Usar cuando pidan "poné a vigilar", "resultados del equipo", "mandalo a Drive", "conectá la planilla", "historial de", "cómo evolucionó", "estado de la base", "backup", "dale una tarea a Vera", "¿qué encontraron los trabajadores?", "informe del equipo", "auditá mis publicaciones cada 15 días", "¿qué fechas vienen?", "cronograma de MercadoLibre", "¿qué publicaciones están desactualizadas?", "vigilá 24/7" o nombren a cualquiera del equipo.
 ---
 
 # Equipo de trabajadores 24/7
@@ -30,6 +30,7 @@ Herramienta `ml_trabajadores` del conector de MercadoLibre de Algoritmo Digital
 | 🏷️ **Gabi** · Catálogo | catálogo perdido, precio ganador y margen a ese precio | 6 h | `competencia-ml` |
 | 🚫 **Sole** · Moderaciones | pausadas/en revisión/penalizadas con motivo | 6 h | `moderaciones-ml` |
 | 🔄 **Fede** · Proveedores | precio y stock del proveedor (ML o su web); precio sugerido con recargo; pausar si se agota | 6 h | `proveedores-ml` |
+| 🧭 **Emma** · Exploradora de nichos | cada semana, el ranking de oportunidades de tus nichos candidatos con la API oficial (sin tareas: tus búsquedas seguidas o las tendencias del sitio) | 7 días | `nichos-ml` |
 | 📈 **Sofía** · Radar de tendencias | keywords que entran, salen o suben en tendencias | 12 h | `descubrir-ganadores-ml`, `video-publicaciones-ml`, `clips-ml`, `ugc-ml` |
 
 Si un trabajador no tiene tareas propias, vigila solo tus seguidos de
@@ -102,6 +103,7 @@ CyberMonday") → `ml_jefe objetivo="…"` y seguir la skill `jefe-de-equipo-ml`
    - Martina: 2-3 keywords donde se juega tu venta **con `mi_item`**.
    - Bruno: esas mismas keywords.
    - Sofía: tu categoría principal (o vacío = todo el sitio).
+   - Emma: 3 a 5 nichos que estés evaluando (`trabajador=Emma ref="organizador de cocina"`); sin tareas usa tus búsquedas seguidas o las tendencias del sitio.
 3. `ml_trabajadores accion=correr` → primera pasada = foto de base (no avisa nada).
 4. Explicar cómo siguen trabajando:
    - Mientras Claude está abierto, se despiertan solos cada minuto y cada uno
@@ -124,6 +126,7 @@ CyberMonday") → `ml_jefe objetivo="…"` y seguir la skill `jefe-de-equipo-ml`
    - 🔴 Bruno "rival nuevo" → `competencia-ml`; si conviene seguirlo, `ml_vigilar`
      tipo=vendedor y asignárselo a Vera.
    - Sofía "entraron al top" → `descubrir-ganadores-ml` para validar si conviene venderlo.
+   - Emma "pasó a 🟢 oportunidad" → `nichos-ml`: el detalle del nicho con el costo del vendedor antes de comprar mercadería.
 3. Las alertas leídas quedan en el historial (`todas=true`).
 
 ## Resultados (todo lo que saben, no solo alertas)
@@ -135,6 +138,7 @@ tabla por trabajador con los datos de su último control:
 - **Martina:** líder, precio líder, mediana del top 10 y **tu puesto** por keyword.
 - **Bruno:** cuántos vendedores distintos vio y los rivales nuevos de la semana.
 - **Sofía:** el top 10 de tendencias de cada sitio/categoría.
+- **Emma:** el ranking de nichos con puntaje, señal, demanda visible, líder, nuevos que ya venden y tipo.
 Arrancar siempre por "Lo importante" (una línea por trabajador) y cerrar con
 máximo 3 acciones, cada una con la skill del trabajador que la resuelve.
 
